@@ -1,4 +1,4 @@
-﻿import socket
+import socket
 socket.setdefaulttimeout(30)
 import requests
 import undetected_chromedriver as uc
@@ -10,6 +10,7 @@ import os
 import uuid
 import threading
 import sys
+import math
 from datetime import datetime
 
 # Force UTF-8 for Windows console
@@ -491,6 +492,38 @@ def _tg_listener():
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+class ZScoreSeedRotator:
+    def __init__(self, min_bets=200, z_threshold=-2.5, max_history=1000, on_rotate_callback=None):
+        self.min_bets = min_bets
+        self.z_threshold = z_threshold
+        self.max_history = max_history
+        self.on_rotate_callback = on_rotate_callback
+        self.results = []  # List of tuples: (is_win, expected_prob)
+
+    def add_result(self, is_win: bool, expected_prob: float):
+        self.results.append((is_win, expected_prob))
+        if len(self.results) > self.max_history:
+            self.results.pop(0)
+        if len(self.results) >= self.min_bets:
+            self.evaluate_z_score()
+
+    def evaluate_z_score(self):
+        n = len(self.results)
+        wins = sum(1 for is_win, _ in self.results if is_win)
+        expected_wins = sum(prob for _, prob in self.results)
+        variance = sum(prob * (1.0 - prob) for _, prob in self.results)
+        std_dev = math.sqrt(variance)
+        if std_dev == 0:
+            return
+        z_score = (wins - expected_wins) / std_dev
+        
+        if z_score <= self.z_threshold:
+            print(f"\n [!] CRITICAL ALERT: Rolling Z-Score reached {z_score:.2f}!")
+            print(f" [!] SYSTEM: Bad streak detected. Rotating client & server seeds immediately to reset RNG...\n")
+            if self.on_rotate_callback:
+                self.on_rotate_callback(z_score)
+            self.results.clear()
+
 class StakeDiceBot:
     def __init__(self, token, cookies, currency="trx", simulate=False, mirror_host="stake.games", proxy=""):
         self.api_url = f"https://{mirror_host}/_api/graphql"
@@ -508,16 +541,79 @@ class StakeDiceBot:
         self.driver = uc.Chrome(options=options, version_main=148)
         self.driver.set_script_timeout(10)
         self.driver.get(f"https://{mirror_host}/")
-        time.sleep(3)
-        
+        time.sleep(5)  # Wait longer for Cloudflare to clear itself first
+        try:
+            self.driver.uc_gui_click_captcha()
+            time.sleep(2)
+        except Exception:
+            pass
+
+        # Only inject LONG-LIVED cookies (session token + preferences)
+        # Do NOT inject Cloudflare cookies (_cf_bm, cf_clearance, _cfuvid)
+        # because those expire in 30 min and Chrome will get new ones automatically
+        SKIP_COOKIES = {'_cf_bm', '_cfuvid', 'cf_clearance', '__cfwaitingroom_stake_com', '_dd_s'}
+        injected = 0
         for cookie in cookies.split("; "):
             if "=" in cookie:
                 k, v = cookie.split("=", 1)
-                self.driver.add_cookie({"name": k.strip(), "value": v.strip(), "domain": f".{mirror_host}", "path": "/"})
-        
+                k = k.strip()
+                if k not in SKIP_COOKIES:
+                    try:
+                        self.driver.add_cookie({"name": k, "value": v.strip(), "domain": f".{mirror_host}", "path": "/"})
+                        injected += 1
+                    except Exception:
+                        pass
+
+        print(f" [SYSTEM] Injected {injected} session cookies (Cloudflare cookies auto-managed)")
         self.driver.refresh()
         time.sleep(5)
+        try:
+            self.driver.uc_gui_click_captcha()
+            time.sleep(2)
+        except Exception:
+            pass
         print(" [SYSTEM] Browser initialized and cookies injected.")
+        
+        # Initialize Z-Score Seed Rotator
+        self.z_rotator = ZScoreSeedRotator(
+            min_bets=200,
+            z_threshold=-2.5,
+            max_history=1000,
+            on_rotate_callback=self._handle_z_rotation
+        )
+
+    def _handle_z_rotation(self, z_score):
+        import secrets
+        new_seed = secrets.token_hex(16)
+        changed = self.change_client_seed(new_seed)
+        rotated = self.rotate_seed(f"Z-Score {z_score:.2f} Triggered")
+        if changed and rotated:
+            tg(f"🐉 <b>Z-Score Circuit Breaker Triggered ({z_score:.2f})</b>\n"
+               f"ระบบเปลี่ยน Client Seed & Server Seed สำเร็จ!\n"
+               f"Client Seed ใหม่: <code>{new_seed}</code>")
+
+    def change_client_seed(self, new_seed):
+        mutation = """
+        mutation ChangeClientSeed($clientSeed: String!) {
+          changeClientSeed(clientSeed: $clientSeed) {
+            id
+            clientSeed
+          }
+        }
+        """
+        try:
+            res = self._execute_graphql(mutation, variables={"clientSeed": new_seed})
+            data = res.get("data") if res else None
+            if data and data.get("changeClientSeed"):
+                self.log_event(f"Changed Client Seed to: {new_seed}")
+                return True
+            else:
+                error_list = res.get("errors") if res else []
+                error_msg = error_list[0].get("message", "Unknown API rejection") if error_list else "No response"
+                self.log_event(f"Client Seed Change Rejected: {error_msg}")
+        except Exception as e:
+            self.log_event(f"Client Seed Change Error: {str(e)}")
+        return False
 
     def __del__(self):
         try:
@@ -589,26 +685,29 @@ class StakeDiceBot:
         payload = {"query": query}
         if variables: payload["variables"] = variables
         if operation_name: payload["operationName"] = operation_name
-        
         script = """
-        var callback = arguments[arguments.length - 1];
-          var timeoutId = setTimeout(function() { callback("ERROR: JS Fetch Timeout"); }, 8000);
-          fetch('/_api/graphql', {
-              method: 'POST',
-              headers: {
-                  'content-type': 'application/json',
-                  'x-access-token': '%s'
-              },
-              body: JSON.stringify(%s)
-          }).then(r => r.json()).then(data => { clearTimeout(timeoutId); callback(JSON.stringify(data)); }).catch(e => { clearTimeout(timeoutId); callback("ERROR: " + e); });
-        """ % (self.token, json.dumps(payload))
-        
-
-        result = self.driver.execute_async_script(script)
-        
-        if isinstance(result, str) and result.startswith("ERROR:"):
-            return {"errors": [{"message": result}]}
-        return json.loads(result) if isinstance(result, str) else result
+        window.__gql_result = "PENDING";
+        fetch('/_api/graphql', {
+            method: 'POST',
+            headers: {'content-type': 'application/json', 'x-access-token': '%s'},
+            body: JSON.stringify(%s)
+        }).then(r => r.json()).then(data => { window.__gql_result = JSON.stringify(data); }).catch(e => { window.__gql_result = "ERROR: " + e; });
+        """ % (self.token, __import__('json').dumps(payload))
+        import time as _time
+        try:
+            if "Just a moment" in self.driver.title or "Cloudflare" in self.driver.title:
+                return {"errors": [{"message": "Cloudflare Challenge Active"}]}
+            self.driver.execute_script(script)
+            for _ in range(20):
+                _time.sleep(0.5)
+                res = self.driver.execute_script("return window.__gql_result;")
+                if res != "PENDING":
+                    if res is None: return {"errors": [{"message": "JS Fetch Timeout (Page Reloaded)"}]}
+                    if isinstance(res, str) and res.startswith("ERROR:"): return {"errors": [{"message": res}]}
+                    return __import__('json').loads(res) if isinstance(res, str) else res
+            return {"errors": [{"message": "JS Fetch Timeout"}]}
+        except Exception as e:
+            return {"errors": [{"message": f"JS Fetch Timeout ({str(e)})"}]}
 
     def query(self, query, variables=None):
         return self._execute_graphql(query, variables)
@@ -694,7 +793,7 @@ class StakeDiceBot:
             try:
                 print(f"   [NET] Sending Bet Query (Attempt {attempt+1})...", end="\r")
                 result = self._execute_graphql(query, variables=variables, operation_name=operation_name)
-                if result and "data" in result:
+                if result and "data" in result and result["data"]:
                     return result
                 if "errors" in result:
                     err_msg = str(result["errors"][0].get("message", ""))
@@ -862,8 +961,7 @@ class StakeDiceBot:
                 if current_loss_streak >= 3 and not virtual_mode:
                     virtual_mode = True
                     self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอมังกรขาด)")
-                    tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>
-แพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด (ชนะ 1 ตา) เพื่อความปลอดภัย")
+                    tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด (ชนะ 1 ตา) เพื่อความปลอดภัย")
                 
                 if virtual_mode:
                     target_patterns = [
@@ -878,14 +976,13 @@ class StakeDiceBot:
                     if matched:
                         virtual_mode = False
                         self.log_event(f"✂️ STREAK BREAKER MATCHED (Got W)! Resuming real bet.")
-                        tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>
-ระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้ว!")
+                        tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้ว!")
                 
                 # --- BET SIZING ---
                 if martingale_step == 0:
-                    base_bet = 0.0003 # FIXED BASE BET
-                    if base_bet < 0.0003:
-                        base_bet = 0.0003
+                    # base_bet from config.json
+                    if base_bet < 0.0005:
+                        base_bet = 0.0005
                         
                 if virtual_mode:
                     current_bet = 0.0
@@ -916,6 +1013,10 @@ class StakeDiceBot:
                 is_win = False
                 if current_condition == "above" and result > target: is_win = True
                 elif current_condition == "below" and result < target: is_win = True
+                
+                # Z-Score Real-Time Client Seed Rotation
+                expected_prob = target / 100.0 if current_condition == "below" else (100.0 - target) / 100.0
+                self.z_rotator.add_result(is_win, expected_prob)
                 
                 if total_bets % 100 == 0:
                     new_balance = self.get_wallet_balance()
@@ -1037,7 +1138,7 @@ class StakeDiceBot:
                     # Reset strategy and profit tracking for the next cycle
                     if martingale_step >= 14: # Step 15 or higher
                         tg(f"Ã¢Å¡Â Ã¯Â¸Â <b>HIGH-RISK RECOVERY DETECTED (Step {martingale_step+1})</b>\n"
-                           f"CEO Ã Â¸ÂªÃ Â¸Â±Ã Â¹Ë†Ã Â¸â€¡Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¹Æ’Ã Â¸Â«Ã Â¹â€°Ã Â¸Å¾Ã Â¸Â±Ã Â¸ÂÃ Â¸Å¾Ã Â¸â„¢Ã Â¸Â±Ã Â¸ÂÃ Â¸â€¡Ã Â¸Â²Ã Â¸â„¢ 15 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸Âµ Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€žÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡Ã Â¸â€ºÃ Â¸Â¥Ã Â¸Â­Ã Â¸â€Ã Â¸Â Ã Â¸Â±Ã Â¸Â¢Ã Â¸â€šÃ Â¸Â­Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¹â‚¬Ã Â¸â€ºÃ Â¸Â¥Ã Â¸ÂµÃ Â¹Ë†Ã Â¸Â¢Ã Â¸â„¢Ã Â¸Ë†Ã Â¸Â±Ã Â¸â€¡Ã Â¸Â«Ã Â¸Â§Ã Â¸Â° Seed...")
+                       f"CEO Ã Â¸ÂªÃ Â¸Â±Ã Â¹Ë†Ã Â¸â€¡Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¹Æ’Ã Â¸Â«Ã Â¹â€°Ã Â¸Å¾Ã Â¸Â±Ã Â¸ÂÃ Â¸Å¾Ã Â¸â„¢Ã Â¸Â±Ã Â¸ÂÃ Â¸â€¡Ã Â¸Â²Ã Â¸â„¢ 15 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸Âµ Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€žÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡Ã Â¸â€ºÃ Â¸Â¥Ã Â¸Â­Ã Â¸â€Ã Â¸Â Ã Â¸Â±Ã Â¸Â¢Ã Â¸â€šÃ Â¸Â­Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¹â‚¬Ã Â¸â€ºÃ Â¸Â¥Ã Â¸ÂµÃ Â¹Ë†Ã Â¸Â¢Ã Â¸â„¢Ã Â¸Ë†Ã Â¸Â±Ã Â¸â€¡Ã Â¸Â«Ã Â¸Â§Ã Â¸Â° Seed...")
                         self.log_event(f"Safety Pause triggered after Step {martingale_step+1} recovery.")
                         # Rotate seed to be sure
                         self.rotate_seed("High-Risk Recovery")
