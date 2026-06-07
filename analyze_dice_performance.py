@@ -205,6 +205,8 @@ def analyze_performance():
 
     print("\n--- 2. RISK & DRAWDOWN ANALYSIS (TWR METHOD) ---")
     print(f"  * Max Strategy Drawdown (Time-Weighted): {max_twr_dd_pct:.2f}% from peak unit price")
+    calmar_ratio = cagr / max_twr_dd_pct if max_twr_dd_pct > 0 else 0.0
+    print(f"  * Calmar Ratio (CAGR / Max DD)         : {calmar_ratio:.2f}")
 
     # 3. Provably Fair & Law of Large Numbers
     print("\n--- 3. PROVABLY FAIR & LAW OF LARGE NUMBERS ---")
