@@ -961,7 +961,7 @@ class StakeDiceBot:
                 if current_loss_streak >= 3 and not virtual_mode:
                     virtual_mode = True
                     self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอมังกรขาด)")
-                    tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด (ชนะ 1 ตา) เพื่อความปลอดภัย")
+                    # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด (ชนะ 1 ตา) เพื่อความปลอดภัย")
                 
                 if virtual_mode:
                     target_patterns = [
@@ -976,7 +976,7 @@ class StakeDiceBot:
                     if matched:
                         virtual_mode = False
                         self.log_event(f"✂️ STREAK BREAKER MATCHED (Got W)! Resuming real bet.")
-                        tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้ว!")
+                        # tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้ว!")
                 
                 # --- BET SIZING ---
                 if martingale_step == 0:
