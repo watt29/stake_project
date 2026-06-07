@@ -1,0 +1,32 @@
+# Configurations and Secrets
+config*.json
+stake_session.json
+
+# Logs and History
+*.log
+*.csv
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+env/
+.env
+
+# IDE and OS Files
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+
+# Any patch or temp scripts that aren't core
+patch_*.py
+temp_extract/
+extract_*.py
+strings*.txt
+dis.txt
