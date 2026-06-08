@@ -770,19 +770,24 @@ class StakeDiceBot:
         """
         try:
             print(" [SYSTEM] Attempting to Auto-Claim Rakeback...")
+            self.log_event("🔄 Attempting to Auto-Claim Rakeback...")
             res = self._execute_graphql(query, operation_name="ClaimRakeback")
             if res and "data" in res and res["data"]:
                 print(" [SYSTEM] ✅ Rakeback Claimed Successfully!")
+                self.log_event("✅ Rakeback Claimed Successfully!")
                 tg("🎁 <b>ระบบ Auto-Claim Rakeback สำเร็จ!</b>\nรับเงินคืนเข้ากระเป๋าเรียบร้อยแล้ว")
                 return True
             else:
                 if res and "errors" in res:
                     err = res["errors"][0].get("message", "Unknown Error")
                     print(f" [SYSTEM] ⚠️ Rakeback claim error: {err}")
+                    self.log_event(f"⚠️ Rakeback claim error: {err}")
                 else:
                     print(" [SYSTEM] ⚠️ Rakeback claim returned empty response")
+                    self.log_event("⚠️ Rakeback claim returned empty response")
         except Exception as e:
             print(f" [SYSTEM] ⚠️ Rakeback claim exception: {str(e)}")
+            self.log_event(f"⚠️ Rakeback claim exception: {str(e)}")
         return False
 
     def place_dice_bet(self, amount, target, condition):
