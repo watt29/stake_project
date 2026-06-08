@@ -53,6 +53,12 @@ print(f"[CONFIG] Profile: {_config_arg}")
 
 TELEGRAM_TOKEN   = _CFG["telegram"]["token"]
 TELEGRAM_CHAT_ID = _CFG["telegram"]["chat_id"]
+_PROFILE_NAMES = {
+    "config.json": "watt29",
+    "config_account3.json": "Win29",
+    "config_account4.json": "Gen45"
+}
+_CURRENT_PROFILE = _PROFILE_NAMES.get(_config_arg, _config_arg.replace(".json", ""))
 STATS_FILE   = _STATS_FILE
 HISTORY_FILE = _HISTORY_FILE
 EVENT_LOG    = _EVENT_LOG
@@ -118,15 +124,17 @@ def _tg_worker(url, payload):
 
 def tg(msg, reply_markup=None):
     """Corporate Reporting System (CEO to Board)"""
+    full_msg = f"👤 [<b>{_CURRENT_PROFILE}</b>]\n{msg}"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": full_msg, "parse_mode": "HTML"}
     if reply_markup: payload["reply_markup"] = reply_markup
     threading.Thread(target=_tg_worker, args=(url, payload), daemon=True).start()
 
 def tg_edit(chat_id, message_id, msg, reply_markup=None):
     """Edit existing message (for callback updates)"""
+    full_msg = f"👤 [<b>{_CURRENT_PROFILE}</b>]\n{msg}"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/editMessageText"
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": msg, "parse_mode": "HTML"}
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": full_msg, "parse_mode": "HTML"}
     if reply_markup: payload["reply_markup"] = reply_markup
     threading.Thread(target=_tg_worker, args=(url, payload), daemon=True).start()
 
