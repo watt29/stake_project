@@ -896,7 +896,7 @@ class StakeDiceBot:
         current_loss_streak = 0
         
         virtual_mode = False
-        virtual_escape_pattern = ['W']
+        virtual_escape_pattern = ['W', 'W']
         
         cycle_start_balance = 0.0
         
@@ -1005,7 +1005,7 @@ class StakeDiceBot:
                 # --- VIRTUAL PAUSE MODE (3-LOSS) ---
                 if current_loss_streak >= 3 and not virtual_mode:
                     virtual_mode = True
-                    virtual_escape_pattern = random.choice([['W'], ['W', 'W']])
+                    virtual_escape_pattern = ['W', 'W']
                     pattern_str = " - ".join(virtual_escape_pattern)
                     self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอมังกรขาดด้วยรูปแบบ {pattern_str})")
                     # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด ({pattern_str}) เพื่อความปลอดภัย")
@@ -1229,7 +1229,7 @@ class StakeDiceBot:
                     streak = 0
                     streak_type = None
                     virtual_mode = True
-                    virtual_escape_pattern = random.choice([['W'], ['W', 'W']])
+                    virtual_escape_pattern = ['W', 'W']
                     start_balance = new_balance # Reset start balance to current to track next TP goal
                     total_deposited = 0
                     total_withdrawn = 0
