@@ -21,11 +21,11 @@ if os.name == 'nt':
         pass
 
 # ============================================================
-#  LOAD USER CONFIG (Ã Â¸Â£Ã Â¸Â­Ã Â¸â€¡Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡ --config profile)
+#  LOAD USER CONFIG (รองรับ --config profile)
 # ============================================================
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡ --config argument Ã Â¹â‚¬Ã Â¸Å Ã Â¹Ë†Ã Â¸â„¢: python dice_bot.py --config config_user2.json
+# รับ --config argument เช่น: python dice_bot.py --config config_user2.json
 _config_arg = "config.json"
 if "--config" in sys.argv:
     idx = sys.argv.index("--config")
@@ -34,7 +34,7 @@ if "--config" in sys.argv:
 
 _CONFIG_FILE = os.path.join(_BASE_DIR, _config_arg)
 
-# Stats file Ã Â¹ÂÃ Â¸Â¢Ã Â¸ÂÃ Â¸â€¢Ã Â¸Â²Ã Â¸Â¡ profile Ã Â¹â‚¬Ã Â¸Å Ã Â¹Ë†Ã Â¸â„¢ config_user2.json -> dice_stats_user2.json
+# Stats file แยกตาม profile เช่น config_user2.json -> dice_stats_user2.json
 _profile_suffix = _config_arg.replace("config", "").replace(".json", "") or ""
 _STATS_FILE   = os.path.join(_BASE_DIR, f"dice_stats{_profile_suffix}.json")
 _HISTORY_FILE = os.path.join(_BASE_DIR, f"dice_history{_profile_suffix}.csv")
@@ -43,7 +43,7 @@ _DAILY_REPORT = os.path.join(_BASE_DIR, f"daily_accounting_report{_profile_suffi
 
 def _load_config():
     if not os.path.exists(_CONFIG_FILE):
-        print(f"[ERROR] Ã Â¹â€žÃ Â¸Â¡Ã Â¹Ë†Ã Â¸Å¾Ã Â¸Å¡Ã Â¹â€žÃ Â¸Å¸Ã Â¸Â¥Ã Â¹Å’ {_config_arg} Ã Â¸ÂÃ Â¸Â£Ã Â¸Â¸Ã Â¸â€œÃ Â¸Â²Ã Â¸ÂªÃ Â¸Â£Ã Â¹â€°Ã Â¸Â²Ã Â¸â€¡Ã Â¹â€žÃ Â¸Å¸Ã Â¸Â¥Ã Â¹Å’Ã Â¸ÂÃ Â¹Ë†Ã Â¸Â­Ã Â¸â„¢Ã Â¸Â£Ã Â¸Â±Ã Â¸â„¢")
+        print(f"[ERROR] ไม่พบไฟล์ {_config_arg} กรุณาสร้างไฟล์ก่อนรัน")
         sys.exit(1)
     with open(_CONFIG_FILE, "r", encoding="utf-8-sig") as f:
         return json.load(f)
@@ -104,7 +104,7 @@ def save_stats(stats):
     threading.Thread(target=_save_stats_worker, args=(stats.copy(),), daemon=True).start()
 
 def log_event(message):
-    """Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¹â‚¬Ã Â¸Â«Ã Â¸â€¢Ã Â¸Â¸Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸â€œÃ Â¹Å’Ã Â¸ÂªÃ Â¸Â³Ã Â¸â€žÃ Â¸Â±Ã Â¸ÂÃ Â¸Â¥Ã Â¸â€¡Ã Â¹â€žÃ Â¸Å¸Ã Â¸Â¥Ã Â¹Å’Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¹Æ’Ã Â¸Â«Ã Â¹â€°Ã Â¸â€žÃ Â¸â„¢Ã Â¸Â­Ã Â¹Ë†Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â¢Ã Â¹â€°Ã Â¸Â­Ã Â¸â„¢Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸â€¡Ã Â¹â€žÃ Â¸â€Ã Â¹â€°Ã Â¸â€¡Ã Â¹Ë†Ã Â¸Â²Ã Â¸Â¢"""
+    """บันทึกเหตุการณ์สำคัญลงไฟล์เพื่อให้คนอ่านย้อนหลังได้ง่าย"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(EVENT_LOG, "a", encoding="utf-8") as f:
@@ -140,22 +140,23 @@ def main_menu_markup():
     return {
         "inline_keyboard": [
             [
-                {"text": "Ã°Å¸â€œÅ  Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â°", "callback_data": "/status"},
-                {"text": "Ã°Å¸â€™Â° Ã Â¸ÂÃ Â¸Â³Ã Â¹â€žÃ Â¸Â£/Ã Â¸â€šÃ Â¸Â²Ã Â¸â€Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢", "callback_data": "/profit"}
+                {"text": "📊 สถานะ", "callback_data": "/status"},
+                {"text": "💰 กำไร/ขาดทุน", "callback_data": "/profit"}
             ],
             [
-                {"text": "Ã¢â€žÂ¹Ã¯Â¸Â Ã Â¸â€šÃ Â¹â€°Ã Â¸Â­Ã Â¸Â¡Ã Â¸Â¹Ã Â¸Â¥Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”", "callback_data": "/info"},
-                {"text": "Ã°Å¸ÂÂ¥ Ã Â¸ÂªÃ Â¸Â¸Ã Â¸â€šÃ Â¸Â Ã Â¸Â²Ã Â¸Å¾Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”", "callback_data": "/check"}
+                {"text": "ℹ️ ข้อมูลบอท", "callback_data": "/info"},
+                {"text": "🏥 สุขภาพบอท", "callback_data": "/check"}
             ],
             [
-                {"text": "Ã¢Å¡â„¢Ã¯Â¸Â Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¸â€žÃ Â¹Ë†Ã Â¸Â²", "callback_data": "/config"},
-                {"text": "Ã°Å¸â€œâ€ž Ã Â¸Â£Ã Â¸Â²Ã Â¸Â¢Ã Â¸â€¡Ã Â¸Â²Ã Â¸â„¢Ã Â¸Å¡Ã Â¸Â±Ã Â¸ÂÃ Â¸Å Ã Â¸Âµ", "callback_data": "/report"}
+                {"text": "⚙️ การตั้งค่า", "callback_data": "/config"},
+                {"text": "📄 รายงานบัญชี", "callback_data": "/report"}
             ],
             [
-                {"text": "Ã°Å¸Å½Â¯ Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡ Take Profit", "callback_data": "tp_menu"}
+                {"text": "🎯 ตั้ง Take Profit", "callback_data": "tp_menu"},
+                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"}
             ],
             [
-                {"text": "Ã°Å¸â€Â´ Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”", "callback_data": "/stop"}
+                {"text": "🔴 หยุดบอท", "callback_data": "/stop"}
             ]
         ]
     }
@@ -165,16 +166,16 @@ def tp_menu_markup():
     return {
         "inline_keyboard": [
             [
-                {"text": "Ã°Å¸Å½Â¯ +5 TRX",  "callback_data": "/tp 5"},
-                {"text": "Ã°Å¸Å½Â¯ +10 TRX", "callback_data": "/tp 10"},
-                {"text": "Ã°Å¸Å½Â¯ +20 TRX", "callback_data": "/tp 20"}
+                {"text": "🎯 +5 TRX",  "callback_data": "/tp 5"},
+                {"text": "🎯 +10 TRX", "callback_data": "/tp 10"},
+                {"text": "🎯 +20 TRX", "callback_data": "/tp 20"}
             ],
             [
-                {"text": "Ã°Å¸Å½Â¯ +50 TRX",  "callback_data": "/tp 50"},
-                {"text": "Ã°Å¸Å½Â¯ +100 TRX", "callback_data": "/tp 100"},
-                {"text": "Ã°Å¸Å½Â¯ +200 TRX", "callback_data": "/tp 200"}
+                {"text": "🎯 +50 TRX",  "callback_data": "/tp 50"},
+                {"text": "🎯 +100 TRX", "callback_data": "/tp 100"},
+                {"text": "🎯 +200 TRX", "callback_data": "/tp 200"}
             ],
-            [{"text": "Ã¢â€”â‚¬Ã¯Â¸Â Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â±Ã Â¸Å¡Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â¹Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸Â", "callback_data": "main_menu"}]
+            [{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]
         ]
     }
 
@@ -183,16 +184,16 @@ def sl_menu_markup():
     return {
         "inline_keyboard": [
             [
-                {"text": "Ã°Å¸â€ºâ€˜ -5 TRX",  "callback_data": "/sl 5"},
-                {"text": "Ã°Å¸â€ºâ€˜ -10 TRX", "callback_data": "/sl 10"},
-                {"text": "Ã°Å¸â€ºâ€˜ -20 TRX", "callback_data": "/sl 20"}
+                {"text": "🛑 -5 TRX",  "callback_data": "/sl 5"},
+                {"text": "🛑 -10 TRX", "callback_data": "/sl 10"},
+                {"text": "🛑 -20 TRX", "callback_data": "/sl 20"}
             ],
             [
-                {"text": "Ã°Å¸â€ºâ€˜ -50 TRX",  "callback_data": "/sl 50"},
-                {"text": "Ã°Å¸â€ºâ€˜ -100 TRX", "callback_data": "/sl 100"},
-                {"text": "Ã°Å¸â€ºâ€˜ -200 TRX", "callback_data": "/sl 200"}
+                {"text": "🛑 -50 TRX",  "callback_data": "/sl 50"},
+                {"text": "🛑 -100 TRX", "callback_data": "/sl 100"},
+                {"text": "🛑 -200 TRX", "callback_data": "/sl 200"}
             ],
-            [{"text": "Ã¢â€”â‚¬Ã¯Â¸Â Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â±Ã Â¸Å¡Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â¹Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸Â", "callback_data": "main_menu"}]
+            [{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]
         ]
     }
 
@@ -208,18 +209,18 @@ def corporate_heartbeat():
             wr = (wins / bets * 100) if bets > 0 else 0
             tp = _bot_state.get('take_profit', 0)
             progress = (profit / tp * 100) if tp > 0 else 0
-            p_icon = "Ã°Å¸Å¸Â¢" if profit >= 0 else "Ã°Å¸â€Â´"
+            p_icon = "🟢" if profit >= 0 else "🔴"
             uptime = _bot_state.get('total_uptime_seconds', 0)
 
             tg(
-                f"Ã°Å¸â€™â€œ <b>Ã Â¸Â£Ã Â¸Â²Ã Â¸Â¢Ã Â¸â€¡Ã Â¸Â²Ã Â¸â„¢Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â° (Ã Â¸â€”Ã Â¸Â¸Ã Â¸Â 30 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸Âµ)</b>\n"
-                f"Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â\n"
-                f"Ã°Å¸â€™Â° Balance  : <b>{balance:.4f} TRX</b>\n"
+                f"💓 <b>รายงานสถานะ (ทุก 30 นาที)</b>\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"💰 Balance  : <b>{balance:.4f} TRX</b>\n"
                 f"{p_icon} P/L     : <b>{profit:+.4f} TRX</b>\n"
-                f"Ã°Å¸â€œÅ  Win Rate : <b>{wr:.1f}%</b>\n"
-                f"Ã°Å¸Å½Â° Bets     : <b>{bets:,}</b>\n"
-                f"Ã°Å¸â€œÂ Step     : <b>{_bot_state.get('martingale_step', 1)}</b>\n"
-                f"Ã¢ÂÂ±Ã¯Â¸Â Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
+                f"📊 Win Rate : <b>{wr:.1f}%</b>\n"
+                f"🎰 Bets     : <b>{bets:,}</b>\n"
+                f"📍 Step     : <b>{_bot_state.get('martingale_step', 1)}</b>\n"
+                f"⏱️ Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
                 reply_markup=main_menu_markup()
             )
 
@@ -246,28 +247,28 @@ def _handle_command(cmd: str, show_menu=False):
         s['force_balance_check'] = True
         
         tg(
-            f"Ã°Å¸â€œÅ  <b>COMPANY STYLE PORTFOLIO</b>\n"
+            f"📊 <b>COMPANY STYLE PORTFOLIO</b>\n"
             f"--------------------------------\n"
-            f"Ã°Å¸ÂÂ¦ <b>CAPITAL ACCOUNT</b>\n"
-            f"Ã¢â‚¬Â¢ Initial Deposit : {initial_cap:.3f} TRX\n"
+            f"🏦 <b>CAPITAL ACCOUNT</b>\n"
+            f"• Initial Deposit : {initial_cap:.3f} TRX\n"
             f"--------------------------------\n"
-            f"Ã°Å¸â€™Âµ <b>TREASURY</b>\n"
-            f"Ã¢â‚¬Â¢ Current Equity  : {balance:.8f} TRX\n"
-            f"Ã¢â‚¬Â¢ Realized Profit : {withdrawn:.2f} TRX\n"
-            f"Ã¢â‚¬Â¢ Unrealized Prof : {unrealized:+.4f} TRX\n"
+            f"💵 <b>TREASURY</b>\n"
+            f"• Current Equity  : {balance:.8f} TRX\n"
+            f"• Realized Profit : {withdrawn:.2f} TRX\n"
+            f"• Unrealized Prof : {unrealized:+.4f} TRX\n"
             f"--------------------------------\n"
-            f"Ã°Å¸â€œË† <b>PERFORMANCE</b>\n"
-            f"Ã¢â‚¬Â¢ Real Net Profit : {real_net_profit:+.4f} TRX\n"
-            f"Ã¢â‚¬Â¢ ROI             : {roi:+.2f}%\n"
-            f"Ã¢â‚¬Â¢ Peak Equity     : {s.get('peak_equity', 0):.2f} TRX\n"
-            f"Ã¢â‚¬Â¢ Max Drawdown    : {s.get('max_drawdown', 0):.2f} TRX\n"
+            f"📈 <b>PERFORMANCE</b>\n"
+            f"• Real Net Profit : {real_net_profit:+.4f} TRX\n"
+            f"• ROI             : {roi:+.2f}%\n"
+            f"• Peak Equity     : {s.get('peak_equity', 0):.2f} TRX\n"
+            f"• Max Drawdown    : {s.get('max_drawdown', 0):.2f} TRX\n"
             f"--------------------------------\n"
-            f"Ã°Å¸Å½Â° Bets: {s.get('bets', 0):,} | WR: {wr:.1f}%\n"
+            f"🎰 Bets: {s.get('bets', 0):,} | WR: {wr:.1f}%\n"
             f"<i>Reported by: Board of Directors Bot</i>"
         )
     elif cmd == "/profit":
         p = s.get('profit', 0)
-        icon = "Ã°Å¸Å¸Â¢" if p >= 0 else "Ã°Å¸â€Â´"
+        icon = "🟢" if p >= 0 else "🔴"
         tg(
             f"{icon} <b>PROFIT & LOSS REPORT</b>\n"
             f"Gross Profit : {p:+.8f} TRX\n"
@@ -277,13 +278,13 @@ def _handle_command(cmd: str, show_menu=False):
             f"Time Period  : Live Session"
         )
     elif cmd == "/info":
-        # Ã Â¹â‚¬Ã Â¸Â§Ã Â¸Â¥Ã Â¸Â²Ã Â¸â€šÃ Â¸Â­Ã Â¸â€¡ Session Ã Â¸â€ºÃ Â¸Â±Ã Â¸Ë†Ã Â¸Ë†Ã Â¸Â¸Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢
+        # เวลาของ Session ปัจจุบัน
         session_start = s.get('session_start', datetime.now())
         session_dur = datetime.now() - session_start
         s_h, s_rem = divmod(int(session_dur.total_seconds()), 3600)
         s_m, _ = divmod(s_rem, 60)
         
-        # Ã Â¹â‚¬Ã Â¸Â§Ã Â¸Â¥Ã Â¸Â²Ã Â¸ÂªÃ Â¸Â°Ã Â¸ÂªÃ Â¸Â¡Ã Â¸â€”Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¸Â«Ã Â¸Â¡Ã Â¸â€ (Total Uptime)
+        # เวลาสะสมทั้งหมด (Total Uptime)
         total_sec = s.get('total_uptime_seconds', 0)
         t_h, t_rem = divmod(total_sec, 3600)
         t_m, _ = divmod(t_rem, 60)
@@ -292,73 +293,73 @@ def _handle_command(cmd: str, show_menu=False):
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
         
         tg(
-            f"Ã¢â€žÂ¹Ã¯Â¸Â <b>BOT HISTORICAL REPORT</b>\n"
+            f"ℹ️ <b>BOT HISTORICAL REPORT</b>\n"
             f"--------------------------------\n"
-            f"Ã°Å¸â€”â€œÃ¯Â¸Â <b>First Started</b> : {first_start}\n"
-            f"Ã¢ÂÂ³ <b>Total Uptime</b>  : {t_h}h {t_m}m (All-time)\n"
-            f"Ã¢ÂÂ° <b>This Session</b>  : {s_h}h {s_m}m\n"
-            f"Ã°Å¸Å½Â° <b>Total Bets</b>    : {s.get('bets', 0):,}\n"
+            f"🗓️ <b>First Started</b> : {first_start}\n"
+            f"⏳ <b>Total Uptime</b>  : {t_h}h {t_m}m (All-time)\n"
+            f"⏰ <b>This Session</b>  : {s_h}h {s_m}m\n"
+            f"🎰 <b>Total Bets</b>    : {s.get('bets', 0):,}\n"
             f"--------------------------------\n"
-            f"Ã°Å¸Ââ€  <b>ALL-TIME RECORDS</b>\n"
-            f"Max Loss Streak: {s.get('max_loss_streak', 0)} Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡\n"
-            f"Max Step   : Ã Â¸â€šÃ Â¸Â±Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë† {s.get('max_martingale_step', 0)}\n"
+            f"🏆 <b>ALL-TIME RECORDS</b>\n"
+            f"Max Loss Streak: {s.get('max_loss_streak', 0)} ครั้ง\n"
+            f"Max Step   : ขั้นที่ {s.get('max_martingale_step', 0)}\n"
             f"Max Single Bet : {s.get('max_single_loss', 0):.8f} TRX\n"
             f"--------------------------------\n"
-            f"Ã¢Å¡â„¢Ã¯Â¸Â <b>STRATEGY STATS</b>\n"
+            f"⚙️ <b>STRATEGY STATS</b>\n"
             f"Win Rate      : {wr:.1f}%\n"
             f"Step      : {s.get('martingale_step', 1)}\n"
-            f"Condition Sw  : {s.get('switches', 0)} Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡\n"
+            f"Condition Sw  : {s.get('switches', 0)} ครั้ง\n"
             f"Last Result   : {s.get('streak', 0)} {s.get('streak_type', '-')}\n"
             f"Current Bet   : {s.get('current_bet', 0):.8f} TRX\n"
             f"--------------------------------\n"
-            f"Ã°Å¸Å½Â¯ <b>TARGETS</b>\n"
+            f"🎯 <b>TARGETS</b>\n"
             f"Take Profit   : {s.get('take_profit', 0):+.2f} TRX\n"
             f"Auto-Reset at : {s.get('stop_loss', 0):.2f} TRX"
         )
     elif cmd == "/stop":
-        tg("Ã°Å¸â€ºâ€˜ <b>Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡Ã Â¸â€žÃ Â¸Â³Ã Â¸ÂªÃ Â¸Â±Ã Â¹Ë†Ã Â¸â€¡ /stop Ã¢â‚¬â€ Ã Â¸ÂÃ Â¸Â³Ã Â¸Â¥Ã Â¸Â±Ã Â¸â€¡Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”...</b>")
+        tg("🛑 <b>รับคำสั่ง /stop — กำลังหยุดบอท...</b>")
         _stop_event.set()
     elif cmd.startswith("/tp"):
         try:
             val = float(cmd.split()[1])
             _bot_state['take_profit'] = val
-            tg(f"Ã°Å¸Å½Â¯ <b>Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€°Ã Â¸Â²Ã Â¸ÂÃ Â¸Â³Ã Â¹â€žÃ Â¸Â£ (Take Profit)</b>\nÃ Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸ÂÃ Â¸Â³Ã Â¹â€žÃ Â¸Â£Ã Â¸â€“Ã Â¸Â¶Ã Â¸â€¡: <b>{val:+.2f} TRX</b>")
+            tg(f"🎯 <b>ตั้งเป้ากำไร (Take Profit)</b>\nหยุดเมื่อกำไรถึง: <b>{val:+.2f} TRX</b>")
         except:
-            tg("Ã¢ÂÅ’ Ã Â¸Â£Ã Â¸Â¹Ã Â¸â€ºÃ Â¹ÂÃ Â¸Å¡Ã Â¸Å¡Ã Â¸Å“Ã Â¸Â´Ã Â¸â€! Ã Â¹Æ’Ã Â¸Å Ã Â¹â€°: <code>/tp 50</code>")
+            tg("❌ รูปแบบผิด! ใช้: <code>/tp 50</code>")
     elif cmd.startswith("/reset_at") or cmd.startswith("/sl"):
         try:
             val = float(cmd.split()[1])
             _bot_state['stop_loss'] = -abs(val)
-            tg(f"Ã°Å¸â€â€ž <b>Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¸Ë†Ã Â¸Â¸Ã Â¸â€Ã Â¸Å¾Ã Â¸Â±Ã Â¸ÂÃ Â¸Â¢Ã Â¸ÂÃ Â¸Â­Ã Â¸Â±Ã Â¸â€¢Ã Â¹â€šÃ Â¸â„¢Ã Â¸Â¡Ã Â¸Â±Ã Â¸â€¢Ã Â¸Â´ (Auto-Reset)</b>\nÃ Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸Ë†Ã Â¸Â°Ã Â¸Å¾Ã Â¸Â±Ã Â¸Â 2 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸ÂµÃ Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€¢Ã Â¸Â´Ã Â¸â€Ã Â¸Â¥Ã Â¸Å¡Ã Â¸â€“Ã Â¸Â¶Ã Â¸â€¡: <b>-{abs(val):.2f} TRX</b>")
+            tg(f"🔄 <b>ตั้งจุดพักยกอัตโนมัติ (Auto-Reset)</b>\nบอทจะพัก 2 นาทีเมื่อติดลบถึง: <b>-{abs(val):.2f} TRX</b>")
         except:
-            tg("Ã¢ÂÅ’ Ã Â¸Â£Ã Â¸Â¹Ã Â¸â€ºÃ Â¹ÂÃ Â¸Å¡Ã Â¸Å¡Ã Â¸Å“Ã Â¸Â´Ã Â¸â€! Ã Â¹Æ’Ã Â¸Å Ã Â¹â€°: <code>/reset_at 100</code>")
+            tg("❌ รูปแบบผิด! ใช้: <code>/reset_at 100</code>")
     elif cmd == "/check":
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
         step = s.get('martingale_step', 1)
         profit = s.get('profit', 0)
-        status = "Ã°Å¸Å¸Â¢ <b>Ã Â¹ÂÃ Â¸â€šÃ Â¹â€¡Ã Â¸â€¡Ã Â¹ÂÃ Â¸Â£Ã Â¸â€¡Ã Â¸Â¡Ã Â¸Â²Ã Â¸Â (Healthy)</b>"
-        advice = "Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸â€”Ã Â¸Â³Ã Â¸â€¡Ã Â¸Â²Ã Â¸â„¢Ã Â¸â€ºÃ Â¸ÂÃ Â¸â€¢Ã Â¸Â´ Ã Â¹â‚¬Ã Â¸â€Ã Â¸Â´Ã Â¸â„¢Ã Â¸Â«Ã Â¸â„¢Ã Â¹â€°Ã Â¸Â²Ã Â¸â€¢Ã Â¹Ë†Ã Â¸Â­Ã Â¹â€žÃ Â¸â€Ã Â¹â€°Ã Â¸Â¢Ã Â¸Â²Ã Â¸Â§Ã Â¹â€  Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¸Å¡"
+        status = "🟢 <b>แข็งแรงมาก (Healthy)</b>"
+        advice = "บอททำงานปกติ เดินหน้าต่อได้ยาวๆ ครับ"
         if wr < 47:
-            status = "Ã°Å¸Å¸Â¡ <b>Ã Â¹â‚¬Ã Â¸ÂÃ Â¹â€°Ã Â¸Â²Ã Â¸Â£Ã Â¸Â°Ã Â¸Â§Ã Â¸Â±Ã Â¸â€¡ (Warning)</b>"
-            advice = "Ã Â¸Å Ã Â¹Ë†Ã Â¸Â§Ã Â¸â€¡Ã Â¸â„¢Ã Â¸ÂµÃ Â¹â€°Ã Â¸â€Ã Â¸Â§Ã Â¸â€¡Ã Â¸â€¢Ã Â¸ÂÃ Â¹â‚¬Ã Â¸Â¥Ã Â¹â€¡Ã Â¸ÂÃ Â¸â„¢Ã Â¹â€°Ã Â¸Â­Ã Â¸Â¢ Ã Â¹ÂÃ Â¸Å¾Ã Â¹â€°Ã Â¸Å¡Ã Â¹Ë†Ã Â¸Â­Ã Â¸Â¢Ã Â¸ÂÃ Â¸Â§Ã Â¹Ë†Ã Â¸Â²Ã Â¸â€ºÃ Â¸ÂÃ Â¸â€¢Ã Â¸Â´"
+            status = "🟡 <b>เฝ้าระวัง (Warning)</b>"
+            advice = "ช่วงนี้ดวงตกเล็กน้อย แพ้บ่อยกว่าปกติ"
         if step >= 10:
-            status = "Ã°Å¸Å¸Â  <b>Ã Â¸â€žÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡Ã Â¸â€Ã Â¸Â±Ã Â¸â„¢Ã Â¸ÂªÃ Â¸Â¹Ã Â¸â€¡ (Caution)</b>"
-            advice = "Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸ÂÃ Â¸Â³Ã Â¸Â¥Ã Â¸Â±Ã Â¸â€¡Ã Â¸ÂªÃ Â¸Â¹Ã Â¹â€°Ã Â¸Â«Ã Â¸â„¢Ã Â¸Â±Ã Â¸Â (Step 10+) Ã Â¸â€žÃ Â¸Â§Ã Â¸Â£Ã Â¸Ë†Ã Â¸Â±Ã Â¸Å¡Ã Â¸â€¢Ã Â¸Â²Ã Â¸â€Ã Â¸Â¹Ã Â¹Æ’Ã Â¸ÂÃ Â¸Â¥Ã Â¹â€°Ã Â¸Å Ã Â¸Â´Ã Â¸â€"
+            status = "🟠 <b>ความดันสูง (Caution)</b>"
+            advice = "บอทกำลังสู้หนัก (Step 10+) ควรจับตาดูใกล้ชิด"
         if step >= 18:
-            status = "Ã°Å¸â€Â´ <b>Ã Â¸Â­Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€¢Ã Â¸Â£Ã Â¸Â²Ã Â¸Â¢ (Critical)</b>"
-            advice = "Ã Â¹â‚¬Ã Â¸ÂªÃ Â¸ÂµÃ Â¹Ë†Ã Â¸Â¢Ã Â¸â€¡Ã Â¸Å¾Ã Â¸Â­Ã Â¸Â£Ã Â¹Å’Ã Â¸â€¢Ã Â¹ÂÃ Â¸â€¢Ã Â¸Â! Ã Â¸Å¾Ã Â¸Â´Ã Â¸Ë†Ã Â¸Â²Ã Â¸Â£Ã Â¸â€œÃ Â¸Â²Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸Å Ã Â¸Â±Ã Â¹Ë†Ã Â¸Â§Ã Â¸â€žÃ Â¸Â£Ã Â¸Â²Ã Â¸Â§"
+            status = "🔴 <b>อันตราย (Critical)</b>"
+            advice = "เสี่ยงพอร์ตแตก! พิจารณาหยุดบอทชั่วคราว"
         if profit < 0:
-            advice += "\n<i>*Ã Â¸â€¢Ã Â¸Â­Ã Â¸â„¢Ã Â¸â„¢Ã Â¸ÂµÃ Â¹â€°Ã Â¸Â¢Ã Â¸Â±Ã Â¸â€¡Ã Â¸Â­Ã Â¸Â¢Ã Â¸Â¹Ã Â¹Ë†Ã Â¹Æ’Ã Â¸â„¢Ã Â¸Å Ã Â¹Ë†Ã Â¸Â§Ã Â¸â€¡Ã Â¸â€”Ã Â¸Â§Ã Â¸â€¡Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸â€žÃ Â¸Â·Ã Â¸â„¢</i>"
+            advice += "\n<i>*ตอนนี้ยังอยู่ในช่วงทวงทุนคืน</i>"
 
         tg(
-            f"Ã°Å¸ÂÂ¥ <b>Ã Â¸Å“Ã Â¸Â¥Ã Â¸â€¢Ã Â¸Â£Ã Â¸Â§Ã Â¸Ë†Ã Â¸ÂªÃ Â¸Â¸Ã Â¸â€šÃ Â¸Â Ã Â¸Â²Ã Â¸Å¾Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”</b>\n"
-            f"Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â°: {status}\n"
+            f"🏥 <b>ผลตรวจสุขภาพบอท</b>\n"
+            f"สถานะ: {status}\n"
             f"------------------------\n"
-            f"Win Rate : {wr:.1f}% (Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€°Ã Â¸Â²Ã Â¸Â«Ã Â¸Â¡Ã Â¸Â²Ã Â¸Â¢ 49%)\n"
-            f"Step : Ã Â¸â€šÃ Â¸Â±Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë† {step}\n"
+            f"Win Rate : {wr:.1f}% (เป้าหมาย 49%)\n"
+            f"Step : ขั้นที่ {step}\n"
             f"Profit   : {profit:+.8f} TRX\n"
             f"------------------------\n"
-            f"Ã°Å¸Â©Âº <b>Ã Â¸â€žÃ Â¸Â³Ã Â¹ÂÃ Â¸â„¢Ã Â¸Â°Ã Â¸â„¢Ã Â¸Â³:</b>\n{advice}"
+            f"🩺 <b>คำแนะนำ:</b>\n{advice}"
         )
     elif cmd == "/config":
         tp = s.get('take_profit', 0)
@@ -366,18 +367,18 @@ def _handle_command(cmd: str, show_menu=False):
         curr_cond = s.get('condition', 'N/A').upper()
         bet = s.get('current_bet', 0)
         tg(
-            f"Ã¢Å¡â„¢Ã¯Â¸Â <b>BOT CONFIGURATION</b>\n"
+            f"⚙️ <b>BOT CONFIGURATION</b>\n"
             f"------------------------\n"
-            f"Ã°Å¸Å½Â¯ <b>Take Profit</b> : {tp:+.2f} TRX\n"
-            f"Ã°Å¸â€ºâ€˜ <b>Stop Loss</b>   : {sl:.2f} TRX\n"
-            f"Ã°Å¸Å½Â² <b>Condition</b>   : {curr_cond}\n"
-            f"Ã°Å¸â€™Âµ <b>Current Bet</b> : {bet:.8f} TRX\n"
-            f"Ã°Å¸â€â€ž <b>Auto-Reset</b>  : Enabled (2m Pause)"
+            f"🎯 <b>Take Profit</b> : {tp:+.2f} TRX\n"
+            f"🛑 <b>Stop Loss</b>   : {sl:.2f} TRX\n"
+            f"🎲 <b>Condition</b>   : {curr_cond}\n"
+            f"💵 <b>Current Bet</b> : {bet:.8f} TRX\n"
+            f"🔄 <b>Auto-Reset</b>  : Enabled (2m Pause)"
         )
     elif cmd == "/reset_stats":
         if os.path.exists(STATS_FILE):
             os.remove(STATS_FILE)
-        tg("Ã°Å¸Â§Â¹ <b>Ã Â¸Â¥Ã Â¹â€°Ã Â¸Â²Ã Â¸â€¡Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â´Ã Â¸â€¢Ã Â¸Â´Ã Â¸ÂªÃ Â¸Â°Ã Â¸ÂªÃ Â¸Â¡Ã Â¹â‚¬Ã Â¸Â£Ã Â¸ÂµÃ Â¸Â¢Ã Â¸Å¡Ã Â¸Â£Ã Â¹â€°Ã Â¸Â­Ã Â¸Â¢Ã Â¹ÂÃ Â¸Â¥Ã Â¹â€°Ã Â¸Â§!</b>\nÃ Â¸ÂÃ Â¸Â£Ã Â¸Â¸Ã Â¸â€œÃ Â¸Â²Ã Â¸Â£Ã Â¸ÂµÃ Â¸ÂªÃ Â¸â€¢Ã Â¸Â²Ã Â¸Â£Ã Â¹Å’Ã Â¸â€”Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¹â‚¬Ã Â¸Â£Ã Â¸Â´Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â±Ã Â¸Å¡Ã Â¹Æ’Ã Â¸Â«Ã Â¸Â¡Ã Â¹Ë†")
+        tg("🧹 <b>ล้างสถิติสะสมเรียบร้อยแล้ว!</b>\nกรุณารีสตาร์ทบอทเพื่อเริ่มนับใหม่")
     
     elif cmd == "/report":
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -394,22 +395,22 @@ def _handle_command(cmd: str, show_menu=False):
         operating = curr_bal - locked - reserve
         
         msg = (
-            f"Ã°Å¸â€œâ€ž <b>ACCOUNTING DAILY REPORT</b>\n"
+            f"📄 <b>ACCOUNTING DAILY REPORT</b>\n"
             f"--------------------------------\n"
-            f"Ã°Å¸â€œâ€¦ Date: {datetime.now().strftime('%d/%m/%Y')}\n"
-            f"Ã¢ÂÂ° Time: {datetime.now().strftime('%H:%M')}\n"
+            f"📅 Date: {datetime.now().strftime('%d/%m/%Y')}\n"
+            f"⏰ Time: {datetime.now().strftime('%H:%M')}\n"
             f"--------------------------------\n"
-            f"Ã°Å¸â€™Â° <b>Total Assets:</b> {curr_bal:.8f} TRX\n"
-            f"Ã°Å¸â€œË† <b>Total Profit:</b> {profit:+.8f} TRX\n"
-            f"Ã°Å¸â€œÅ  <b>Current ROI :</b> {roi:.2f}%\n"
+            f"💰 <b>Total Assets:</b> {curr_bal:.8f} TRX\n"
+            f"📈 <b>Total Profit:</b> {profit:+.8f} TRX\n"
+            f"📊 <b>Current ROI :</b> {roi:.2f}%\n"
             f"--------------------------------\n"
-            f"Ã°Å¸ÂÂ¢ <b>FUND BREAKDOWN</b>\n"
-            f"Ã°Å¸â€™Âµ Operating  : {operating:.4f} TRX\n"
-            f"Ã°Å¸â€â€™ Locked Prof: {locked:.4f} TRX\n"
-            f"Ã°Å¸â€ºÂ¡Ã¯Â¸Â Reserve    : {reserve:.4f} TRX\n"
+            f"🏢 <b>FUND BREAKDOWN</b>\n"
+            f"💵 Operating  : {operating:.4f} TRX\n"
+            f"🔒 Locked Prof: {locked:.4f} TRX\n"
+            f"🛡️ Reserve    : {reserve:.4f} TRX\n"
             f"--------------------------------\n"
-            f"Ã°Å¸Å½Â° Total Wagered: {wagered:.4f} TRX\n"
-            f"Ã°Å¸â€Â¢ Total Counts : {bets:,} bets\n"
+            f"🎰 Total Wagered: {wagered:.4f} TRX\n"
+            f"🔢 Total Counts : {bets:,} bets\n"
             f"--------------------------------\n"
             f"<i>Reported by: Corporate Accountant Bot</i>"
         )
@@ -419,8 +420,8 @@ def _handle_command(cmd: str, show_menu=False):
 
 def _send_main_menu():
     tg(
-        "Ã°Å¸Â¤â€“ <b>COMMANDER BRIAN Ã¢â‚¬â€ Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â¹Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸Â</b>\n"
-        "Ã Â¸ÂÃ Â¸â€Ã Â¸â€ºÃ Â¸Â¸Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â€Ã Â¹â€°Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â¥Ã Â¹Ë†Ã Â¸Â²Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€Ã Â¸Â¹Ã Â¸â€šÃ Â¹â€°Ã Â¸Â­Ã Â¸Â¡Ã Â¸Â¹Ã Â¸Â¥Ã Â¸Â«Ã Â¸Â£Ã Â¸Â·Ã Â¸Â­Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¸â€žÃ Â¹Ë†Ã Â¸Â²",
+        "🤖 <b>COMMANDER BRIAN — เมนูหลัก</b>\n"
+        "กดปุ่มด้านล่างเพื่อดูข้อมูลหรือตั้งค่า",
         reply_markup=main_menu_markup()
     )
 
@@ -428,7 +429,7 @@ def _tg_listener():
     """Background thread: poll Telegram every 2s for commands."""
     global _tg_offset
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    # Flush old messages on startup Ã¢â‚¬â€ skip anything already queued
+    # Flush old messages on startup — skip anything already queued
     try:
         r = requests.get(url, params={"timeout": 0, "offset": -1}, timeout=5)
         updates = r.json().get("result", [])
@@ -443,7 +444,7 @@ def _tg_listener():
             for upd in updates:
                 _tg_offset = upd["update_id"] + 1
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ Ã Â¸â€šÃ Â¹â€°Ã Â¸Â­Ã Â¸â€žÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡Ã Â¸â€ºÃ Â¸ÂÃ Â¸â€¢Ã Â¸Â´ (text command) Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── ข้อความปกติ (text command) ──
                 msg = upd.get("message", {})
                 if msg:
                     chat_id = str(msg.get("chat", {}).get("id", ""))
@@ -454,7 +455,7 @@ def _tg_listener():
                         elif text.startswith("/"):
                             _handle_command(text)
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ Callback query (Ã Â¸ÂÃ Â¸â€Ã Â¸â€ºÃ Â¸Â¸Ã Â¹Ë†Ã Â¸Â¡ inline keyboard) Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── Callback query (กดปุ่ม inline keyboard) ──
                 cb = upd.get("callback_query", {})
                 if cb:
                     cb_id   = cb["id"]
@@ -468,15 +469,19 @@ def _tg_listener():
 
                     if data == "main_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "Ã°Å¸Â¤â€“ <b>COMMANDER BRIAN Ã¢â‚¬â€ Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â¹Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸Â</b>\nÃ Â¸ÂÃ Â¸â€Ã Â¸â€ºÃ Â¸Â¸Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â€Ã Â¹â€°Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â¥Ã Â¹Ë†Ã Â¸Â²Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€Ã Â¸Â¹Ã Â¸â€šÃ Â¹â€°Ã Â¸Â­Ã Â¸Â¡Ã Â¸Â¹Ã Â¸Â¥Ã Â¸Â«Ã Â¸Â£Ã Â¸Â·Ã Â¸Â­Ã Â¸â€¢Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡Ã Â¸â€žÃ Â¹Ë†Ã Â¸Â²",
+                            "🤖 <b>COMMANDER BRIAN — เมนูหลัก</b>\nกดปุ่มด้านล่างเพื่อดูข้อมูลหรือตั้งค่า",
                             reply_markup=main_menu_markup())
                     elif data == "tp_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "Ã°Å¸Å½Â¯ <b>Ã Â¹â‚¬Ã Â¸Â¥Ã Â¸Â·Ã Â¸Â­Ã Â¸Â Take Profit</b>\nÃ Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸Ë†Ã Â¸Â°Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸ÂÃ Â¸Â³Ã Â¹â€žÃ Â¸Â£Ã Â¸â€“Ã Â¸Â¶Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€°Ã Â¸Â²",
+                            "🎯 <b>เลือก Take Profit</b>\nบอทจะหยุดเมื่อกำไรถึงเป้า",
                             reply_markup=tp_menu_markup())
+                    elif data == "tip_menu":
+                        tg_edit(cb_chat, cb_mid,
+                            "💸 <b>เมนูโอนเหรียญ (Tip)</b>\n\nระบบจะโอนเงินอัตโนมัติเมื่อกำไรถึงเป้าหมาย\nหากต้องการโอนทันที พิมพ์:\n<code>/tip [username] [จำนวน]</code>\nตัวอย่าง: <code>/tip watt29 1.5</code>",
+                            reply_markup={"inline_keyboard": [[{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]]})
                     elif data == "sl_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "Ã°Å¸â€ºâ€˜ <b>Ã Â¹â‚¬Ã Â¸Â¥Ã Â¸Â·Ã Â¸Â­Ã Â¸Â Stop Loss</b>\nÃ Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸Ë†Ã Â¸Â°Ã Â¸Å¾Ã Â¸Â±Ã Â¸Â 2 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸ÂµÃ Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€šÃ Â¸Â²Ã Â¸â€Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸â€“Ã Â¸Â¶Ã Â¸â€¡Ã Â¸Ë†Ã Â¸Â¸Ã Â¸â€Ã Â¸â„¢Ã Â¸ÂµÃ Â¹â€°",
+                            "🛑 <b>เลือก Stop Loss</b>\nบอทจะพัก 2 นาทีเมื่อขาดทุนถึงจุดนี้",
                             reply_markup=sl_menu_markup())
                     elif data.startswith("/"):
                         _handle_command(data)
@@ -632,7 +637,7 @@ class StakeDiceBot:
     def rotate_seed(self, reason="Adaptive"):
         import secrets
         new_client_seed = secrets.token_hex(16)
-        # Ã Â¹Æ’Ã Â¸Å Ã Â¹â€° rotateServerSeed Ã Â¸â€¹Ã Â¸Â¶Ã Â¹Ë†Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€¡Ã Â¸â„¢Ã Â¸Â§Ã Â¸Â´Ã Â¸ËœÃ Â¸ÂµÃ Â¸Â¡Ã Â¸Â²Ã Â¸â€¢Ã Â¸Â£Ã Â¸ÂÃ Â¸Â²Ã Â¸â„¢Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë†Ã Â¹â‚¬Ã Â¸Â§Ã Â¹â€¡Ã Â¸Å¡Ã Â¸Â¢Ã Â¸Â­Ã Â¸Â¡Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡ (Ã Â¸Â«Ã Â¸Â¡Ã Â¸Â¸Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡ Server Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â° Client Seed)
+        # ใช้ rotateServerSeed ซึ่งเป็นวิธีมาตรฐานที่เว็บยอมรับ (หมุนทั้ง Server และ Client Seed)
         mutation = """
         mutation RotateServerSeed {
           rotateServerSeed {
@@ -647,25 +652,25 @@ class StakeDiceBot:
             
             self.next_rotation_bet = self.get_total_bets_from_stats() + random.randint(800, 1500)
             if data and data.get("rotateServerSeed"):
-                msg = f"Ã°Å¸â€â€ž <b>Seed Rotated ({reason})</b>\nÃ Â¸Â£Ã Â¸Â°Ã Â¸Å¡Ã Â¸Å¡Ã Â¸â€”Ã Â¸Â³Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸Â«Ã Â¸Â¡Ã Â¸Â¸Ã Â¸â„¢ Seed Ã Â¹Æ’Ã Â¸Â«Ã Â¸Â¡Ã Â¹Ë†Ã Â¹â‚¬Ã Â¸Â£Ã Â¸ÂµÃ Â¸Â¢Ã Â¸Å¡Ã Â¸Â£Ã Â¹â€°Ã Â¸Â­Ã Â¸Â¢Ã Â¹ÂÃ Â¸Â¥Ã Â¹â€°Ã Â¸Â§\n<i>*Server Seed Reset Ã Â¸ÂªÃ Â¸Â³Ã Â¹â‚¬Ã Â¸Â£Ã Â¹â€¡Ã Â¸Ë†</i>"
-                self.log_event(f"Ã°Å¸â€â€ž Seed Rotated ({reason}): Server seed changed successfully.")
+                msg = f"🔄 <b>Seed Rotated ({reason})</b>\nระบบทำการหมุน Seed ใหม่เรียบร้อยแล้ว\n<i>*Server Seed Reset สำเร็จ</i>"
+                self.log_event(f"🔄 Seed Rotated ({reason}): Server seed changed successfully.")
                 tg(msg)
                 return True
             else:
                 error_list = res.get("errors") if res else []
                 error_msg = error_list[0].get("message", "Unknown API rejection") if error_list else "No response from API"
-                self.log_event(f"Ã¢Å¡Â Ã¯Â¸Â Seed Rotation Rejected: {error_msg}")
-                # tg(f"Ã¢Å¡Â Ã¯Â¸Â <b>API Seed Rotation Rejected</b>\nÃ Â¹â‚¬Ã Â¸Â«Ã Â¸â€¢Ã Â¸Â¸Ã Â¸Å“Ã Â¸Â¥: {error_msg}") # Don't spam TG for minor rotation failure
+                self.log_event(f"⚠️ Seed Rotation Rejected: {error_msg}")
+                # tg(f"⚠️ <b>API Seed Rotation Rejected</b>\nเหตุผล: {error_msg}") # Don't spam TG for minor rotation failure
         except Exception as e:
-            self.log_event(f"Ã¢Å¡Â Ã¯Â¸Â Seed Rotation Error: {str(e)}")
+            self.log_event(f"⚠️ Seed Rotation Error: {str(e)}")
         return False
 
     def get_total_bets_from_stats(self):
-        """Ã Â¸â€Ã Â¸Â¶Ã Â¸â€¡Ã Â¸Ë†Ã Â¸Â³Ã Â¸â„¢Ã Â¸Â§Ã Â¸â„¢ Bet Ã Â¸â€ºÃ Â¸Â±Ã Â¸Ë†Ã Â¸Ë†Ã Â¸Â¸Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸Ë†Ã Â¸Â²Ã Â¸ÂÃ Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â°Ã Â¸Â¥Ã Â¹Ë†Ã Â¸Â²Ã Â¸ÂªÃ Â¸Â¸Ã Â¸â€"""
+        """ดึงจำนวน Bet ปัจจุบันจากสถานะล่าสุด"""
         return _bot_state.get('bets', 0)
 
     def save_daily_report(self, start_bal, end_bal, profit, wagered, deposits=0, withdrawals=0):
-        """Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¸Å¡Ã Â¸Â±Ã Â¸ÂÃ Â¸Å Ã Â¸ÂµÃ Â¸Â£Ã Â¸Â²Ã Â¸Â¢Ã Â¸Â§Ã Â¸Â±Ã Â¸â„¢Ã Â¸ÂªÃ Â¸Â³Ã Â¸Â«Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡Ã Â¸Å¡Ã Â¸Â£Ã Â¸Â´Ã Â¸Â©Ã Â¸Â±Ã Â¸â€” (CSV)"""
+        """บันทึกบัญชีรายวันสำหรับบริษัท (CSV)"""
         filename = _DAILY_REPORT
         file_exists = os.path.exists(filename)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -677,9 +682,9 @@ class StakeDiceBot:
                 if not file_exists:
                     writer.writerow(["Date", "Timestamp", "Opening Balance", "Closing Balance", "Net Profit", "Total Wagered", "Deposits", "Withdrawals"])
                 writer.writerow([date_today, now, f"{start_bal:.8f}", f"{end_bal:.8f}", f"{profit:.8f}", f"{wagered:.8f}", f"{deposits:.8f}", f"{withdrawals:.8f}"])
-            self.log_event(f"Ã°Å¸â€œË† Daily Accounting Report Saved: {date_today}")
+            self.log_event(f"📈 Daily Accounting Report Saved: {date_today}")
         except Exception as e:
-            self.log_event(f"Ã¢Å¡Â Ã¯Â¸Â Failed to save daily report: {str(e)}")
+            self.log_event(f"⚠️ Failed to save daily report: {str(e)}")
 
     def _execute_graphql(self, query, variables=None, operation_name=None):
         payload = {"query": query}
@@ -791,20 +796,23 @@ class StakeDiceBot:
 
         for attempt in range(5):
             try:
-                print(f"   [NET] Sending Bet Query (Attempt {attempt+1})...", end="\r")
+                print(f"   [NET] Sending Bet Query (Attempt {attempt+1})...")
                 result = self._execute_graphql(query, variables=variables, operation_name=operation_name)
                 if result and "data" in result and result["data"]:
                     return result
-                if "errors" in result:
+                if result and "errors" in result:
                     err_msg = str(result["errors"][0].get("message", ""))
-                    if "JS Fetch Timeout" in err_msg:
-                        print(f"   [!] Cloudflare blocked the bet. Retrying...", end="\r")
+                    print(f"   [!] API Error (Attempt {attempt+1}): {err_msg}")
+                    if "cloudflare" in err_msg.lower() or "challenge" in err_msg.lower():
+                        print("   [🔒] Cloudflare challenge active! Please check the browser window and solve the captcha.")
+                        time.sleep(5)
+                    elif "rate limit" in err_msg.lower() or "too many" in err_msg.lower():
+                        self.log_event("⏳ API Rate Limit detected. Cooling down...")
+                        time.sleep(15)
+                    else:
                         time.sleep(2)
-                        continue
-                    if "rate limit" in err_msg.lower() or "too many" in err_msg.lower():
-                        self.log_event("Ã¢ÂÂ³ API Rate Limit detected. Cooling down...")
-                        time.sleep(15) # Wait longer on rate limit
             except Exception as e:
+                print(f"   [!] Bet exception (Attempt {attempt+1}): {str(e)}")
                 time.sleep(2 ** attempt)
         return None
 
@@ -860,6 +868,7 @@ class StakeDiceBot:
         current_loss_streak = 0
         
         virtual_mode = False
+        virtual_escape_pattern = ['W']
         
         cycle_start_balance = 0.0
         
@@ -879,11 +888,11 @@ class StakeDiceBot:
         listener.start()
         threading.Thread(target=corporate_heartbeat, daemon=True).start()
 
-        # Ã Â¹ÂÃ Â¸Ë†Ã Â¹â€°Ã Â¸â€¡ Telegram Ã Â¸Å¾Ã Â¸Â£Ã Â¹â€°Ã Â¸Â­Ã Â¸Â¡ inline menu
+        # แจ้ง Telegram พร้อม inline menu
         tg(
-            "Ã°Å¸Å¸Â¢ <b>COMMANDER BRIAN Ã Â¹â‚¬Ã Â¸Â£Ã Â¸Â´Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â€”Ã Â¸Â³Ã Â¸â€¡Ã Â¸Â²Ã Â¸â„¢Ã Â¹ÂÃ Â¸Â¥Ã Â¹â€°Ã Â¸Â§!</b>\n"
-            f"Ã°Å¸â€™Â± Currency: <b>{self.currency.upper()}</b> | Mode: <b>{'SIMULATE' if self.simulate else 'LIVE'}</b>\n"
-            "Ã Â¸ÂÃ Â¸â€Ã Â¸â€ºÃ Â¸Â¸Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â€Ã Â¹â€°Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â¥Ã Â¹Ë†Ã Â¸Â²Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€žÃ Â¸Â§Ã Â¸Å¡Ã Â¸â€žÃ Â¸Â¸Ã Â¸Â¡Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”",
+            "🟢 <b>COMMANDER BRIAN เริ่มทำงานแล้ว!</b>\n"
+            f"💱 Currency: <b>{self.currency.upper()}</b> | Mode: <b>{'SIMULATE' if self.simulate else 'LIVE'}</b>\n"
+            "กดปุ่มด้านล่างเพื่อควบคุมบอท",
             reply_markup=main_menu_markup()
         )
 
@@ -957,26 +966,29 @@ class StakeDiceBot:
                 # Calculate Session Profit
                 session_profit = balance - _bot_state.get('start_balance', balance)
 
+                # Randomize Over/Under on every roll for maximum entropy (both = 49% win chance)
+                current_condition = random.choice(["above", "below"])
+                target = 51.00 if current_condition == "above" else 49.00
+
                 # --- VIRTUAL PAUSE MODE (3-LOSS) ---
                 if current_loss_streak >= 3 and not virtual_mode:
                     virtual_mode = True
-                    self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอมังกรขาด)")
-                    # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด (ชนะ 1 ตา) เพื่อความปลอดภัย")
+                    virtual_escape_pattern = random.choice([['W'], ['W', 'W']])
+                    pattern_str = " - ".join(virtual_escape_pattern)
+                    self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอมังกรขาดด้วยรูปแบบ {pattern_str})")
+                    # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด ({pattern_str}) เพื่อความปลอดภัย")
                 
                 if virtual_mode:
-                    target_patterns = [
-                        ['W']
-                    ]
-                    matched = None
-                    for pat in target_patterns:
-                        if len(recent) >= len(pat) and recent[-len(pat):] == pat:
-                            matched = "-".join(pat)
-                            break
+                    matched = False
+                    pat = virtual_escape_pattern
+                    if len(recent) >= len(pat) and recent[-len(pat):] == pat:
+                        matched = True
                     
                     if matched:
                         virtual_mode = False
-                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got W)! Resuming real bet.")
-                        # tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้ว!")
+                        pattern_str = "-".join(pat)
+                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Resuming real bet.")
+                        # tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทกลับมาแทงด้วยเงินจริงแล้วด้วยรูปแบบ {pattern_str}!")
                 
                 # --- BET SIZING ---
                 if martingale_step == 0:
@@ -988,6 +1000,13 @@ class StakeDiceBot:
                     current_bet = 0.0
                 else:
                     current_bet = round(base_bet * (2 ** martingale_step), 8)
+
+                # --- PROACTIVE BALANCE CHECK ---
+                if not virtual_mode and current_bet > balance:
+                    self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX. ปรับไปเริ่มไม้ 1 ใหม่อัตโนมัติ...")
+                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {martingale_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.0005 TRX) เพื่อความปลอดภัย</b>")
+                    martingale_step = 0
+                    current_bet = base_bet
                 
                 if _stop_event.is_set(): return
 
@@ -998,15 +1017,30 @@ class StakeDiceBot:
                     self.rotate_seed(reason)
                 
                 bet_res = self.place_dice_bet(current_bet, target, current_condition)
+                
+                if bet_res and "errors" in bet_res:
+                    err_msg = bet_res["errors"][0].get("message", "")
+                    if "balance" in err_msg.lower() or "funds" in err_msg.lower():
+                        self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Resetting to Step 1.")
+                        tg(f"🚨 <b>ยอดเงินไม่พอทบไม้! (ตรวจพบจาก API)</b>\nยอดที่มีไม่พอกับยอดที่ต้องการ!\n<b>ระบบปรับไปเริ่มไม้ 1 (0.0005 TRX) ใหม่อัตโนมัติ</b>")
+                        martingale_step = 0
+                        current_loss_streak = 0
+                        time.sleep(5)
+                        continue
+                    else:
+                        self.log_event(f"⚠️ API Error: {err_msg}")
+                        time.sleep(5)
+                        continue
+
                 if not bet_res or "data" not in bet_res or not bet_res["data"] or not bet_res["data"].get("diceRoll"):
-                    self.log_event("Ã¢Å¡Â Ã¯Â¸Â Incomplete bet response. Retrying...")
+                    self.log_event("⚠️ Incomplete bet response. Retrying...")
                     time.sleep(5); continue
 
                 roll_data = bet_res["data"]["diceRoll"]
                 payout = float(roll_data.get("payout", 0))
                 result_state = roll_data.get("state")
                 if not result_state:
-                    self.log_event("Ã¢Å¡Â Ã¯Â¸Â Missing roll state. Retrying...")
+                    self.log_event("⚠️ Missing roll state. Retrying...")
                     time.sleep(5); continue
                 result = float(result_state.get("result", 0))
                 
@@ -1024,13 +1058,13 @@ class StakeDiceBot:
                 else:
                     new_balance = balance - current_bet + payout
                 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 3. GOAL & RISK MANAGEMENT Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── 3. GOAL & RISK MANAGEMENT ──
                 # Check Daily Target (TP)
                 target_tp = _bot_state.get('take_profit', 0.0)
                 if target_tp > 0 and total_profit >= target_tp:
-                    tg(f"Ã°Å¸Å½Â¯ <b>DAILY GOAL REACHED! (+{total_profit:.2f} TRX)</b>\n"
-                       f"Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€°Ã Â¸Â²Ã Â¸Â«Ã Â¸Â¡Ã Â¸Â²Ã Â¸Â¢: {target_tp:+.2f} TRX\n"
-                       f"Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸â€”Ã Â¸Â³Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¸Å¡Ã Â¸Â±Ã Â¸ÂÃ Â¸Å Ã Â¸ÂµÃ Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¸Å¾Ã Â¸Â±Ã Â¸ÂÃ Â¹â‚¬Ã Â¸â€¹Ã Â¸ÂªÃ Â¸Å Ã Â¸Â±Ã Â¹Ë†Ã Â¸â„¢Ã Â¸Å Ã Â¸Â±Ã Â¹Ë†Ã Â¸Â§Ã Â¸â€žÃ Â¸Â£Ã Â¸Â²Ã Â¸Â§...")
+                    tg(f"🎯 <b>DAILY GOAL REACHED! (+{total_profit:.2f} TRX)</b>\n"
+                       f"เป้าหมาย: {target_tp:+.2f} TRX\n"
+                       f"บอททำการบันทึกบัญชีและพักเซสชั่นชั่วคราว...")
                     
                     self.save_daily_report(
                         start_bal=start_balance,
@@ -1041,7 +1075,7 @@ class StakeDiceBot:
                         withdrawals=total_withdrawn
                     )
                     
-                    self.log_event(f"Ã°Å¸Å½Â¯ Daily Goal Reached: {total_profit:.8f} TRX. Auto-pausing for safety.")
+                    self.log_event(f"🎯 Daily Goal Reached: {total_profit:.8f} TRX. Auto-pausing for safety.")
                     
                     # Reset for next potential session or wait for user
                     start_balance = balance
@@ -1055,21 +1089,21 @@ class StakeDiceBot:
                     continue 
 
                 delta = new_balance - (balance - current_bet + payout)
-                # Ã Â¹Æ’Ã Â¸Å Ã Â¹â€° threshold 1.0 TRX Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸ÂÃ Â¸Â£Ã Â¸Â­Ã Â¸â€¡ floating point error Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â° payout Ã Â¹â‚¬Ã Â¸Â¥Ã Â¹â€¡Ã Â¸ÂÃ Â¹â€ 
+                # ใช้ threshold 1.0 TRX เพื่อกรอง floating point error และ payout เล็กๆ
                 if abs(delta) > 1.0:
                     type_str = "DEPOSIT" if delta > 0 else "WITHDRAWAL"
-                    self.log_event(f"Ã°Å¸ÂÂ¦ External Balance Change: {type_str} detected ({delta:+.8f} TRX)")
+                    self.log_event(f"🏦 External Balance Change: {type_str} detected ({delta:+.8f} TRX)")
                     if delta < 0:
                         total_withdrawn += abs(delta)
                     else:
-                        # Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â´Ã Â¹Ë†Ã Â¸Â¡ Ã¢â€ â€™ Ã Â¸Â­Ã Â¸Â±Ã Â¸â€ºÃ Â¹â‚¬Ã Â¸â€Ã Â¸â€¢Ã Â¸â€¢Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸Â­Ã Â¸Â±Ã Â¸â€¢Ã Â¹â€šÃ Â¸â„¢Ã Â¸Â¡Ã Â¸Â±Ã Â¸â€¢Ã Â¸Â´
+                        # ฝากเงินเพิ่ม → อัปเดตต้นทุนอัตโนมัติ
                         total_deposited += delta
                         initial_capital += delta
                         tg(
-                            f"Ã°Å¸ÂÂ¦ <b>Ã Â¸â€¢Ã Â¸Â£Ã Â¸Â§Ã Â¸Ë†Ã Â¸Å¾Ã Â¸Å¡Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢!</b>\n"
-                            f"Ã°Å¸â€™Âµ Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¹â‚¬Ã Â¸Å¾Ã Â¸Â´Ã Â¹Ë†Ã Â¸Â¡ : <b>+{delta:.4f} TRX</b>\n"
-                            f"Ã°Å¸â€œÅ  Ã Â¸â€¢Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸Â£Ã Â¸Â§Ã Â¸Â¡ : <b>{initial_capital:.4f} TRX</b>\n"
-                            f"<i>Ã Â¸Â­Ã Â¸Â±Ã Â¸â€ºÃ Â¹â‚¬Ã Â¸â€Ã Â¸â€¢Ã Â¸â€¢Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸Â­Ã Â¸Â±Ã Â¸â€¢Ã Â¹â€šÃ Â¸â„¢Ã Â¸Â¡Ã Â¸Â±Ã Â¸â€¢Ã Â¸Â´Ã Â¹ÂÃ Â¸Â¥Ã Â¹â€°Ã Â¸Â§</i>"
+                            f"🏦 <b>ตรวจพบการฝากเงิน!</b>\n"
+                            f"💵 ฝากเพิ่ม : <b>+{delta:.4f} TRX</b>\n"
+                            f"📊 ต้นทุนรวม : <b>{initial_capital:.4f} TRX</b>\n"
+                            f"<i>อัปเดตต้นทุนอัตโนมัติแล้ว</i>"
                         )
                     start_balance += delta
                     cycle_start_balance += delta
@@ -1110,8 +1144,8 @@ class StakeDiceBot:
                         if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
                         if martingale_step > max_martingale_step:
                             max_martingale_step = martingale_step
-                        if max_martingale_step >= 10:
-                            self.log_event(f"Ã°Å¸Â§â€” Climber: Reached new high Step {max_martingale_step+1}")
+                            if max_martingale_step >= 10:
+                                self.log_event(f"🧗 Climber: Reached new high Step {max_martingale_step+1}")
                         if current_bet > max_single_loss: max_single_loss = current_bet
                         martingale_step += 1
                     
@@ -1127,18 +1161,18 @@ class StakeDiceBot:
                     recent.pop(0)
                 # Removed fib limit check
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 3. TP/SL AUTOMATION Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── 3. TP/SL AUTOMATION ──
                 if take_profit > 0 and total_profit >= take_profit:
-                    tg(f"Ã°Å¸ÂÂ <b>TAKE PROFIT REACHED!</b>\n"
+                    tg(f"🏁 <b>TAKE PROFIT REACHED!</b>\n"
                        f"Profit: <b>{total_profit:+.8f} TRX</b>\n"
-                       f"Ã Â¹â‚¬Ã Â¸â€ºÃ Â¹â€°Ã Â¸Â²Ã Â¸Â«Ã Â¸Â¡Ã Â¸Â²Ã Â¸Â¢: {take_profit:+.2f} TRX\n"
-                       f"<b>Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸â€”Ã Â¸Â³Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£ Reset Ã Â¸Â¢Ã Â¸Â­Ã Â¸â€Ã Â¹ÂÃ Â¸â€”Ã Â¸â€¡Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¹â‚¬Ã Â¸Â£Ã Â¸Â´Ã Â¹Ë†Ã Â¸Â¡Ã Â¸â„¢Ã Â¸Â±Ã Â¸Å¡Ã Â¸ÂÃ Â¸Â³Ã Â¹â€žÃ Â¸Â£Ã Â¹Æ’Ã Â¸Â«Ã Â¸Â¡Ã Â¹Ë† (No Stop)</b>")
-                    self.log_event(f"Ã°Å¸ÂÂ Take Profit Reached: {total_profit:.8f} TRX. Resetting and continuing.")
+                       f"เป้าหมาย: {take_profit:+.2f} TRX\n"
+                       f"<b>บอททำการ Reset ยอดแทงและเริ่มนับกำไรใหม่ (No Stop)</b>")
+                    self.log_event(f"🏁 Take Profit Reached: {total_profit:.8f} TRX. Resetting and continuing.")
                     
                     # Reset strategy and profit tracking for the next cycle
                     if martingale_step >= 14: # Step 15 or higher
-                        tg(f"Ã¢Å¡Â Ã¯Â¸Â <b>HIGH-RISK RECOVERY DETECTED (Step {martingale_step+1})</b>\n"
-                       f"CEO Ã Â¸ÂªÃ Â¸Â±Ã Â¹Ë†Ã Â¸â€¡Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¹Æ’Ã Â¸Â«Ã Â¹â€°Ã Â¸Å¾Ã Â¸Â±Ã Â¸ÂÃ Â¸Å¾Ã Â¸â„¢Ã Â¸Â±Ã Â¸ÂÃ Â¸â€¡Ã Â¸Â²Ã Â¸â„¢ 15 Ã Â¸â„¢Ã Â¸Â²Ã Â¸â€”Ã Â¸Âµ Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€žÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡Ã Â¸â€ºÃ Â¸Â¥Ã Â¸Â­Ã Â¸â€Ã Â¸Â Ã Â¸Â±Ã Â¸Â¢Ã Â¸â€šÃ Â¸Â­Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¹â‚¬Ã Â¸â€ºÃ Â¸Â¥Ã Â¸ÂµÃ Â¹Ë†Ã Â¸Â¢Ã Â¸â„¢Ã Â¸Ë†Ã Â¸Â±Ã Â¸â€¡Ã Â¸Â«Ã Â¸Â§Ã Â¸Â° Seed...")
+                        tg(f"⚠️ <b>HIGH-RISK RECOVERY DETECTED (Step {martingale_step+1})</b>\n"
+                       f"CEO สั่งการให้พักพนักงาน 15 นาที เพื่อความปลอดภัยของเงินทุนและเปลี่ยนจังหวะ Seed...")
                         self.log_event(f"Safety Pause triggered after Step {martingale_step+1} recovery.")
                         # Rotate seed to be sure
                         self.rotate_seed("High-Risk Recovery")
@@ -1149,6 +1183,7 @@ class StakeDiceBot:
                     streak = 0
                     streak_type = None
                     virtual_mode = True
+                    virtual_escape_pattern = random.choice([['W'], ['W', 'W']])
                     start_balance = new_balance # Reset start balance to current to track next TP goal
                     total_deposited = 0
                     total_withdrawn = 0
@@ -1158,21 +1193,12 @@ class StakeDiceBot:
                     continue 
                 # (Stop Loss feature has been removed as per user request)
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 4. DYNAMIC CONDITION SWITCHING Ã¢â€â‚¬Ã¢â€â‚¬
-                # Switch between below 49 <-> above 51 (both = 49% win chance)
-                if (streak_type == "L" and streak >= 3) or (streak_type == "W" and streak >= 5):
-                    old_cond = current_condition
-                    current_condition = "above" if current_condition == "below" else "below"
-                    target = round(100 - target, 2)  # 49 -> 51, 51 -> 49
-                    condition_switches += 1
-                    reason = "Loss Streak" if streak_type == "L" else "Win Streak"
-                    self.log_event(f"Ã°Å¸â€â€ž Condition Switched ({reason}): {old_cond.upper()} -> {current_condition.upper()} {target} (49% side)")
-                    streak = 0
+                # (Dynamic condition switching has been replaced by per-roll random Over/Under)
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 5. Ã Â¸ÂªÃ Â¸Â£Ã Â¸Â¸Ã Â¸â€ºÃ Â¸Â¢Ã Â¸Â­Ã Â¸â€Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¹â‚¬Ã Â¸â€¢Ã Â¸Â£Ã Â¸ÂµÃ Â¸Â¢Ã Â¸Â¡Ã Â¸â€¢Ã Â¸Â²Ã Â¸â€“Ã Â¸Â±Ã Â¸â€Ã Â¹â€žÃ Â¸â€º Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── 5. สรุปยอดเพื่อเตรียมตาถัดไป ──
                 balance = new_balance
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 4. Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¹ÂÃ Â¸Â¥Ã Â¸Â°Ã Â¸Â­Ã Â¸Â±Ã Â¸â€ºÃ Â¹â‚¬Ã Â¸â€Ã Â¸â€¢Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â° (State Sync) Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── 4. บันทึกและอัปเดตสถานะ (State Sync) ──
                 save_stats({
                     "total_profit": total_profit,
                     "total_bets": total_bets,
@@ -1217,8 +1243,8 @@ class StakeDiceBot:
                     'total_wagered' : total_wagered
                 })
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 6. Ã Â¸Â£Ã Â¸Â°Ã Â¸Å¡Ã Â¸Å¡Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¸Å¡Ã Â¸Â±Ã Â¸ÂÃ Â¸Å Ã Â¸ÂµÃ Â¸Â£Ã Â¸Â²Ã Â¸Â¢Ã Â¸Â§Ã Â¸Â±Ã Â¸â„¢Ã Â¸ÂªÃ Â¸Â³Ã Â¸Â«Ã Â¸Â£Ã Â¸Â±Ã Â¸Å¡Ã Â¸Å¡Ã Â¸Â£Ã Â¸Â´Ã Â¸Â©Ã Â¸Â±Ã Â¸â€” Ã¢â€â‚¬Ã¢â€â‚¬
-                # Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€”Ã Â¸Â¶Ã Â¸ÂÃ Â¸â€”Ã Â¸Â¸Ã Â¸Â 500 Bet Ã Â¸Â«Ã Â¸Â£Ã Â¸Â·Ã Â¸Â­Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸Â¡Ã Â¸ÂµÃ Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¹â‚¬Ã Â¸â€¡Ã Â¸Â´Ã Â¸â„¢
+                # ── 6. ระบบบันทึกบัญชีรายวันสำหรับบริษัท ──
+                # บันทึกทุก 500 Bet หรือเมื่อมีการฝากเงิน
                 if total_bets % 500 == 0:
                     self.save_daily_report(
                         start_bal=start_balance,
@@ -1229,38 +1255,38 @@ class StakeDiceBot:
                         withdrawals=total_withdrawn
                     )
 
-                # Ã¢â€â‚¬Ã¢â€â‚¬ 5. Ã Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¹ÂÃ Â¸Ë†Ã Â¹â€°Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€¢Ã Â¸Â·Ã Â¸Â­Ã Â¸â„¢Ã Â¸Å¾Ã Â¸Â´Ã Â¹â‚¬Ã Â¸Â¨Ã Â¸Â© (Telegram Alerts) Ã¢â€â‚¬Ã¢â€â‚¬
+                # ── 5. การแจ้งเตือนพิเศษ (Telegram Alerts) ──
                 if payout > 0:
-                    if martingale_step == 0 and current_highest_alert > 0: # Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â±Ã Â¸Å¡Ã Â¸Â¡Ã Â¸Â²Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë† step 1 Ã Â¸Â«Ã Â¸Â¥Ã Â¸Â±Ã Â¸â€¡Ã Â¸â€¢Ã Â¸Â´Ã Â¸â€Ã Â¸Â«Ã Â¸Â¥Ã Â¹Ë†Ã Â¸Â¡
-                        tg(f"Ã¢Å“â€¦ <b>Ã Â¸â€Ã Â¸Â¶Ã Â¸â€¡Ã Â¸â€”Ã Â¸Â¸Ã Â¸â„¢Ã Â¸â€žÃ Â¸Â·Ã Â¸â„¢Ã Â¸ÂªÃ Â¸Â³Ã Â¹â‚¬Ã Â¸Â£Ã Â¹â€¡Ã Â¸Ë†! (Full Recovery)</b>\nÃ Â¸ÂªÃ Â¸â€“Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â°: Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â±Ã Â¸Å¡Ã Â¹â‚¬Ã Â¸â€šÃ Â¹â€°Ã Â¸Â²Ã Â¸ÂªÃ Â¸Â¹Ã Â¹Ë†Ã Â¸Â Ã Â¸Â²Ã Â¸Â§Ã Â¸Â°Ã Â¸â€ºÃ Â¸ÂÃ Â¸â€¢Ã Â¸Â´\nProfit Ã Â¸Â£Ã Â¸Â§Ã Â¸Â¡ : {total_profit:+.8f} TRX")
+                    if martingale_step == 0 and current_highest_alert > 0: # กลับมาที่ step 1 หลังติดหล่ม
+                        tg(f"✅ <b>ดึงทุนคืนสำเร็จ! (Full Recovery)</b>\nสถานะ: กลับเข้าสู่ภาวะปกติ\nProfit รวม : {total_profit:+.8f} TRX")
                         current_highest_alert = 0
                 else:
                     # New Record Alert (Step / Streak)
-                    # Ã Â¹ÂÃ Â¸Ë†Ã Â¹â€°Ã Â¸â€¡Ã Â¹â‚¬Ã Â¸â€¢Ã Â¸Â·Ã Â¸Â­Ã Â¸â„¢Ã Â¹â‚¬Ã Â¸Â¡Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€”Ã Â¸Â³Ã Â¸Â¥Ã Â¸Â²Ã Â¸Â¢Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â´Ã Â¸â€¢Ã Â¸Â´Ã Â¹â‚¬Ã Â¸â€Ã Â¸Â´Ã Â¸Â¡ (16, 17, 18...)
+                    # แจ้งเตือนเมื่อทำลายสถิติเดิม (16, 17, 18...)
                     if (martingale_step + 1) > persistent.get("max_martingale_step", 0) and (martingale_step + 1) >= 15:
-                         danger = "Ã°Å¸â€Â´ Ã Â¸Â­Ã Â¸Â±Ã Â¸â„¢Ã Â¸â€¢Ã Â¸Â£Ã Â¸Â²Ã Â¸Â¢!" if martingale_step + 1 >= 18 else "Ã°Å¸Å¸Â  Ã Â¸Â£Ã Â¸Â°Ã Â¸Â§Ã Â¸Â±Ã Â¸â€¡!"
+                         danger = "🔴 อันตราย!" if martingale_step + 1 >= 18 else "🟠 ระวัง!"
                          tg(
-                             f"Ã°Å¸Ââ€  <b>Ã Â¸â€”Ã Â¸Â³Ã Â¸Â¥Ã Â¸Â²Ã Â¸Â¢Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â´Ã Â¸â€¢Ã Â¸Â´Ã Â¹Æ’Ã Â¸Â«Ã Â¸Â¡Ã Â¹Ë†! (Max Step)</b>\n"
-                             f"Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â\n"
-                             f"Ã°Å¸â€œÂ Ã Â¸â€šÃ Â¸Â±Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë†     : <b>{martingale_step+1}</b>  {danger}\n"
-                             f"Ã°Å¸â€™Â¸ Bet Ã Â¸â€ºÃ Â¸Â±Ã Â¸Ë†Ã Â¸Ë†Ã Â¸Â¸Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢ : <b>{current_bet:.8f} TRX</b>\n"
-                             f"Ã°Å¸â€™Â° Balance     : <b>{new_balance:.4f} TRX</b>\n"
-                             f"Ã°Å¸â€œâ€° P/L         : <b>{total_profit:+.4f} TRX</b>\n"
-                             f"Ã°Å¸â€Â¥ Ã Â¹ÂÃ Â¸Å¾Ã Â¹â€°Ã Â¸â€¢Ã Â¸Â´Ã Â¸â€      : <b>{current_loss_streak} Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡</b>\n"
-                             f"Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â\n"
-                             f"<i>Ã¢Å¡Â Ã¯Â¸Â Ã Â¸Å¾Ã Â¸Â´Ã Â¸Ë†Ã Â¸Â²Ã Â¸Â£Ã Â¸â€œÃ Â¸Â²Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¸Å¡Ã Â¸Â­Ã Â¸â€”Ã Â¸â€“Ã Â¹â€°Ã Â¸Â² Step Ã Â¸ÂªÃ Â¸Â¹Ã Â¸â€¡Ã Â¸Â¡Ã Â¸Â²Ã Â¸Â</i>"
+                             f"🏆 <b>ทำลายสถิติใหม่! (Max Step)</b>\n"
+                             f"━━━━━━━━━━━━━━━━\n"
+                             f"📍 ขั้นที่     : <b>{martingale_step+1}</b>  {danger}\n"
+                             f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
+                             f"💰 Balance     : <b>{new_balance:.4f} TRX</b>\n"
+                             f"📉 P/L         : <b>{total_profit:+.4f} TRX</b>\n"
+                             f"🔥 แพ้ติด      : <b>{current_loss_streak} ครั้ง</b>\n"
+                             f"━━━━━━━━━━━━━━━━\n"
+                             f"<i>⚠️ พิจารณาหยุดบอทถ้า Step สูงมาก</i>"
                          )
                          persistent["max_martingale_step"] = (martingale_step + 1)
 
                     if current_loss_streak > persistent.get("max_loss_streak", 0) and current_loss_streak >= 15:
                          tg(
-                             f"Ã°Å¸â€Â¥ <b>Ã Â¸â€”Ã Â¸Â³Ã Â¸Â¥Ã Â¸Â²Ã Â¸Â¢Ã Â¸ÂªÃ Â¸â€“Ã Â¸Â´Ã Â¸â€¢Ã Â¸Â´Ã Â¹Æ’Ã Â¸Â«Ã Â¸Â¡Ã Â¹Ë†! (Max Streak)</b>\n"
-                             f"Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â\n"
-                             f"Ã°Å¸â€™Â¥ Ã Â¹ÂÃ Â¸Å¾Ã Â¹â€°Ã Â¸â€¢Ã Â¹Ë†Ã Â¸Â­Ã Â¹â‚¬Ã Â¸â„¢Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€¡ : <b>{current_loss_streak} Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡</b>\n"
-                             f"Ã°Å¸â€œÂ Ã Â¸â€šÃ Â¸Â±Ã Â¹â€°Ã Â¸â„¢Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë†      : <b>{martingale_step+1}</b>\n"
-                             f"Ã°Å¸â€™Â¸ Bet Ã Â¸â€ºÃ Â¸Â±Ã Â¸Ë†Ã Â¸Ë†Ã Â¸Â¸Ã Â¸Å¡Ã Â¸Â±Ã Â¸â„¢ : <b>{current_bet:.8f} TRX</b>\n"
-                             f"Ã°Å¸â€™Â° Balance      : <b>{new_balance:.4f} TRX</b>\n"
-                             f"Ã°Å¸â€œâ€° P/L          : <b>{total_profit:+.4f} TRX</b>"
+                             f"🔥 <b>ทำลายสถิติใหม่! (Max Streak)</b>\n"
+                             f"━━━━━━━━━━━━━━━━\n"
+                             f"💥 แพ้ต่อเนื่อง : <b>{current_loss_streak} ครั้ง</b>\n"
+                             f"📍 ขั้นที่      : <b>{martingale_step+1}</b>\n"
+                             f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
+                             f"💰 Balance      : <b>{new_balance:.4f} TRX</b>\n"
+                             f"📉 P/L          : <b>{total_profit:+.4f} TRX</b>"
                          )
                          persistent["max_loss_streak"] = current_loss_streak
                     
@@ -1271,23 +1297,23 @@ class StakeDiceBot:
                         if bet_mult >= m: target_m = m; break
                     if target_m > current_highest_alert:
                         current_highest_alert = target_m
-                        tg(f"Ã°Å¸Å¡Â¨ <b>Bet Ã Â¹Æ’Ã Â¸Â«Ã Â¸ÂÃ Â¹Ë†Ã Â¸â€“Ã Â¸Â¶Ã Â¸â€¡ {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} TRX\nStep: {martingale_step+1}")
+                        tg(f"🚨 <b>Bet ใหญ่ถึง {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} TRX\nStep: {martingale_step+1}")
 
                     # Milestone Streak
                     if current_loss_streak in STREAK_MILESTONES:
-                        tg(f"Ã°Å¸â€™Â¥ <b>Ã Â¹ÂÃ Â¸Å¾Ã Â¹â€°Ã Â¸â€¢Ã Â¹Ë†Ã Â¸Â­Ã Â¹â‚¬Ã Â¸â„¢Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¸â€¡ {current_loss_streak} Ã Â¸â€žÃ Â¸Â£Ã Â¸Â±Ã Â¹â€°Ã Â¸â€¡</b>\nStep: {martingale_step+1}\nProfit: {total_profit:+.8f} TRX")
+                        tg(f"💥 <b>แพ้ต่อเนื่อง {current_loss_streak} ครั้ง</b>\nStep: {martingale_step+1}\nProfit: {total_profit:+.8f} TRX")
 
-                # Health Check (Ã Â¸â€”Ã Â¸Â¸Ã Â¸Â 100 bets)
+                # Health Check (ทุก 100 bets)
                 if total_bets % BALANCE_REPORT_EVERY == 0:
                     win_rate_now = (wins / total_bets * 100)
-                    p_icon = "Ã°Å¸Å¸Â¢" if total_profit >= 0 else "Ã°Å¸â€Â´"
+                    p_icon = "🟢" if total_profit >= 0 else "🔴"
                     tg(
-                        f"Ã°Å¸â€œË† <b>Ã Â¸Â£Ã Â¸Â²Ã Â¸Â¢Ã Â¸â€¡Ã Â¸Â²Ã Â¸â„¢Ã Â¸Â­Ã Â¸Â±Ã Â¸â€¢Ã Â¹â€šÃ Â¸â„¢Ã Â¸Â¡Ã Â¸Â±Ã Â¸â€¢Ã Â¸Â´ ({total_bets:,} Bets)</b>\n"
-                        f"Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â\n"
-                        f"Ã°Å¸â€™Â° Balance  : <b>{balance:.4f} TRX</b>\n"
-                        f"Ã°Å¸â€œÅ  Win Rate : <b>{win_rate_now:.1f}%</b>\n"
-                        f"Ã°Å¸â€œÂ Step     : <b>{martingale_step+1}</b>\n"
-                        f"Ã¢ÂÂ±Ã¯Â¸Â Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
+                        f"📈 <b>รายงานอัตโนมัติ ({total_bets:,} Bets)</b>\n"
+                        f"━━━━━━━━━━━━━━━━\n"
+                        f"💰 Balance  : <b>{balance:.4f} TRX</b>\n"
+                        f"📊 Win Rate : <b>{win_rate_now:.1f}%</b>\n"
+                        f"📍 Step     : <b>{martingale_step+1}</b>\n"
+                        f"⏱️ Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
                         reply_markup=main_menu_markup()
                     )
 
@@ -1312,7 +1338,8 @@ class StakeDiceBot:
                 print("-" * 65)
                 print(f" 🎯 STRATEGIC STATUS & GUARD:")
                 if virtual_mode:
-                    print(f"  Current Step    : [SCANNING] Waiting for Safe Pattern")
+                    pattern_str = " - ".join(virtual_escape_pattern)
+                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}")
                     print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
                 else:
                     next_bet_amount = round(base_bet * (2 ** martingale_step), 8)
@@ -1339,13 +1366,13 @@ class StakeDiceBot:
 
             except KeyboardInterrupt:
                 clear()
-                tg(f"Ã°Å¸â€ºâ€˜ <b>Bot Stopped (Manual)</b>\nFinal Profit: {total_profit:+.8f} TRX\nBets: {total_bets} ({wins}W/{losses}L)\nBalance: {balance:.8f} TRX")
+                tg(f"🛑 <b>Bot Stopped (Manual)</b>\nFinal Profit: {total_profit:+.8f} TRX\nBets: {total_bets} ({wins}W/{losses}L)\nBalance: {balance:.8f} TRX")
                 print("Bot stopped by user.")
                 print(f"Final Profit: {total_profit:.8f} TRX | Bets: {total_bets} ({wins}W/{losses}L)")
-                raise  # re-raise Ã Â¹â‚¬Ã Â¸Å¾Ã Â¸Â·Ã Â¹Ë†Ã Â¸Â­Ã Â¹Æ’Ã Â¸Â«Ã Â¹â€° outer loop Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸â€Ã Â¸â€Ã Â¹â€°Ã Â¸Â§Ã Â¸Â¢
+                raise  # re-raise เพื่อให้ outer loop หยุดด้วย
             except Exception as e:
                 clear()
-                tg(f"Ã¢ÂÅ’ <b>Bot Error</b>\n{str(e)[:200]}\nRetrying in 5s...")
+                tg(f"❌ <b>Bot Error</b>\n{str(e)[:200]}\nRetrying in 5s...")
                 print("=======================================================")
                 print(f"  [ERROR] {str(e)[:60]}")
                 print(f"  [RECOVER] Retrying in 5 seconds...")
@@ -1355,7 +1382,7 @@ class StakeDiceBot:
 
 if __name__ == "__main__":
     # ============================================================
-    #  Ã Â¸Â­Ã Â¹Ë†Ã Â¸Â²Ã Â¸â„¢Ã Â¸â€žÃ Â¹Ë†Ã Â¸Â²Ã Â¸Ë†Ã Â¸Â²Ã Â¸Â config.json (Ã Â¹ÂÃ Â¸ÂÃ Â¹â€°Ã Â¹â€žÃ Â¸â€šÃ Â¹â€žÃ Â¸â€Ã Â¹â€°Ã Â¸â€”Ã Â¸ÂµÃ Â¹Ë†Ã Â¹â€žÃ Â¸Å¸Ã Â¸Â¥Ã Â¹Å’ config.json)
+    #  อ่านค่าจาก config.json (แก้ไขได้ที่ไฟล์ config.json)
     # ============================================================
     _stake = _CFG["stake"]
     _bots  = _CFG["bot_settings"]
@@ -1387,7 +1414,7 @@ if __name__ == "__main__":
             print("Bot stopped by user.")
             break
         except Exception as e:
-            tg(f"Ã°Å¸â€™â‚¬ <b>Bot Crashed! Restarting...</b>\n{str(e)[:200]}\nRestarting in 15s")
+            tg(f"💀 <b>Bot Crashed! Restarting...</b>\n{str(e)[:200]}\nRestarting in 15s")
             print(f"[RESURRECTION] Crashed: {e}")
             print("[RESURRECTION] Restarting in 15 seconds...")
             time.sleep(15)

@@ -6,11 +6,10 @@ cd /d %~dp0
 
 echo.
 echo ================================================
-echo   COMMANDER BRIAN - เลือก Profile
+echo   COMMANDER BRIAN - Select Profile
 echo ================================================
 echo.
 
-REM แสดง profile ที่มี
 set COUNT=0
 for %%f in (config_*.json) do (
     set /a COUNT+=1
@@ -21,19 +20,18 @@ echo   [0] config.json (default)
 echo.
 
 if %COUNT%==0 (
-    echo ไม่พบ profile เพิ่มเติม ใช้ config.json
+    echo No additional profiles found. Using config.json
     set PROFILE=config.json
     goto START
 )
 
-set /p CHOICE="เลือก profile (Enter = default): "
+set /p CHOICE="Select profile (Enter = default): "
 
 if "%CHOICE%"=="" (
     set PROFILE=config.json
     goto START
 )
 
-REM map choice to filename
 set IDX=0
 for %%f in (config_*.json) do (
     set /a IDX+=1
@@ -42,7 +40,7 @@ for %%f in (config_*.json) do (
 
 :START
 echo.
-echo [*] กำลังรันด้วย: %PROFILE%
+echo [*] Running with: %PROFILE%
 echo.
 
 :loop
