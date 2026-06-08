@@ -765,7 +765,10 @@ class StakeDiceBot:
     def claim_rakeback(self):
         query = """
         mutation ClaimRakeback {
-          claimRakeback
+          claimRakeback {
+            amount
+            currency
+          }
         }
         """
         try:
@@ -1019,9 +1022,7 @@ class StakeDiceBot:
                     if matched:
                         virtual_mode = False
                         pattern_str = "-".join(pat)
-                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Resetting to Step 1 and resuming real bet.")
-                        # tg(f"✂️ <b>มังกรขาดแล้ว! (STREAK BREAKER)</b>\nระบบตัดมังกรแดงสำเร็จ บอทรีเซ็ตไปเริ่มไม้ 1 และกลับมาแทงด้วยเงินจริงแล้วด้วยรูปแบบ {pattern_str}!")
-                        martingale_step = 0
+                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Resuming real bet from current step.")
                         current_loss_streak = 0
                         streak = 0
                         streak_type = None
