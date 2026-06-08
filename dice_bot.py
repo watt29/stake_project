@@ -762,6 +762,29 @@ class StakeDiceBot:
                 time.sleep(2 ** attempt)
         return 0.0
 
+    def claim_rakeback(self):
+        query = """
+        mutation ClaimRakeback {
+          claimRakeback
+        }
+        """
+        try:
+            print(" [SYSTEM] Attempting to Auto-Claim Rakeback...")
+            res = self._execute_graphql(query, operation_name="ClaimRakeback")
+            if res and "data" in res and res["data"]:
+                print(" [SYSTEM] ✅ Rakeback Claimed Successfully!")
+                tg("🎁 <b>ระบบ Auto-Claim Rakeback สำเร็จ!</b>\nรับเงินคืนเข้ากระเป๋าเรียบร้อยแล้ว")
+                return True
+            else:
+                if res and "errors" in res:
+                    err = res["errors"][0].get("message", "Unknown Error")
+                    print(f" [SYSTEM] ⚠️ Rakeback claim error: {err}")
+                else:
+                    print(" [SYSTEM] ⚠️ Rakeback claim returned empty response")
+        except Exception as e:
+            print(f" [SYSTEM] ⚠️ Rakeback claim exception: {str(e)}")
+        return False
+
     def place_dice_bet(self, amount, target, condition):
         operation_name = "DiceRoll"
         query = """
@@ -939,6 +962,10 @@ class StakeDiceBot:
                         print(" [!] ERROR: Could not fetch balance. Check your COOKIES or Internet Connection.")
                         time.sleep(5)
                         continue
+                    
+                    # Auto claim rakeback at startup
+                    self.claim_rakeback()
+                    balance = self.get_wallet_balance()
                     # Successfully connected! Now clear and show dashboard
                     # Start the Heartbeat System (Paperclip Mode)
                     threading.Thread(target=corporate_heartbeat, daemon=True).start()
@@ -1110,6 +1137,11 @@ class StakeDiceBot:
                 
                 total_bets += 1
                 total_wagered += current_bet
+                
+                # Auto Claim Rakeback every 1000 bets
+                if total_bets > 0 and total_bets % 1000 == 0:
+                    self.claim_rakeback()
+                    _bot_state['force_balance_check'] = True
                 
                 # COMPANY STYLE PROFIT CALCULATION
                 # Real Net Profit = (Current Balance + Withdrawn) - Initial Capital
