@@ -993,8 +993,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if martingale_step == 0:
                     # base_bet from config.json
-                    if base_bet < 0.0005:
-                        base_bet = 0.0005
+                    if base_bet < 0.005:
+                        base_bet = 0.005
                         
                 if virtual_mode:
                     current_bet = 0.0
@@ -1004,7 +1004,7 @@ class StakeDiceBot:
                 # --- PROACTIVE BALANCE CHECK ---
                 if not virtual_mode and current_bet > balance:
                     self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX. ปรับไปเริ่มไม้ 1 ใหม่อัตโนมัติ...")
-                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {martingale_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.0005 TRX) เพื่อความปลอดภัย</b>")
+                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {martingale_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.005 TRX) เพื่อความปลอดภัย</b>")
                     martingale_step = 0
                     current_bet = base_bet
                 
@@ -1022,7 +1022,7 @@ class StakeDiceBot:
                     err_msg = bet_res["errors"][0].get("message", "")
                     if "balance" in err_msg.lower() or "funds" in err_msg.lower():
                         self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Resetting to Step 1.")
-                        tg(f"🚨 <b>ยอดเงินไม่พอทบไม้! (ตรวจพบจาก API)</b>\nยอดที่มีไม่พอกับยอดที่ต้องการ!\n<b>ระบบปรับไปเริ่มไม้ 1 (0.0005 TRX) ใหม่อัตโนมัติ</b>")
+                        tg(f"🚨 <b>ยอดเงินไม่พอทบไม้! (ตรวจพบจาก API)</b>\nยอดที่มีไม่พอกับยอดที่ต้องการ!\n<b>ระบบปรับไปเริ่มไม้ 1 (0.005 TRX) ใหม่อัตโนมัติ</b>")
                         martingale_step = 0
                         current_loss_streak = 0
                         time.sleep(5)
