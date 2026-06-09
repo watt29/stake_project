@@ -69,6 +69,7 @@ LIFETIME_DEFICIT = _fin.get("lifetime_deficit", 0.0)
 # Global state sharing between threads
 _bot_state = {}
 _stop_event = threading.Event()
+_active_bot = None  # Reference to bot instance for tip commands
 
 def load_stats():
     """Load stats from JSON file."""
@@ -387,6 +388,59 @@ def _handle_command(cmd: str, show_menu=False):
         if os.path.exists(STATS_FILE):
             os.remove(STATS_FILE)
         tg("🧹 <b>ล้างสถิติสะสมเรียบร้อยแล้ว!</b>\nกรุณารีสตาร์ทบอทเพื่อเริ่มนับใหม่")
+    
+    elif cmd.startswith("/tip"):
+        parts = cmd.strip().split()
+        if len(parts) == 3:
+            target_user = parts[1]
+            try:
+                tip_amount = float(parts[2])
+                if tip_amount <= 0:
+                    tg("❌ จำนวนเงินต้องมากกว่า 0 ครับ")
+                elif _active_bot is None:
+                    tg("❌ บอทยังไม่พร้อม ลองใหม่อีกครั้ง")
+                else:
+                    # Execute Tip via Stake API
+                    tip_query = """
+                    mutation SendTip($amount: Float!, $currency: CurrencyEnum!, $username: String!) {
+                      sendTip(amount: $amount, currency: $currency, targetUserName: $username) {
+                        id
+                        amount
+                        currency
+                      }
+                    }
+                    """
+                    variables = {
+                        "amount": tip_amount,
+                        "currency": _active_bot.currency,
+                        "username": target_user
+                    }
+                    tg(f"💸 กำลังโอน <b>{tip_amount:.4f} TRX</b> ไปยัง <b>{target_user}</b>...")
+                    res = _active_bot._execute_graphql(tip_query, variables=variables, operation_name="SendTip")
+                    if res and "data" in res and res["data"] and res["data"].get("sendTip"):
+                        tip_data = res["data"]["sendTip"]
+                        tg(
+                            f"✅ <b>โอนเหรียญสำเร็จ!</b>\n"
+                            f"📤 จาก   : <b>{_CURRENT_PROFILE}</b>\n"
+                            f"📥 ถึง   : <b>{target_user}</b>\n"
+                            f"💵 จำนวน : <b>{tip_amount:.4f} TRX</b>"
+                        )
+                    elif res and "errors" in res:
+                        err = res["errors"][0].get("message", "Unknown error")
+                        tg(f"❌ <b>โอนไม่สำเร็จ!</b>\nสาเหตุ: {err}")
+                    else:
+                        tg("❌ ไม่ได้รับการตอบกลับจาก Stake API")
+            except ValueError:
+                tg("❌ รูปแบบผิด! ตัวอย่าง: <code>/tip watt29 5.5</code>")
+        else:
+            tg(
+                "💸 <b>คำสั่งโอนเหรียญ (Tip)</b>\n\n"
+                "รูปแบบ: <code>/tip [username] [จำนวน]</code>\n\n"
+                "ตัวอย่าง:\n"
+                f"<code>/tip watt29 5.5</code>\n"
+                f"<code>/tip Win29 10</code>\n"
+                f"<code>/tip Gen45 2.5</code>"
+            )
     
     elif cmd == "/report":
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -923,6 +977,9 @@ class StakeDiceBot:
         print(" [DEBUG] 3. Starting Background Threads...")
         _bot_state['session_start'] = datetime.now()
         _bot_state['active'] = True
+        global _active_bot
+        _active_bot = self
+
         listener = threading.Thread(target=_tg_listener, daemon=True)
         listener.start()
         threading.Thread(target=corporate_heartbeat, daemon=True).start()
