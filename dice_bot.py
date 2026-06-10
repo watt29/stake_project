@@ -40,6 +40,7 @@ _STATS_FILE   = os.path.join(_BASE_DIR, f"dice_stats{_profile_suffix}.json")
 _HISTORY_FILE = os.path.join(_BASE_DIR, f"dice_history{_profile_suffix}.csv")
 _EVENT_LOG    = os.path.join(_BASE_DIR, f"dice_events{_profile_suffix}.log")
 _DAILY_REPORT = os.path.join(_BASE_DIR, f"daily_accounting_report{_profile_suffix}.csv")
+_DEPOSIT_FILE = os.path.join(_BASE_DIR, f"deposit_history{_profile_suffix}.csv")
 
 def _load_config():
     if not os.path.exists(_CONFIG_FILE):
@@ -86,12 +87,12 @@ def load_stats():
         "losses": 0,
         "max_loss_streak": 0,
         "max_single_loss": 0.0,
-        "last_martingale_step": 0,
+        "last_fib_step": 0,
         "last_condition": None,
         "initial_balance": 0.0,
         "total_withdrawn": _fin.get("total_withdrawn", 0.0),
         "total_deposited": 0.0,
-        "max_martingale_step": 0,
+        "max_fib_step": 0,
         "initial_capital": _fin.get("initial_capital", 0.0),
         "locked_profit": 0.0,
         "reserve_fund": 0.0,
@@ -123,6 +124,15 @@ def _tg_worker(url, payload):
     try: requests.post(url, json=payload, timeout=10)
     except: pass
 
+
+def get_fib_multiplier(n):
+    if n <= 0: return 1
+    if n == 1: return 1
+    a, b = 1, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+
 def tg(msg, reply_markup=None):
     """Corporate Reporting System (CEO to Board)"""
     full_msg = f"👤 [<b>{_CURRENT_PROFILE}</b>]\n{msg}"
@@ -138,6 +148,17 @@ def tg_edit(chat_id, message_id, msg, reply_markup=None):
     payload = {"chat_id": chat_id, "message_id": message_id, "text": full_msg, "parse_mode": "HTML"}
     if reply_markup: payload["reply_markup"] = reply_markup
     threading.Thread(target=_tg_worker, args=(url, payload), daemon=True).start()
+
+def log_deposit_to_csv(amount, current_balance):
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        file_exists = os.path.exists(_DEPOSIT_FILE)
+        with open(_DEPOSIT_FILE, "a", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["Timestamp", "DepositAmount", "BalanceAfter"])
+            writer.writerow([now, f"{amount:.8f}", f"{current_balance:.8f}"])
+    except: pass
 
 def tg_answer_callback(callback_query_id):
     """Acknowledge callback query to remove loading spinner"""
@@ -162,9 +183,10 @@ def main_menu_markup():
             ],
             [
                 {"text": "🎯 ตั้ง Take Profit", "callback_data": "tp_menu"},
-                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"}
+                {"text": "📥 ประวัติเติมเงิน", "callback_data": "/deposits"}
             ],
             [
+                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"},
                 {"text": "🔴 หยุดบอท", "callback_data": "/stop"}
             ]
         ]
@@ -228,7 +250,7 @@ def corporate_heartbeat():
                 f"{p_icon} P/L     : <b>{profit:+.4f} TRX</b>\n"
                 f"📊 Win Rate : <b>{wr:.1f}%</b>\n"
                 f"🎰 Bets     : <b>{bets:,}</b>\n"
-                f"📍 Step     : <b>{_bot_state.get('martingale_step', 1)}</b>\n"
+                f"📍 Step     : <b>{_bot_state.get('fib_step', 1)}</b>\n"
                 f"⏱️ Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
                 reply_markup=main_menu_markup()
             )
@@ -275,6 +297,35 @@ def _handle_command(cmd: str, show_menu=False):
             f"🎰 Bets: {s.get('bets', 0):,} | WR: {wr:.1f}%\n"
             f"<i>Reported by: Board of Directors Bot</i>"
         )
+    elif cmd == "/deposits":
+        balance = s.get('balance', 0)
+        msg = f"💰 <b>ยอดเงินคงเหลือปัจจุบัน:</b> {balance:.4f} TRX\n"
+        msg += "--------------------------------\n"
+        
+        if os.path.exists(_DEPOSIT_FILE):
+            try:
+                with open(_DEPOSIT_FILE, "r", encoding="utf-8-sig") as f:
+                    lines = f.readlines()
+                if len(lines) > 1:
+                    recent = lines[1:][-10:] # Skip header, get last 10
+                    latest_line = recent[-1]
+                    parts = latest_line.strip().split(',')
+                    if len(parts) >= 3:
+                        msg += f"⚡ <b>ยอดเติมล่าสุด:</b> +{parts[1]} TRX ({parts[0]})\n"
+                    
+                    msg += "--------------------------------\n"
+                    msg += "📥 <b>ประวัติย้อนหลัง (สูงสุด 10 ครั้ง)</b>\n"
+                    for line in reversed(recent): # Show newest first
+                        parts = line.strip().split(',')
+                        if len(parts) >= 3:
+                            msg += f"• <b>+{parts[1]} TRX</b> | {parts[0]}\n"
+                    tg(msg)
+                else:
+                    tg(msg + "📥 ยังไม่มีประวัติการเติมเงินในระบบครับ")
+            except:
+                tg("⚠️ ไม่สามารถอ่านไฟล์ประวัติการเติมเงินได้")
+        else:
+            tg(msg + "📥 ยังไม่มีประวัติการเติมเงินในระบบครับ")
     elif cmd == "/profit":
         p = s.get('profit', 0)
         icon = "🟢" if p >= 0 else "🔴"
@@ -311,12 +362,12 @@ def _handle_command(cmd: str, show_menu=False):
             f"--------------------------------\n"
             f"🏆 <b>ALL-TIME RECORDS</b>\n"
             f"Max Loss Streak: {s.get('max_loss_streak', 0)} ครั้ง\n"
-            f"Max Step   : ขั้นที่ {s.get('max_martingale_step', 0)}\n"
+            f"Max Step   : ขั้นที่ {s.get('max_fib_step', 0)}\n"
             f"Max Single Bet : {s.get('max_single_loss', 0):.8f} TRX\n"
             f"--------------------------------\n"
             f"⚙️ <b>STRATEGY STATS</b>\n"
             f"Win Rate      : {wr:.1f}%\n"
-            f"Step      : {s.get('martingale_step', 1)}\n"
+            f"Step      : {s.get('fib_step', 1)}\n"
             f"Condition Sw  : {s.get('switches', 0)} ครั้ง\n"
             f"Last Result   : {s.get('streak', 0)} {s.get('streak_type', '-')}\n"
             f"Current Bet   : {s.get('current_bet', 0):.8f} TRX\n"
@@ -344,7 +395,7 @@ def _handle_command(cmd: str, show_menu=False):
             tg("❌ รูปแบบผิด! ใช้: <code>/reset_at 100</code>")
     elif cmd == "/check":
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
-        step = s.get('martingale_step', 1)
+        step = s.get('fib_step', 1)
         profit = s.get('profit', 0)
         status = "🟢 <b>แข็งแรงมาก (Healthy)</b>"
         advice = "บอททำงานปกติ เดินหน้าต่อได้ยาวๆ ครับ"
@@ -553,7 +604,7 @@ def _tg_listener():
         time.sleep(1)
 
 # ============================================================
-#  STAKE DICE BOT - MARTINGALE STRATEGY + CMD DASHBOARD
+#  STAKE DICE BOT - FIBONACCI STRATEGY + CMD DASHBOARD
 # ============================================================
 
 def clear():
@@ -931,7 +982,7 @@ class StakeDiceBot:
         losses = persistent.get("losses", 0)
         max_loss_streak = persistent.get("max_loss_streak", 0)
         max_single_loss = persistent.get("max_single_loss", 0.0)
-        martingale_step = persistent.get("last_martingale_step", 0)
+        fib_step = persistent.get("last_fib_step", 0)
         saved_condition = persistent.get("last_condition")
         current_condition = saved_condition if saved_condition else condition
         if current_condition == "above":
@@ -940,14 +991,14 @@ class StakeDiceBot:
             target = 49.00
         total_withdrawn = persistent.get("total_withdrawn", 300.0)
         total_deposited = persistent.get("total_deposited", 0.0)
-        max_martingale_step = persistent.get("max_martingale_step", 0)
+        max_fib_step = persistent.get("max_fib_step", 0)
         start_balance = persistent.get("initial_balance", 0.0)
         initial_capital = persistent.get("initial_capital", 1243.154)
         peak_equity = persistent.get("peak_equity", 0.0)
         max_drawdown = persistent.get("max_drawdown", 0.0)
 
         print(" [DEBUG] 1. Setting up strategy variables...")
-        # Martingale system initialized
+        # Fibonacci system initialized
         
         print(" [DEBUG] 2. Initializing session parameters...")
         self.next_rotation_bet = random.randint(800, 1500)
@@ -965,7 +1016,7 @@ class StakeDiceBot:
         
         cycle_start_balance = 0.0
         
-        BET_ALERT_MULTIPLIERS = [100, 250, 500, 1000]
+        BET_ALERT_MULTIPLIERS = [1000, 2000, 5000, 10000]
         STREAK_MILESTONES    = {15, 20, 25, 30, 35} 
         condition_switches = 0
         BALANCE_REPORT_EVERY = 500
@@ -1066,16 +1117,16 @@ class StakeDiceBot:
                 # Calculate Session Profit
                 session_profit = balance - _bot_state.get('start_balance', balance)
 
-                # Randomize Over/Under on every roll for maximum entropy (both = 49% win chance)
+                # สลับสุ่มระหว่าง Over 51.00 และ Under 49.00 ทุกตา (โอกาสชนะ 49% เท่ากัน)
                 current_condition = random.choice(["above", "below"])
                 target = 51.00 if current_condition == "above" else 49.00
 
-                # --- VIRTUAL PAUSE MODE (3-LOSS) ---
-                if current_loss_streak >= 3 and not virtual_mode:
+                # --- VIRTUAL PAUSE MODE (STREAK BREAKER) ---
+                if current_loss_streak >= 4 and not virtual_mode:
                     virtual_mode = True
-                    virtual_escape_pattern = ['W']
+                    virtual_escape_pattern = ['W', 'W']
                     pattern_str = " - ".join(virtual_escape_pattern)
-                    self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 3 ตา รอชนะ 1 ครั้งด้วยรูปแบบ {pattern_str})")
+                    self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 4 ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
                     # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด ({pattern_str}) เพื่อความปลอดภัย")
                 
                 if virtual_mode:
@@ -1093,7 +1144,7 @@ class StakeDiceBot:
                         streak_type = None
                 
                 # --- BET SIZING ---
-                if martingale_step == 0:
+                if fib_step == 0:
                     # base_bet from config.json
                     if base_bet < 0.0005:
                         base_bet = 0.0005
@@ -1101,21 +1152,20 @@ class StakeDiceBot:
                 if virtual_mode:
                     current_bet = 0.0
                 else:
-                    current_bet = round(base_bet * (2 ** martingale_step), 8)
+                    current_bet = round(base_bet * get_fib_multiplier(fib_step), 8)
 
                 # --- PROACTIVE BALANCE CHECK ---
                 if not virtual_mode and current_bet > balance:
                     self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX. ปรับไปเริ่มไม้ 1 ใหม่อัตโนมัติ...")
-                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {martingale_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.0005 TRX) เพื่อความปลอดภัย</b>")
-                    martingale_step = 0
-                    current_bet = base_bet
+                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.0005 TRX) เพื่อความปลอดภัย</b>")
+                    fib_step = 0
                     current_loss_streak = 0
                     streak = 0
                     streak_type = None
                 
                 if _stop_event.is_set(): return
 
-                stress_trigger = (martingale_step >= 14)
+                stress_trigger = (fib_step >= 14)
                 time_trigger = (total_bets >= self.next_rotation_bet)
                 if stress_trigger or time_trigger:
                     reason = "High Stress" if stress_trigger else "Adaptive"
@@ -1128,7 +1178,7 @@ class StakeDiceBot:
                     if "balance" in err_msg.lower() or "funds" in err_msg.lower():
                         self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Resetting to Step 1.")
                         tg(f"🚨 <b>ยอดเงินไม่พอทบไม้! (ตรวจพบจาก API)</b>\nยอดที่มีไม่พอกับยอดที่ต้องการ!\n<b>ระบบปรับไปเริ่มไม้ 1 (0.0005 TRX) ใหม่อัตโนมัติ</b>")
-                        martingale_step = 0
+                        fib_step = 0
                         current_loss_streak = 0
                         streak = 0
                         streak_type = None
@@ -1206,6 +1256,7 @@ class StakeDiceBot:
                         # ฝากเงินเพิ่ม → อัปเดตต้นทุนอัตโนมัติ
                         total_deposited += delta
                         initial_capital += delta
+                        log_deposit_to_csv(delta, new_balance)
                         tg(
                             f"🏦 <b>ตรวจพบการฝากเงิน!</b>\n"
                             f"💵 ฝากเพิ่ม : <b>+{delta:.4f} TRX</b>\n"
@@ -1246,7 +1297,13 @@ class StakeDiceBot:
                         if streak_type == "W": streak += 1
                         else: streak, streak_type = 1, "W"
                         
-                        martingale_step = 0
+                        fib_step -= 2
+                        if fib_step < 0: fib_step = 0
+                        
+                        # Reset Fibonacci fully on 2 consecutive real wins (W-W)
+                        if streak_type == "W" and streak >= 2:
+                            self.log_event("🔄 Real W-W achieved: Resetting Fibonacci step to 0")
+                            fib_step = 0
                 else:
                     if virtual_mode:
                         pass # Do nothing special for virtual loss
@@ -1254,12 +1311,12 @@ class StakeDiceBot:
                         losses += 1
                         current_loss_streak += 1
                         if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
-                        if martingale_step > max_martingale_step:
-                            max_martingale_step = martingale_step
-                            if max_martingale_step >= 10:
-                                self.log_event(f"🧗 Climber: Reached new high Step {max_martingale_step+1}")
+                        if fib_step > max_fib_step:
+                            max_fib_step = fib_step
+                            if max_fib_step >= 10:
+                                self.log_event(f"🧗 Climber: Reached new high Step {max_fib_step+1}")
                         if current_bet > max_single_loss: max_single_loss = current_bet
-                        martingale_step += 1
+                        fib_step += 1
                     
                     if streak_type == "L": streak += 1
                     else: streak, streak_type = 1, "L"
@@ -1282,15 +1339,18 @@ class StakeDiceBot:
                     self.log_event(f"🏁 Take Profit Reached: {total_profit:.8f} TRX. Resetting and continuing.")
                     
                     # Reset strategy and profit tracking for the next cycle
-                    if martingale_step >= 14: # Step 15 or higher
-                        tg(f"⚠️ <b>HIGH-RISK RECOVERY DETECTED (Step {martingale_step+1})</b>\n"
+                    if fib_step >= 14: # Step 15 or higher
+                        tg(f"⚠️ <b>HIGH-RISK RECOVERY DETECTED (Step {fib_step+1})</b>\n"
                        f"CEO สั่งการให้พักพนักงาน 15 นาที เพื่อความปลอดภัยของเงินทุนและเปลี่ยนจังหวะ Seed...")
-                        self.log_event(f"Safety Pause triggered after Step {martingale_step+1} recovery.")
+                        self.log_event(f"Safety Pause triggered after Step {fib_step+1} recovery.")
                         # Rotate seed to be sure
                         self.rotate_seed("High-Risk Recovery")
                         time.sleep(900) # 15 minutes pause
                     
-                    martingale_step = 0
+                    fib_step -= 2
+
+                    
+                    if fib_step < 0: fib_step = 0
                     current_loss_streak = 0
                     streak = 0
                     streak_type = None
@@ -1319,12 +1379,12 @@ class StakeDiceBot:
                     "losses": losses,
                     "max_loss_streak": max_loss_streak,
                     "max_single_loss": max_single_loss,
-                    "last_martingale_step": martingale_step,
+                    "last_fib_step": fib_step,
                     "last_condition": current_condition,
                     "initial_balance": start_balance,
                     "total_withdrawn": total_withdrawn,
                     "total_deposited": total_deposited,
-                    "max_martingale_step": max_martingale_step,
+                    "max_fib_step": max_fib_step,
                     "initial_capital": initial_capital,
                     "peak_equity": peak_equity,
                     "max_drawdown": max_drawdown,
@@ -1345,8 +1405,8 @@ class StakeDiceBot:
                     'wins'          : wins,
                     'max_loss_streak': max_loss_streak,
                     'max_single_loss': max_single_loss,
-                    'max_martingale_step'  : max_martingale_step,
-                    'martingale_step'      : martingale_step + 1,
+                    'max_fib_step'  : max_fib_step,
+                    'fib_step'      : fib_step + 1,
                     'condition'     : current_condition,
                     'switches'      : condition_switches,
                     'streak'        : streak,
@@ -1369,18 +1429,18 @@ class StakeDiceBot:
 
                 # ── 5. การแจ้งเตือนพิเศษ (Telegram Alerts) ──
                 if payout > 0:
-                    if martingale_step == 0 and current_highest_alert > 0: # กลับมาที่ step 1 หลังติดหล่ม
+                    if fib_step == 0 and current_highest_alert > 0: # กลับมาที่ step 1 หลังติดหล่ม
                         tg(f"✅ <b>ดึงทุนคืนสำเร็จ! (Full Recovery)</b>\nสถานะ: กลับเข้าสู่ภาวะปกติ\nProfit รวม : {total_profit:+.8f} TRX")
                         current_highest_alert = 0
                 else:
                     # New Record Alert (Step / Streak)
                     # แจ้งเตือนเมื่อทำลายสถิติเดิม (16, 17, 18...)
-                    if (martingale_step + 1) > persistent.get("max_martingale_step", 0) and (martingale_step + 1) >= 15:
-                         danger = "🔴 อันตราย!" if martingale_step + 1 >= 18 else "🟠 ระวัง!"
+                    if (fib_step + 1) > persistent.get("max_fib_step", 0) and (fib_step + 1) >= 15:
+                         danger = "🔴 อันตราย!" if fib_step + 1 >= 18 else "🟠 ระวัง!"
                          tg(
                              f"🏆 <b>ทำลายสถิติใหม่! (Max Step)</b>\n"
                              f"━━━━━━━━━━━━━━━━\n"
-                             f"📍 ขั้นที่     : <b>{martingale_step+1}</b>  {danger}\n"
+                             f"📍 ขั้นที่     : <b>{fib_step+1}</b>  {danger}\n"
                              f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
                              f"💰 Balance     : <b>{new_balance:.4f} TRX</b>\n"
                              f"📉 P/L         : <b>{total_profit:+.4f} TRX</b>\n"
@@ -1388,14 +1448,14 @@ class StakeDiceBot:
                              f"━━━━━━━━━━━━━━━━\n"
                              f"<i>⚠️ พิจารณาหยุดบอทถ้า Step สูงมาก</i>"
                          )
-                         persistent["max_martingale_step"] = (martingale_step + 1)
+                         persistent["max_fib_step"] = (fib_step + 1)
 
                     if current_loss_streak > persistent.get("max_loss_streak", 0) and current_loss_streak >= 15:
                          tg(
                              f"🔥 <b>ทำลายสถิติใหม่! (Max Streak)</b>\n"
                              f"━━━━━━━━━━━━━━━━\n"
                              f"💥 แพ้ต่อเนื่อง : <b>{current_loss_streak} ครั้ง</b>\n"
-                             f"📍 ขั้นที่      : <b>{martingale_step+1}</b>\n"
+                             f"📍 ขั้นที่      : <b>{fib_step+1}</b>\n"
                              f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
                              f"💰 Balance      : <b>{new_balance:.4f} TRX</b>\n"
                              f"📉 P/L          : <b>{total_profit:+.4f} TRX</b>"
@@ -1409,11 +1469,11 @@ class StakeDiceBot:
                         if bet_mult >= m: target_m = m; break
                     if target_m > current_highest_alert:
                         current_highest_alert = target_m
-                        tg(f"🚨 <b>Bet ใหญ่ถึง {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} TRX\nStep: {martingale_step+1}")
+                        tg(f"🚨 <b>Bet ใหญ่ถึง {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} TRX\nStep: {fib_step+1}")
 
                     # Milestone Streak
                     if current_loss_streak in STREAK_MILESTONES:
-                        tg(f"💥 <b>แพ้ต่อเนื่อง {current_loss_streak} ครั้ง</b>\nStep: {martingale_step+1}\nProfit: {total_profit:+.8f} TRX")
+                        tg(f"💥 <b>แพ้ต่อเนื่อง {current_loss_streak} ครั้ง</b>\nStep: {fib_step+1}\nProfit: {total_profit:+.8f} TRX")
 
                 # Health Check (ทุก 100 bets)
                 if total_bets % BALANCE_REPORT_EVERY == 0:
@@ -1424,7 +1484,7 @@ class StakeDiceBot:
                         f"━━━━━━━━━━━━━━━━\n"
                         f"💰 Balance  : <b>{balance:.4f} TRX</b>\n"
                         f"📊 Win Rate : <b>{win_rate_now:.1f}%</b>\n"
-                        f"📍 Step     : <b>{martingale_step+1}</b>\n"
+                        f"📍 Step     : <b>{fib_step+1}</b>\n"
                         f"⏱️ Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
                         reply_markup=main_menu_markup()
                     )
@@ -1433,7 +1493,7 @@ class StakeDiceBot:
                 status_str = "WIN" if is_win else "LOSS"
                 self.log_to_csv([
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    mode_str, martingale_step+1, current_bet, target, current_condition, result, payout, status_str, streak, streak_type
+                    mode_str, fib_step+1, current_bet, target, current_condition, result, payout, status_str, streak, streak_type
                 ])
 
                 # ========== COMMANDER BRIAN | FULL DISCLOSURE DASHBOARD ==========
@@ -1454,8 +1514,8 @@ class StakeDiceBot:
                     print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}")
                     print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
                 else:
-                    next_bet_amount = round(base_bet * (2 ** martingale_step), 8)
-                    print(f"  Current Step    : Step {martingale_step+1} (x{(2 ** martingale_step)})")
+                    next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
+                    print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
                     print(f"  Bet Amount      : {next_bet_amount:.8f} TRX | Roll {current_condition.upper()} {target}")
                 
                 # Progress Bar for Goal (Only if set)
