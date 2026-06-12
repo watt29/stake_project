@@ -1,5 +1,1 @@
-{
-    "isolated_wins_threshold": 18,
-    "loss_streak_threshold": 5,
-    "sawtooth_length": 6
-}
+{"isolated_wins_threshold": 18, "loss_streak_threshold": 5, "sawtooth_length": 6}

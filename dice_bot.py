@@ -11,6 +11,7 @@ import uuid
 import threading
 import sys
 import math
+import subprocess
 from datetime import datetime
 
 # Force UTF-8 for Windows console
@@ -41,6 +42,40 @@ _HISTORY_FILE = os.path.join(_BASE_DIR, f"dice_history{_profile_suffix}.csv")
 _EVENT_LOG    = os.path.join(_BASE_DIR, f"dice_events{_profile_suffix}.log")
 _DAILY_REPORT = os.path.join(_BASE_DIR, f"daily_accounting_report{_profile_suffix}.csv")
 _DEPOSIT_FILE = os.path.join(_BASE_DIR, f"deposit_history{_profile_suffix}.csv")
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class SkillManager(FileSystemEventHandler):
+    def __init__(self, config_path):
+        self.config_path = config_path
+        # Default fallback skills
+        self.ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
+        self.load_skills()
+
+    def load_skills(self):
+        try:
+            # ป้องกัน I/O Race Condition
+            time.sleep(0.1)
+            with open(self.config_path, 'r', encoding="utf-8") as f:
+                new_skills = json.load(f)
+                
+            # Schema Validation
+            required_keys = ["isolated_wins_threshold", "loss_streak_threshold", "sawtooth_length"]
+            for key in required_keys:
+                if key not in new_skills or not isinstance(new_skills[key], (int, float)):
+                    raise ValueError(f"Invalid or missing key: {key}")
+            
+            # Atomic Replacement
+            self.ai_skills = new_skills
+            print(f"\n🚀 [Hot Reload] AI Skills updated in Memory: {self.ai_skills}")
+        except Exception as e:
+            print(f"\n⚠️ [Error] Failed to load AI Skills, using memory fallback: {e}")
+
+    def on_modified(self, event):
+        # normalize paths to prevent cross-platform issues
+        if os.path.normpath(self.config_path) in os.path.normpath(event.src_path):
+            self.load_skills()
 
 def _load_config():
     if not os.path.exists(_CONFIG_FILE):
@@ -668,7 +703,9 @@ class ZScoreSeedRotator:
             self.results.clear()
 
 class StakeDiceBot:
-    def __init__(self, token, cookies, currency="trx", simulate=False, mirror_host="stake.games", proxy=""):
+    def __init__(self, token, cookies, currency="trx", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None):
+        self.token = token
+        self.skill_manager = skill_manager
         self.api_url = f"https://{mirror_host}/_api/graphql"
         self.currency = currency.lower()
         self.simulate = simulate
@@ -1148,16 +1185,10 @@ class StakeDiceBot:
                 current_condition = random.choice(["above", "below"])
                 target = 51.00 if current_condition == "above" else 49.00
 
-                # --- LOAD HERMES AI SKILLS DYNAMICALLY ---
-                try:
-                    import json, os
-                    skills_path = "ai_skills.json"
-                    if os.path.exists(skills_path):
-                        with open(skills_path, "r", encoding="utf-8") as f:
-                            ai_skills = json.load(f)
-                    else:
-                        ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
-                except Exception:
+                # --- PULL HERMES AI SKILLS FROM RAM ---
+                if hasattr(self, 'skill_manager') and self.skill_manager:
+                    ai_skills = self.skill_manager.ai_skills
+                else:
                     ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
                 
                 ai_sawtooth_len = ai_skills.get("sawtooth_length", 6)
@@ -1660,8 +1691,29 @@ if __name__ == "__main__":
     print(f"[CONFIG] Telegram Chat: {TELEGRAM_CHAT_ID}")
     print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
+    # ===== START WATCHDOG HOT RELOAD =====
+    skill_manager = SkillManager(os.path.join(_BASE_DIR, "ai_skills.json"))
+    observer = Observer()
+    observer.schedule(skill_manager, path=_BASE_DIR, recursive=False)
+    observer.start()
+
     bot = StakeDiceBot(TOKEN, COOKIES, currency=CURRENCY, simulate=SIMULATE,
-                       mirror_host=MIRROR_HOST, proxy=PROXY)
+                       mirror_host=MIRROR_HOST, proxy=PROXY, skill_manager=skill_manager)
+
+    # ===== AUTO-HERMES AI LOOP =====
+    def auto_hermes():
+        while True:
+            # Wait 60 minutes before running the AI brain
+            time.sleep(3600)
+            try:
+                # Run the AI brain silently in the background
+                subprocess.run(["python", "hermes_brain.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                pass
+
+    # Start the AI in a background daemon thread so it runs alongside the bot
+    ai_thread = threading.Thread(target=auto_hermes, daemon=True)
+    ai_thread.start()
 
     # ===== RESURRECTION LOOP =====
     while True:
