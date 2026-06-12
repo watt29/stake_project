@@ -46,6 +46,21 @@ _DEPOSIT_FILE = os.path.join(_BASE_DIR, f"deposit_history{_profile_suffix}.csv")
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+import logging
+
+# ==========================================
+# 1. ตั้งค่าระบบ Logging
+# ==========================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(os.path.join(_BASE_DIR, f"hot_reload_audit{_profile_suffix}.log"), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
 class SkillManager(FileSystemEventHandler):
     def __init__(self, config_path):
         self.config_path = config_path
@@ -60,17 +75,51 @@ class SkillManager(FileSystemEventHandler):
             with open(self.config_path, 'r', encoding="utf-8") as f:
                 new_skills = json.load(f)
                 
-            # Schema Validation
-            required_keys = ["isolated_wins_threshold", "loss_streak_threshold", "sawtooth_length"]
-            for key in required_keys:
-                if key not in new_skills or not isinstance(new_skills[key], (int, float)):
-                    raise ValueError(f"Invalid or missing key: {key}")
+            # ==========================================
+            # เริ่มขั้นตอน Schema Validation
+            # ==========================================
+            expected_schema = {
+                "isolated_wins_threshold": int,
+                "loss_streak_threshold": int,
+                "sawtooth_length": int
+            }
+            
+            # เช็ค Key Existence และ Type Checking
+            for key, expected_type in expected_schema.items():
+                if key not in new_skills:
+                    raise ValueError(f"คีย์ที่จำเป็นสูญหาย: '{key}'")
+                if not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool):
+                    raise TypeError(f"คีย์ '{key}' ต้องเป็นตัวเลข ({expected_type.__name__}) เท่านั้น")
+
+            # เช็ค Value Constraints
+            if new_skills["loss_streak_threshold"] <= 0:
+                raise ValueError("loss_streak_threshold ต้องมีค่ามากกว่า 0")
+            if new_skills["sawtooth_length"] < 2:
+                raise ValueError("sawtooth_length ต้องมีความยาวอย่างน้อย 2")
+            
+            # ==========================================
+            # 2. การทำ Logging เมื่อ Hot Reload สำเร็จ
+            # ==========================================
+            old_skills = self.ai_skills.copy() # เก็บค่าเดิมไว้เทียบก่อน
             
             # Atomic Replacement
             self.ai_skills = new_skills
-            print(f"\n🚀 [Hot Reload] AI Skills updated in Memory: {self.ai_skills}")
+            
+            if old_skills != self.ai_skills:
+                logging.info(
+                    f"🚀 [Hot Reload Success] AI Skills updated!\n"
+                    f"   --> Old: {old_skills}\n"
+                    f"   --> New: {self.ai_skills}"
+                )
+            else:
+                logging.debug("⚡ [Hot Reload] File modified but values remain unchanged.")
+            
+        except json.JSONDecodeError:
+            logging.error("⚠️ [JSON Error] โครงสร้างไฟล์ JSON ไม่สมบูรณ์ (อาจกำลังถูกเขียนทับ) บอทจะใช้ค่าเดิมต่อไป")
+        except (ValueError, TypeError) as validate_err:
+            logging.warning(f"🛡️ [Validation Failed] ค่า Config ไม่ปลอดภัย: {validate_err} -> บอทจะใช้ค่าเดิมต่อไป")
         except Exception as e:
-            print(f"\n⚠️ [Error] Failed to load AI Skills, using memory fallback: {e}")
+            logging.error(f"⚠️ [Error] โหลด AI Skills ล้มเหลวด้วยสาเหตุอื่น: {e} -> บอทจะใช้ค่าเดิมต่อไป")
 
     def on_modified(self, event):
         # normalize paths to prevent cross-platform issues
@@ -215,19 +264,22 @@ def main_menu_markup():
             ],
             [
                 {"text": "ℹ️ ข้อมูลบอท", "callback_data": "/info"},
-                {"text": "🏥 สุขภาพบอท", "callback_data": "/check"}
+                {"text": "🏥 สุขภาพบอท", "callback_data": "/health"}
             ],
             [
-                {"text": "⚙️ การตั้งค่า", "callback_data": "/config"},
-                {"text": "📄 รายงานบัญชี", "callback_data": "/report"}
+                {"text": "🎯 ตั้งเป้ากำไร", "callback_data": "tp_menu"},
+                {"text": "🛑 ตั้งจุดพักบอท", "callback_data": "sl_menu"}
             ],
-                        [
-                {"text": "🏥 เช็กสุขภาพบอท", "callback_data": "/health"},
+            [
+                {"text": "📄 รายงานบัญชี", "callback_data": "/report"},
                 {"text": "📥 ประวัติเติมเงิน", "callback_data": "/deposits"}
             ],
             [
-                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"},
-                {"text": "🔴 หยุดบอท", "callback_data": "/stop"}
+                {"text": "⚙️ การตั้งค่า", "callback_data": "/config"},
+                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"}
+            ],
+            [
+                {"text": "♻️ รีสตาร์ท / หยุดบอท", "callback_data": "/stop"}
             ]
         ]
     }
@@ -375,15 +427,36 @@ def _handle_command(cmd: str, show_menu=False):
         v_mode = "เปิด (แทงลม)" if v_state != "NONE" else "ปิด (เงินจริง)"
         balance = s.get('balance', 0)
         
+        wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
+        step = s.get('fib_step', 1)
+        profit = s.get('profit', 0)
+        
+        status = "🟢 <b>แข็งแรงมาก (Healthy)</b>"
+        advice = "บอททำงานปกติ เดินหน้าต่อได้ยาวๆ ครับ"
+        if wr < 47:
+            status = "🟡 <b>เฝ้าระวัง (Warning)</b>"
+            advice = "ช่วงนี้ดวงตกเล็กน้อย แพ้บ่อยกว่าปกติ"
+        if step >= 10:
+            status = "🟠 <b>ความดันสูง (Caution)</b>"
+            advice = "บอทกำลังสู้หนัก (Step 10+) ควรจับตาดูใกล้ชิด"
+        if step >= 18:
+            status = "🔴 <b>อันตราย (Critical)</b>"
+            advice = "เสี่ยงพอร์ตแตก! พิจารณาหยุดบอทชั่วคราว"
+        if profit < 0:
+            advice += "\n<i>*ตอนนี้ยังอยู่ในช่วงทวงทุนคืน</i>"
+
         msg = (
-            "🏥 <b>สถานะระบบบอท (Health Check)</b>\n"
+            "🏥 <b>สถานะระบบบอท (System & Strategy Health)</b>\n"
             "--------------------------------\n"
-            f"🔌 <b>API Status:</b> {api_status}\n"
-            f"💰 <b>Balance:</b> {balance:.4f} TRX\n"
+            f"🔌 <b>API Status :</b> {api_status}\n"
+            f"⚠️ <b>Last Error :</b> {last_err} ({err_count} ครั้ง)\n"
             f"🌬️ <b>Virtual Mode:</b> {v_mode}\n"
-            f"⚠️ <b>Last Error:</b> {last_err} ({err_count} ครั้ง)\n"
             "--------------------------------\n"
-            "✅ บอทยังเชื่อมต่อและทำงานอยู่"
+            f"📊 <b>Strategy   :</b> {status}\n"
+            f"🎯 <b>Win Rate   :</b> {wr:.1f}%\n"
+            f"📈 <b>Fib Step   :</b> ขั้นที่ {step}\n"
+            "--------------------------------\n"
+            f"🩺 <b>คำแนะนำ:</b>\n{advice}"
         )
         tg(msg)
     elif cmd == "/profit":
@@ -453,34 +526,7 @@ def _handle_command(cmd: str, show_menu=False):
             tg(f"🔄 <b>ตั้งจุดพักยกอัตโนมัติ (Auto-Reset)</b>\nบอทจะพัก 2 นาทีเมื่อติดลบถึง: <b>-{abs(val):.2f} TRX</b>")
         except:
             tg("❌ รูปแบบผิด! ใช้: <code>/reset_at 100</code>")
-    elif cmd == "/check":
-        wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
-        step = s.get('fib_step', 1)
-        profit = s.get('profit', 0)
-        status = "🟢 <b>แข็งแรงมาก (Healthy)</b>"
-        advice = "บอททำงานปกติ เดินหน้าต่อได้ยาวๆ ครับ"
-        if wr < 47:
-            status = "🟡 <b>เฝ้าระวัง (Warning)</b>"
-            advice = "ช่วงนี้ดวงตกเล็กน้อย แพ้บ่อยกว่าปกติ"
-        if step >= 10:
-            status = "🟠 <b>ความดันสูง (Caution)</b>"
-            advice = "บอทกำลังสู้หนัก (Step 10+) ควรจับตาดูใกล้ชิด"
-        if step >= 18:
-            status = "🔴 <b>อันตราย (Critical)</b>"
-            advice = "เสี่ยงพอร์ตแตก! พิจารณาหยุดบอทชั่วคราว"
-        if profit < 0:
-            advice += "\n<i>*ตอนนี้ยังอยู่ในช่วงทวงทุนคืน</i>"
 
-        tg(
-            f"🏥 <b>ผลตรวจสุขภาพบอท</b>\n"
-            f"สถานะ: {status}\n"
-            f"------------------------\n"
-            f"Win Rate : {wr:.1f}% (เป้าหมาย 49%)\n"
-            f"Step : ขั้นที่ {step}\n"
-            f"Profit   : {profit:+.8f} TRX\n"
-            f"------------------------\n"
-            f"🩺 <b>คำแนะนำ:</b>\n{advice}"
-        )
     elif cmd == "/config":
         tp = s.get('take_profit', 0)
         sl = s.get('stop_loss', 0)
