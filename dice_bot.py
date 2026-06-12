@@ -87,6 +87,11 @@ def load_stats():
         "losses": 0,
         "max_loss_streak": 0,
         "max_single_loss": 0.0,
+
+        # W-W Trackers
+        "real_consecutive_wins": 0,
+        "recent_all_bets": [], # To replace the "recent" list
+
         "last_fib_step": 0,
         "last_condition": None,
         "initial_balance": 0.0,
@@ -181,8 +186,8 @@ def main_menu_markup():
                 {"text": "⚙️ การตั้งค่า", "callback_data": "/config"},
                 {"text": "📄 รายงานบัญชี", "callback_data": "/report"}
             ],
-            [
-                {"text": "🎯 ตั้ง Take Profit", "callback_data": "tp_menu"},
+                        [
+                {"text": "🏥 เช็กสุขภาพบอท", "callback_data": "/health"},
                 {"text": "📥 ประวัติเติมเงิน", "callback_data": "/deposits"}
             ],
             [
@@ -326,6 +331,25 @@ def _handle_command(cmd: str, show_menu=False):
                 tg("⚠️ ไม่สามารถอ่านไฟล์ประวัติการเติมเงินได้")
         else:
             tg(msg + "📥 ยังไม่มีประวัติการเติมเงินในระบบครับ")
+    
+    elif cmd == "/health":
+        last_err = s.get('last_error', 'ไม่มี')
+        err_count = s.get('error_count', 0)
+        api_status = s.get('api_status', '🟢 ปกติ')
+        v_mode = "เปิด (แทงลม)" if s.get('virtual_mode', False) else "ปิด (เงินจริง)"
+        balance = s.get('balance', 0)
+        
+        msg = (
+            "🏥 <b>สถานะระบบบอท (Health Check)</b>\n"
+            "--------------------------------\n"
+            f"🔌 <b>API Status:</b> {api_status}\n"
+            f"💰 <b>Balance:</b> {balance:.4f} TRX\n"
+            f"🌬️ <b>Virtual Mode:</b> {v_mode}\n"
+            f"⚠️ <b>Last Error:</b> {last_err} ({err_count} ครั้ง)\n"
+            "--------------------------------\n"
+            "✅ บอทยังเชื่อมต่อและทำงานอยู่"
+        )
+        tg(msg)
     elif cmd == "/profit":
         p = s.get('profit', 0)
         icon = "🟢" if p >= 0 else "🔴"
@@ -1010,6 +1034,7 @@ class StakeDiceBot:
         streak = 0
         streak_type = None
         current_loss_streak = 0
+        real_consecutive_wins = 0
         
         virtual_mode = False
         virtual_escape_pattern = ['W']
@@ -1122,12 +1147,23 @@ class StakeDiceBot:
                 target = 51.00 if current_condition == "above" else 49.00
 
                 # --- VIRTUAL PAUSE MODE (STREAK BREAKER) ---
-                if current_loss_streak >= 4 and not virtual_mode:
+                is_sawtooth = False
+                if len(recent) >= 6:
+                    last_6 = recent[-6:]
+                    if last_6 == ["W", "L", "W", "L", "W", "L"] or last_6 == ["L", "W", "L", "W", "L", "W"]:
+                        is_sawtooth = True
+
+                if (current_loss_streak >= 4 or is_sawtooth) and not virtual_mode:
                     virtual_mode = True
                     virtual_escape_pattern = ['W', 'W']
-                    pattern_str = " - ".join(virtual_escape_pattern)
-                    self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 4 ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
-                    # tg(f"🐉 <b>STREAK BREAKER (VIRTUAL)</b>\nแพ้ติด 3 ตา! บอทเข้าโหมดแทงลม รอมังกรขาด ({pattern_str}) เพื่อความปลอดภัย")
+                    if is_sawtooth:
+                        self.log_event("🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: 6 alternating. Waiting for W-W)")
+                        tg("⚠️ <b>จับทางกราฟฟันปลาได้! (สลับ 6 ตาติด)</b>\nสลับเข้าโหมดแทงลมเพื่อหยุดการไต่สเต็ป\n<i>(รอออก W-W เพื่อกลับมาแทงเงินจริง)</i>")
+                        if len(recent) >= 6:
+                            recent[-6] = "X" # Corrupt the pattern so it doesn't loop
+                    else:
+                        pattern_str = " - ".join(virtual_escape_pattern)
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 4 ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
                 
                 if virtual_mode:
                     matched = False
@@ -1146,8 +1182,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if fib_step == 0:
                     # base_bet from config.json
-                    if base_bet < 0.0005:
-                        base_bet = 0.0005
+                    if base_bet < 0.01:
+                        base_bet = 0.01
                         
                 if virtual_mode:
                     current_bet = 0.0
@@ -1156,12 +1192,19 @@ class StakeDiceBot:
 
                 # --- PROACTIVE BALANCE CHECK ---
                 if not virtual_mode and current_bet > balance:
-                    self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX. ปรับไปเริ่มไม้ 1 ใหม่อัตโนมัติ...")
-                    tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Reset)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.0005 TRX) เพื่อความปลอดภัย</b>")
+                    self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX")
+                    err_key = f"proactive_funds_{fib_step}"
+                    if _bot_state.get('last_error') != err_key:
+                        tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Check)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.005 TRX) และรอ 10 วินาที</b>")
+                        _bot_state['last_error'] = err_key
+                        _bot_state['error_count'] = _bot_state.get('error_count', 0) + 1
+                    
+                    _bot_state['api_status'] = "🔴 รอเติมเงิน (Proactive)"
                     fib_step = 0
                     current_loss_streak = 0
                     streak = 0
                     streak_type = None
+                    time.sleep(10)
                 
                 if _stop_event.is_set(): return
 
@@ -1176,13 +1219,17 @@ class StakeDiceBot:
                 if bet_res and "errors" in bet_res:
                     err_msg = bet_res["errors"][0].get("message", "")
                     if "balance" in err_msg.lower() or "funds" in err_msg.lower():
-                        self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Resetting to Step 1.")
-                        tg(f"🚨 <b>ยอดเงินไม่พอทบไม้! (ตรวจพบจาก API)</b>\nยอดที่มีไม่พอกับยอดที่ต้องการ!\n<b>ระบบปรับไปเริ่มไม้ 1 (0.0005 TRX) ใหม่อัตโนมัติ</b>")
+                        self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Pausing bot.")
+                        err_key = "insufficient_funds_api"
+                        if _bot_state.get('last_error') != err_key:
+                            tg(f"🚨 <b>ยอดเงินไม่พอ! (ตรวจพบจาก API)</b>\nเงินในกระเป๋าไม่พอสำหรับการแทงไม้ต่อไป\n<b>บอทจะหยุดพักจนกว่าคุณจะเติมเงิน หรือกดสั่งทำงานใหม่</b>")
+                            _bot_state['last_error'] = err_key
+                        
+                        # Instead of looping wildly, pause and wait for user intervention
+                        _bot_state['api_status'] = "🔴 รอเติมเงิน"
                         fib_step = 0
                         current_loss_streak = 0
-                        streak = 0
-                        streak_type = None
-                        time.sleep(5)
+                        time.sleep(15) # Wait 15 seconds before retrying so it doesn't spam
                         continue
                     else:
                         self.log_event(f"⚠️ API Error: {err_msg}")
@@ -1194,6 +1241,11 @@ class StakeDiceBot:
                     time.sleep(5); continue
 
                 roll_data = bet_res["data"]["diceRoll"]
+                
+                # Clear error state on successful bet
+                _bot_state.pop('last_error', None)
+                _bot_state['error_count'] = 0
+                _bot_state['api_status'] = "🟢 ปกติ" 
                 payout = float(roll_data.get("payout", 0))
                 result_state = roll_data.get("state")
                 if not result_state:
@@ -1294,14 +1346,13 @@ class StakeDiceBot:
                         wins += 1
                         session_wins += 1
                         current_loss_streak = 0
-                        if streak_type == "W": streak += 1
-                        else: streak, streak_type = 1, "W"
+                        real_consecutive_wins += 1
                         
                         fib_step -= 2
                         if fib_step < 0: fib_step = 0
                         
                         # Reset Fibonacci fully on 2 consecutive real wins (W-W)
-                        if streak_type == "W" and streak >= 2:
+                        if real_consecutive_wins >= 2:
                             self.log_event("🔄 Real W-W achieved: Resetting Fibonacci step to 0")
                             fib_step = 0
                 else:
@@ -1310,6 +1361,7 @@ class StakeDiceBot:
                     else:
                         losses += 1
                         current_loss_streak += 1
+                        real_consecutive_wins = 0
                         if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
                         if fib_step > max_fib_step:
                             max_fib_step = fib_step
@@ -1317,9 +1369,6 @@ class StakeDiceBot:
                                 self.log_event(f"🧗 Climber: Reached new high Step {max_fib_step+1}")
                         if current_bet > max_single_loss: max_single_loss = current_bet
                         fib_step += 1
-                    
-                    if streak_type == "L": streak += 1
-                    else: streak, streak_type = 1, "L"
                 
                 last_roll = result
                 last_net = payout - current_bet
@@ -1568,7 +1617,7 @@ if __name__ == "__main__":
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.001)
+    BASE_BET  = _bots.get("base_bet", 0.01)
     TARGET    = _bots.get("target", 49.00)
     CONDITION = _bots.get("condition", "below")
 
