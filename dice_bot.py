@@ -336,7 +336,8 @@ def _handle_command(cmd: str, show_menu=False):
         last_err = s.get('last_error', 'ไม่มี')
         err_count = s.get('error_count', 0)
         api_status = s.get('api_status', '🟢 ปกติ')
-        v_mode = "เปิด (แทงลม)" if s.get('virtual_mode', False) else "ปิด (เงินจริง)"
+        v_state = s.get('virtual_state', 'NONE')
+        v_mode = "เปิด (แทงลม)" if v_state != "NONE" else "ปิด (เงินจริง)"
         balance = s.get('balance', 0)
         
         msg = (
@@ -1035,8 +1036,9 @@ class StakeDiceBot:
         streak_type = None
         current_loss_streak = 0
         real_consecutive_wins = 0
+        real_bets_without_ww = persistent.get("real_bets_without_ww", 0)
         
-        virtual_mode = False
+        virtual_state = "NONE"
         virtual_escape_pattern = ['W']
         
         cycle_start_balance = 0.0
@@ -1146,35 +1148,62 @@ class StakeDiceBot:
                 current_condition = random.choice(["above", "below"])
                 target = 51.00 if current_condition == "above" else 49.00
 
+                # --- LOAD HERMES AI SKILLS DYNAMICALLY ---
+                try:
+                    import json, os
+                    skills_path = "ai_skills.json"
+                    if os.path.exists(skills_path):
+                        with open(skills_path, "r", encoding="utf-8") as f:
+                            ai_skills = json.load(f)
+                    else:
+                        ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
+                except Exception:
+                    ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
+                
+                ai_sawtooth_len = ai_skills.get("sawtooth_length", 6)
+                ai_isolated_wins = ai_skills.get("isolated_wins_threshold", 16)
+                ai_loss_streak = ai_skills.get("loss_streak_threshold", 4)
+
                 # --- VIRTUAL PAUSE MODE (STREAK BREAKER) ---
                 is_sawtooth = False
-                if len(recent) >= 6:
-                    last_6 = recent[-6:]
-                    if last_6 == ["W", "L", "W", "L", "W", "L"] or last_6 == ["L", "W", "L", "W", "L", "W"]:
+                if len(recent) >= ai_sawtooth_len:
+                    last_n = recent[-ai_sawtooth_len:]
+                    if last_n == ["W", "L"] * (ai_sawtooth_len // 2) or last_n == ["L", "W"] * (ai_sawtooth_len // 2):
                         is_sawtooth = True
 
-                if (current_loss_streak >= 4 or is_sawtooth) and not virtual_mode:
-                    virtual_mode = True
-                    virtual_escape_pattern = ['W', 'W']
+                # แยกการทำงานของเงื่อนไขต่างๆ อย่างชัดเจน
+                if virtual_state == "NONE":
                     if is_sawtooth:
-                        self.log_event("🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: 6 alternating. Waiting for W-W)")
-                        tg("⚠️ <b>จับทางกราฟฟันปลาได้! (สลับ 6 ตาติด)</b>\nสลับเข้าโหมดแทงลมเพื่อหยุดการไต่สเต็ป\n<i>(รอออก W-W เพื่อกลับมาแทงเงินจริง)</i>")
-                        if len(recent) >= 6:
-                            recent[-6] = "X" # Corrupt the pattern so it doesn't loop
-                    else:
+                        virtual_state = "SAWTOOTH"
+                        virtual_escape_pattern = ['W', 'W']
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating. Waiting for W-W)")
+                        if len(recent) >= ai_sawtooth_len:
+                            recent[-ai_sawtooth_len] = "X" # Corrupt the pattern so it doesn't loop
+                            
+                    elif real_bets_without_ww >= ai_isolated_wins:
+                        virtual_state = "ISOLATED_WINS"
+                        virtual_escape_pattern = ['W', 'W']
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W. AI Threshold: {ai_isolated_wins})")
+                        real_bets_without_ww = 0 # Reset so it doesn't re-trigger immediately
+                        
+                    elif current_loss_streak >= ai_loss_streak:
+                        virtual_state = "LOSS_STREAK"
+                        virtual_escape_pattern = ['W', 'W']
                         pattern_str = " - ".join(virtual_escape_pattern)
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด 4 ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด {current_loss_streak} ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
                 
-                if virtual_mode:
+                # การหลุดพ้นจาก Virtual Mode
+                if virtual_state != "NONE":
                     matched = False
                     pat = virtual_escape_pattern
                     if len(recent) >= len(pat) and recent[-len(pat):] == pat:
                         matched = True
                     
                     if matched:
-                        virtual_mode = False
+                        old_state = virtual_state
+                        virtual_state = "NONE"
                         pattern_str = "-".join(pat)
-                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Resuming real bet from current step.")
+                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Exited {old_state}. Resuming real bet from current step.")
                         current_loss_streak = 0
                         streak = 0
                         streak_type = None
@@ -1185,13 +1214,13 @@ class StakeDiceBot:
                     if base_bet < 0.01:
                         base_bet = 0.01
                         
-                if virtual_mode:
+                if virtual_state != "NONE":
                     current_bet = 0.0
                 else:
                     current_bet = round(base_bet * get_fib_multiplier(fib_step), 8)
 
                 # --- PROACTIVE BALANCE CHECK ---
-                if not virtual_mode and current_bet > balance:
+                if virtual_state == "NONE" and current_bet > balance:
                     self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX")
                     err_key = f"proactive_funds_{fib_step}"
                     if _bot_state.get('last_error') != err_key:
@@ -1339,9 +1368,13 @@ class StakeDiceBot:
                 if drawdown > max_drawdown:
                     max_drawdown = drawdown
                 
+                if virtual_state == "NONE":
+                    real_bets_without_ww += 1
+                
                 if is_win:
-                    if virtual_mode:
-                        pass # Do nothing special for virtual win
+                    if virtual_state != "NONE":
+                        # If virtual mode won, reduce virtual losses (no real profit)
+                        pass
                     else:
                         wins += 1
                         session_wins += 1
@@ -1355,8 +1388,9 @@ class StakeDiceBot:
                         if real_consecutive_wins >= 2:
                             self.log_event("🔄 Real W-W achieved: Resetting Fibonacci step to 0")
                             fib_step = 0
+                            real_bets_without_ww = 0
                 else:
-                    if virtual_mode:
+                    if virtual_state != "NONE":
                         pass # Do nothing special for virtual loss
                     else:
                         losses += 1
@@ -1403,7 +1437,7 @@ class StakeDiceBot:
                     current_loss_streak = 0
                     streak = 0
                     streak_type = None
-                    virtual_mode = True
+                    virtual_state = "TAKE_PROFIT_RESET"
                     virtual_escape_pattern = ['W']
                     start_balance = new_balance # Reset start balance to current to track next TP goal
                     total_deposited = 0
@@ -1439,12 +1473,14 @@ class StakeDiceBot:
                     "max_drawdown": max_drawdown,
                     "take_profit": take_profit,
                     "stop_loss": stop_loss,
-                    "total_uptime_seconds": total_uptime_seconds
+                    "total_uptime_seconds": total_uptime_seconds,
+                    "real_bets_without_ww": real_bets_without_ww
                 })
 
                 _bot_state.update({
                     'balance'       : balance,
                     'start_balance' : initial_capital, # ROI now tracks from initial_capital
+                    'virtual_state' : virtual_state,
                     'profit'        : total_profit,
                     'total_withdrawn': total_withdrawn,
                     'initial_capital': initial_capital,
@@ -1538,7 +1574,7 @@ class StakeDiceBot:
                         reply_markup=main_menu_markup()
                     )
 
-                mode_str = "VIRTUAL" if virtual_mode else "REAL"
+                mode_str = f"VIRTUAL({virtual_state})" if virtual_state != "NONE" else "REAL"
                 status_str = "WIN" if is_win else "LOSS"
                 self.log_to_csv([
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1558,7 +1594,7 @@ class StakeDiceBot:
                 print(f"  💵 Available Balance : {balance:.8f} TRX")
                 print("-" * 65)
                 print(f" 🎯 STRATEGIC STATUS & GUARD:")
-                if virtual_mode:
+                if virtual_state != "NONE":
                     pattern_str = " - ".join(virtual_escape_pattern)
                     print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}")
                     print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
