@@ -48,6 +48,8 @@ from watchdog.events import FileSystemEventHandler
 
 import logging
 
+from logging.handlers import RotatingFileHandler
+
 # ==========================================
 # 1. ตั้งค่าระบบ Logging
 # ==========================================
@@ -56,7 +58,12 @@ logging.basicConfig(
     format='%(asctime)s - [%(levelname)s] - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
-        logging.FileHandler(os.path.join(_BASE_DIR, f"hot_reload_audit{_profile_suffix}.log"), encoding='utf-8'),
+        RotatingFileHandler(
+            os.path.join(_BASE_DIR, f"hot_reload_audit{_profile_suffix}.log"),
+            maxBytes=5*1024*1024,
+            backupCount=3,
+            encoding='utf-8'
+        ),
         logging.StreamHandler()
     ]
 )
@@ -118,8 +125,8 @@ class SkillManager(FileSystemEventHandler):
             logging.error("⚠️ [JSON Error] โครงสร้างไฟล์ JSON ไม่สมบูรณ์ (อาจกำลังถูกเขียนทับ) บอทจะใช้ค่าเดิมต่อไป")
         except (ValueError, TypeError) as validate_err:
             logging.warning(f"🛡️ [Validation Failed] ค่า Config ไม่ปลอดภัย: {validate_err} -> บอทจะใช้ค่าเดิมต่อไป")
-        except Exception as e:
-            logging.error(f"⚠️ [Error] โหลด AI Skills ล้มเหลวด้วยสาเหตุอื่น: {e} -> บอทจะใช้ค่าเดิมต่อไป")
+        except Exception:
+            logging.exception("⚠️ [Unknown Error] โหลด AI Skills ล้มเหลว")
 
     def on_modified(self, event):
         # normalize paths to prevent cross-platform issues
@@ -1078,7 +1085,7 @@ class StakeDiceBot:
     def log_to_csv(self, row):
         threading.Thread(target=self._log_to_csv_worker, args=(row,), daemon=True).start()
 
-    def start_dice_bot(self, base_bet, target=49.00, condition="below"):
+    def start_dice_bot(self, base_bet, target=48.00, condition="below"):
         session_wins = 0
         balance = 0.0
         print(" [SYSTEM] Loading persistent stats...")
@@ -1094,9 +1101,9 @@ class StakeDiceBot:
         saved_condition = persistent.get("last_condition")
         current_condition = saved_condition if saved_condition else condition
         if current_condition == "above":
-            target = 51.00
+            target = 52.00
         else:
-            target = 49.00
+            target = 48.00
         total_withdrawn = persistent.get("total_withdrawn", 300.0)
         total_deposited = persistent.get("total_deposited", 0.0)
         max_fib_step = persistent.get("max_fib_step", 0)
@@ -1227,9 +1234,9 @@ class StakeDiceBot:
                 # Calculate Session Profit
                 session_profit = balance - _bot_state.get('start_balance', balance)
 
-                # สลับสุ่มระหว่าง Over 51.00 และ Under 49.00 ทุกตา (โอกาสชนะ 49% เท่ากัน)
+                # สลับสุ่มระหว่าง Over 52.00 และ Under 48.00 ทุกตา (โอกาสชนะ 48% เท่ากัน)
                 current_condition = random.choice(["above", "below"])
-                target = 51.00 if current_condition == "above" else 49.00
+                target = 52.00 if current_condition == "above" else 48.00
 
                 # --- PULL HERMES AI SKILLS FROM RAM ---
                 if hasattr(self, 'skill_manager') and self.skill_manager:
@@ -1288,8 +1295,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if fib_step == 0:
                     # base_bet from config.json
-                    if base_bet < 0.01:
-                        base_bet = 0.01
+                    if base_bet < 0.3:
+                        base_bet = 0.3
                         
                 if virtual_state != "NONE":
                     current_bet = 0.0
@@ -1730,8 +1737,8 @@ if __name__ == "__main__":
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.01)
-    TARGET    = _bots.get("target", 49.00)
+    BASE_BET  = _bots.get("base_bet", 0.3)
+    TARGET    = _bots.get("target", 48.00)
     CONDITION = _bots.get("condition", "below")
 
     print(f"[CONFIG] Telegram Chat: {TELEGRAM_CHAT_ID}")
