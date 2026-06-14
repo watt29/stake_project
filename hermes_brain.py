@@ -5,6 +5,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import requests
 
 # Force UTF-8
 try:
@@ -15,6 +16,8 @@ except AttributeError:
 HISTORY_FILE = "dice_history.csv"
 SKILLS_FILE = "ai_skills.json"
 MEMORY_FILE = "MARKET_MEMORY.md"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 
 DEFAULT_SKILLS = {
     "isolated_wins_threshold": 18,
@@ -44,6 +47,123 @@ def atomic_write_json(path, data):
         json.dump(data, f, indent=4, ensure_ascii=False)
         f.write("\n")
     os.replace(tmp_path, path)
+
+
+def clamp_skill(key, value):
+    ranges = {
+        "isolated_wins_threshold": (8, 24),
+        "loss_streak_threshold": (3, 8),
+        "sawtooth_length": (4, 10),
+        "loss_streak_escape_wins": (2, 4),
+        "loss_streak_mid_step": (8, 12),
+        "loss_streak_mid_threshold": (2, 4),
+        "loss_streak_mid_escape_wins": (3, 5),
+        "loss_streak_high_step": (14, 16),
+        "loss_streak_high_threshold": (1, 2),
+        "loss_streak_high_escape_wins": (3, 5),
+        "loss_streak_high_min_virtual_rolls": (8, 24),
+        "hard_virtual_step": (0, 22),
+        "hard_virtual_escape_wins": (4, 6),
+        "hard_virtual_min_rolls": (20, 40),
+    }
+    low, high = ranges[key]
+    return clamp(value, low, high)
+
+
+def apply_llm_safely(rule_skills, llm_skills):
+    """Merge only risk-control suggestions that are at least as strict as local rules."""
+    merged = rule_skills.copy()
+    lower_is_stricter = {
+        "loss_streak_threshold",
+        "sawtooth_length",
+        "loss_streak_mid_threshold",
+        "loss_streak_high_threshold",
+    }
+    higher_is_stricter = {
+        "loss_streak_escape_wins",
+        "loss_streak_mid_escape_wins",
+        "loss_streak_high_escape_wins",
+        "loss_streak_high_min_virtual_rolls",
+        "hard_virtual_escape_wins",
+        "hard_virtual_min_rolls",
+    }
+
+    for key, value in llm_skills.items():
+        if key not in DEFAULT_SKILLS or isinstance(value, bool):
+            continue
+        try:
+            proposed = clamp_skill(key, value)
+        except Exception:
+            continue
+
+        if key in lower_is_stricter:
+            merged[key] = min(merged[key], proposed)
+        elif key in higher_is_stricter:
+            merged[key] = max(merged[key], proposed)
+        elif key == "hard_virtual_step":
+            if merged[key] > 0 and proposed > 0:
+                merged[key] = min(merged[key], proposed)
+            elif merged[key] == 0:
+                merged[key] = proposed
+        elif key == "isolated_wins_threshold":
+            merged[key] = proposed
+
+    return merged
+
+
+def ask_groq_for_skills(rule_skills, report):
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return None, "GROQ_API_KEY not set"
+
+    prompt = {
+        "risk_report": report,
+        "rule_based_skills": rule_skills,
+        "allowed_skill_keys": list(DEFAULT_SKILLS.keys()),
+        "instruction": (
+            "Return only JSON with keys: risk_mode, reason, skills. "
+            "skills may only include allowed risk-control keys. "
+            "Never change base_bet, balance, token, cookies, simulate, fib_step, or bankroll. "
+            "For dangerous conditions, prefer stricter virtual pause settings."
+        ),
+    }
+    try:
+        response = requests.post(
+            GROQ_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": GROQ_MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are Hermes Risk Brain. Return strict valid JSON only.",
+                    },
+                    {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+                ],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            },
+            timeout=25,
+        )
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        parsed = json.loads(content)
+        llm_skills = parsed.get("skills", {})
+        if not isinstance(llm_skills, dict):
+            return None, "LLM response did not contain a skills object"
+        merged = apply_llm_safely(rule_skills, llm_skills)
+        return {
+            "risk_mode": parsed.get("risk_mode", report["risk_mode"]),
+            "reason": parsed.get("reason", ""),
+            "skills": merged,
+            "raw_skills": llm_skills,
+            "model": GROQ_MODEL,
+        }, None
+    except Exception as e:
+        return None, str(e)
 
 
 def loss_streak_lengths(results):
@@ -187,6 +307,17 @@ def analyze_and_learn():
         return 0
 
     skills, report = build_skills(real_df, df)
+    llm_report, llm_error = ask_groq_for_skills(skills, report)
+    if llm_report:
+        skills = llm_report["skills"]
+        report["risk_mode"] = llm_report["risk_mode"]
+        report["llm_model"] = llm_report["model"]
+        report["llm_reason"] = llm_report["reason"]
+        report["llm_raw_skills"] = llm_report["raw_skills"]
+        report["llm_status"] = "used"
+    else:
+        report["llm_status"] = f"fallback_rule_based: {llm_error}"
+    report["llm_reason"] = report.get("llm_reason") or "none"
     atomic_write_json(SKILLS_FILE, skills)
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -205,6 +336,9 @@ This file stores persistent facts and risk adjustments generated by Hermes.
 * W-W Gap Threshold: {report["isolated_wins"]}
 * Worst W-W Gap Observed: {report["max_gap"]}
 * Recent Mode Counts: {report["virtual_counts"]}
+* LLM Status: {report["llm_status"]}
+* LLM Model: {report.get("llm_model", "none")}
+* LLM Reason: {report.get("llm_reason", "")}
 
 ## Active ai_skills.json
 ```json
