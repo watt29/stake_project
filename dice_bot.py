@@ -1841,6 +1841,14 @@ if __name__ == "__main__":
     print(f"[CONFIG] Telegram Chat: {TELEGRAM_CHAT_ID}")
     print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
+    if "--check" in sys.argv:
+        if BASE_BET < 0.0005:
+            raise ValueError("base_bet must be at least 0.0005 TRX")
+        if not TOKEN or not COOKIES:
+            raise ValueError("Stake token/cookies are missing")
+        print("[CHECK] Local startup check passed. Bot is ready to launch.")
+        sys.exit(0)
+
     # ===== START WATCHDOG HOT RELOAD =====
     skill_manager = SkillManager(os.path.join(_BASE_DIR, "ai_skills.json"))
     observer = Observer()
@@ -1857,7 +1865,7 @@ if __name__ == "__main__":
             time.sleep(3600)
             try:
                 # Run the AI brain silently in the background
-                subprocess.run(["python", "hermes_brain.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run([sys.executable, "hermes_brain.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 pass
 

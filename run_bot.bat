@@ -4,6 +4,18 @@ title COMMANDER BRIAN - Dice Bot
 chcp 65001 >nul
 cd /d %~dp0
 
+set "PYTHON_EXE=python"
+where python >nul 2>&1
+if errorlevel 1 (
+    if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
+        set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+    ) else (
+        echo [ERROR] Python not found. Run setup.bat first.
+        pause
+        exit /b 1
+    )
+)
+
 echo.
 echo ================================================
 echo   COMMANDER BRIAN - Select Profile
@@ -41,11 +53,12 @@ for %%f in (config_*.json) do (
 :START
 echo.
 echo [*] Running with: %PROFILE%
+echo [*] Python: %PYTHON_EXE%
 echo.
 
 :loop
 echo [%date% %time%] Starting bot...
-python -u dice_bot.py --config %PROFILE%
+"%PYTHON_EXE%" -u dice_bot.py --config "%PROFILE%"
 echo.
 echo [%date% %time%] Bot stopped. Restarting in 10 seconds... (Ctrl+C to cancel)
 timeout /t 10

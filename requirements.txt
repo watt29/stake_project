@@ -1,0 +1,7 @@
+requests
+watchdog
+curl_cffi
+undetected-chromedriver
+pandas
+numpy
+ftfy

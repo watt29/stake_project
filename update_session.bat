@@ -4,6 +4,18 @@ title Update Session
 chcp 65001 >nul
 cd /d %~dp0
 
+set "PYTHON_EXE=python"
+where python >nul 2>&1
+if errorlevel 1 (
+    if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
+        set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+    ) else (
+        echo [ERROR] Python not found. Run setup.bat first.
+        pause
+        exit /b 1
+    )
+)
+
 echo.
 echo ================================================
 echo   Update Cookie and Token
@@ -56,7 +68,7 @@ echo Paste cookie value then press Enter:
 set /p COOKIES="cookie: "
 echo.
 
-python _update_session_helper.py "%CFGFILE%" "%TOKEN%" "%COOKIES%"
+"%PYTHON_EXE%" _update_session_helper.py "%CFGFILE%" "%TOKEN%" "%COOKIES%"
 
 if errorlevel 1 (
     echo [ERROR] Update failed.

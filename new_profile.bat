@@ -4,6 +4,18 @@ title New Profile
 chcp 65001 >nul
 cd /d %~dp0
 
+set "PYTHON_EXE=python"
+where python >nul 2>&1
+if errorlevel 1 (
+    if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
+        set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+    ) else (
+        echo [ERROR] Python not found. Run setup.bat first.
+        pause
+        exit /b 1
+    )
+)
+
 echo.
 echo ================================================
 echo   New Profile Setup
@@ -42,7 +54,7 @@ set /p CHAT_ID="Telegram chat_id: "
 set /p BASE_BET="base_bet (e.g. 0.0005): "
 set /p INIT_CAP="initial_capital (TRX): "
 
-python _profile_helper.py "%NAME%" "%TOKEN%" "%COOKIES%" "%CHAT_ID%" "%BASE_BET%" "%INIT_CAP%"
+"%PYTHON_EXE%" _profile_helper.py "%NAME%" "%TOKEN%" "%COOKIES%" "%CHAT_ID%" "%BASE_BET%" "%INIT_CAP%"
 
 if errorlevel 1 (
     echo [ERROR] Failed to save. Check that base_bet and initial_capital are numbers.
