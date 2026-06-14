@@ -1,5 +1,13 @@
 {
     "isolated_wins_threshold": 18,
     "loss_streak_threshold": 5,
-    "sawtooth_length": 6
+    "sawtooth_length": 6,
+    "loss_streak_escape_wins": 2,
+    "loss_streak_mid_step": 8,
+    "loss_streak_mid_threshold": 3,
+    "loss_streak_mid_escape_wins": 3,
+    "loss_streak_high_step": 14,
+    "loss_streak_high_threshold": 1,
+    "loss_streak_high_escape_wins": 3,
+    "loss_streak_high_min_virtual_rolls": 8
 }

@@ -72,7 +72,19 @@ class SkillManager(FileSystemEventHandler):
     def __init__(self, config_path):
         self.config_path = config_path
         # Default fallback skills
-        self.ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
+        self.ai_skills = {
+            "isolated_wins_threshold": 16,
+            "loss_streak_threshold": 4,
+            "sawtooth_length": 6,
+            "loss_streak_escape_wins": 2,
+            "loss_streak_mid_step": 8,
+            "loss_streak_mid_threshold": 3,
+            "loss_streak_mid_escape_wins": 3,
+            "loss_streak_high_step": 14,
+            "loss_streak_high_threshold": 1,
+            "loss_streak_high_escape_wins": 3,
+            "loss_streak_high_min_virtual_rolls": 8
+        }
         self.load_skills()
 
     def load_skills(self):
@@ -90,6 +102,16 @@ class SkillManager(FileSystemEventHandler):
                 "loss_streak_threshold": int,
                 "sawtooth_length": int
             }
+            optional_int_schema = {
+                "loss_streak_escape_wins": int,
+                "loss_streak_mid_step": int,
+                "loss_streak_mid_threshold": int,
+                "loss_streak_mid_escape_wins": int,
+                "loss_streak_high_step": int,
+                "loss_streak_high_escape_wins": int,
+                "loss_streak_high_threshold": int,
+                "loss_streak_high_min_virtual_rolls": int
+            }
             
             # เช็ค Key Existence และ Type Checking
             for key, expected_type in expected_schema.items():
@@ -97,12 +119,31 @@ class SkillManager(FileSystemEventHandler):
                     raise ValueError(f"คีย์ที่จำเป็นสูญหาย: '{key}'")
                 if not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool):
                     raise TypeError(f"คีย์ '{key}' ต้องเป็นตัวเลข ({expected_type.__name__}) เท่านั้น")
+            for key, expected_type in optional_int_schema.items():
+                if key in new_skills and (not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool)):
+                    raise TypeError(f"คีย์ '{key}' ต้องเป็นตัวเลข ({expected_type.__name__}) เท่านั้น")
 
             # เช็ค Value Constraints
             if new_skills["loss_streak_threshold"] <= 0:
                 raise ValueError("loss_streak_threshold ต้องมีค่ามากกว่า 0")
             if new_skills["sawtooth_length"] < 2:
                 raise ValueError("sawtooth_length ต้องมีความยาวอย่างน้อย 2")
+            if new_skills.get("loss_streak_escape_wins", 2) <= 0:
+                raise ValueError("loss_streak_escape_wins ต้องมีค่ามากกว่า 0")
+            if new_skills.get("loss_streak_mid_step", 8) < 0:
+                raise ValueError("loss_streak_mid_step ต้องไม่ติดลบ")
+            if new_skills.get("loss_streak_mid_threshold", 3) <= 0:
+                raise ValueError("loss_streak_mid_threshold ต้องมีค่ามากกว่า 0")
+            if new_skills.get("loss_streak_mid_escape_wins", 3) <= 0:
+                raise ValueError("loss_streak_mid_escape_wins ต้องมีค่ามากกว่า 0")
+            if new_skills.get("loss_streak_high_step", 14) < 0:
+                raise ValueError("loss_streak_high_step ต้องไม่ติดลบ")
+            if new_skills.get("loss_streak_high_escape_wins", 3) <= 0:
+                raise ValueError("loss_streak_high_escape_wins ต้องมีค่ามากกว่า 0")
+            if new_skills.get("loss_streak_high_threshold", 1) <= 0:
+                raise ValueError("loss_streak_high_threshold ต้องมีค่ามากกว่า 0")
+            if new_skills.get("loss_streak_high_min_virtual_rolls", 8) < 0:
+                raise ValueError("loss_streak_high_min_virtual_rolls ต้องไม่ติดลบ")
             
             # ==========================================
             # 2. การทำ Logging เมื่อ Hot Reload สำเร็จ
@@ -1118,6 +1159,7 @@ class StakeDiceBot:
         print(" [DEBUG] 2. Initializing session parameters...")
         self.next_rotation_bet = random.randint(800, 1500)
         self.last_manual_rotation_alert = 0
+        last_high_stress_rotation_time = 0
         recent = []
         last_result = "-"
         last_roll = 0.0
@@ -1130,6 +1172,9 @@ class StakeDiceBot:
         
         virtual_state = "NONE"
         virtual_escape_pattern = ['W']
+        virtual_entry_step = 0
+        virtual_min_rolls = 0
+        virtual_rolls_seen = 0
         
         cycle_start_balance = 0.0
         
@@ -1247,6 +1292,27 @@ class StakeDiceBot:
                 ai_sawtooth_len = ai_skills.get("sawtooth_length", 6)
                 ai_isolated_wins = ai_skills.get("isolated_wins_threshold", 16)
                 ai_loss_streak = ai_skills.get("loss_streak_threshold", 4)
+                ai_loss_escape_wins = ai_skills.get("loss_streak_escape_wins", 2)
+                ai_loss_mid_step = ai_skills.get("loss_streak_mid_step", 8)
+                ai_loss_mid_threshold = ai_skills.get("loss_streak_mid_threshold", 3)
+                ai_loss_mid_escape_wins = ai_skills.get("loss_streak_mid_escape_wins", 3)
+                ai_loss_high_step = ai_skills.get("loss_streak_high_step", 14)
+                ai_loss_high_threshold = ai_skills.get("loss_streak_high_threshold", 1)
+                ai_loss_high_escape_wins = ai_skills.get("loss_streak_high_escape_wins", 3)
+                ai_loss_high_min_virtual_rolls = ai_skills.get("loss_streak_high_min_virtual_rolls", 8)
+                display_step = fib_step + 1
+                if display_step >= ai_loss_high_step:
+                    active_loss_limit = ai_loss_high_threshold
+                    active_escape_wins = max(ai_loss_high_escape_wins, ai_loss_mid_escape_wins, ai_loss_escape_wins)
+                    active_min_virtual_rolls = ai_loss_high_min_virtual_rolls
+                elif display_step >= ai_loss_mid_step:
+                    active_loss_limit = ai_loss_mid_threshold
+                    active_escape_wins = max(ai_loss_mid_escape_wins, ai_loss_escape_wins)
+                    active_min_virtual_rolls = 0
+                else:
+                    active_loss_limit = ai_loss_streak
+                    active_escape_wins = ai_loss_escape_wins
+                    active_min_virtual_rolls = 0
 
                 # --- VIRTUAL PAUSE MODE (STREAK BREAKER) ---
                 is_sawtooth = False
@@ -1257,40 +1323,57 @@ class StakeDiceBot:
 
                 # แยกการทำงานของเงื่อนไขต่างๆ อย่างชัดเจน
                 if virtual_state == "NONE":
-                    if is_sawtooth:
+                    if current_loss_streak >= active_loss_limit:
+                        virtual_state = "LOSS_STREAK"
+                        virtual_escape_pattern = ['W'] * active_escape_wins
+                        virtual_entry_step = display_step
+                        virtual_min_rolls = active_min_virtual_rolls
+                        virtual_rolls_seen = 0
+                        pattern_str = " - ".join(virtual_escape_pattern)
+                        min_scan = f" และแทงลมอย่างน้อย {virtual_min_rolls} ตา" if virtual_min_rolls else ""
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด {current_loss_streak} ตา ที่ Step {display_step}; limit {active_loss_limit}. รอรูปแบบ {pattern_str}{min_scan})")
+
+                    elif is_sawtooth:
                         virtual_state = "SAWTOOTH"
-                        virtual_escape_pattern = ['W', 'W']
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating. Waiting for W-W)")
+                        virtual_escape_pattern = ['W'] * active_escape_wins
+                        virtual_entry_step = display_step
+                        virtual_min_rolls = active_min_virtual_rolls
+                        virtual_rolls_seen = 0
+                        pattern_str = " - ".join(virtual_escape_pattern)
+                        min_scan = f" + min {virtual_min_rolls} virtual rolls" if virtual_min_rolls else ""
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating at Step {display_step}. Waiting for {pattern_str}{min_scan})")
                         if len(recent) >= ai_sawtooth_len:
                             recent[-ai_sawtooth_len] = "X" # Corrupt the pattern so it doesn't loop
                             
                     elif real_bets_without_ww >= ai_isolated_wins:
                         virtual_state = "ISOLATED_WINS"
-                        virtual_escape_pattern = ['W', 'W']
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W. AI Threshold: {ai_isolated_wins})")
-                        real_bets_without_ww = 0 # Reset so it doesn't re-trigger immediately
-                        
-                    elif current_loss_streak >= ai_loss_streak:
-                        virtual_state = "LOSS_STREAK"
-                        virtual_escape_pattern = ['W', 'W']
+                        virtual_escape_pattern = ['W'] * active_escape_wins
+                        virtual_entry_step = display_step
+                        virtual_min_rolls = active_min_virtual_rolls
+                        virtual_rolls_seen = 0
                         pattern_str = " - ".join(virtual_escape_pattern)
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด {current_loss_streak} ตา รอชนะ 2 ครั้งด้วยรูปแบบ {pattern_str})")
+                        min_scan = f" + min {virtual_min_rolls} virtual rolls" if virtual_min_rolls else ""
+                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W at Step {display_step}. AI Threshold: {ai_isolated_wins}. Waiting for {pattern_str}{min_scan})")
+                        real_bets_without_ww = 0 # Reset so it doesn't re-trigger immediately
                 
                 # การหลุดพ้นจาก Virtual Mode
                 if virtual_state != "NONE":
                     matched = False
                     pat = virtual_escape_pattern
-                    if len(recent) >= len(pat) and recent[-len(pat):] == pat:
+                    enough_scan = virtual_rolls_seen >= virtual_min_rolls
+                    if len(recent) >= len(pat) and recent[-len(pat):] == pat and enough_scan:
                         matched = True
                     
                     if matched:
                         old_state = virtual_state
                         virtual_state = "NONE"
                         pattern_str = "-".join(pat)
-                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str})! Exited {old_state}. Resuming real bet from current step.")
+                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str} after {virtual_rolls_seen} virtual rolls)! Exited {old_state} from Step {virtual_entry_step}. Resuming real bet from current step.")
                         current_loss_streak = 0
                         streak = 0
                         streak_type = None
+                        virtual_min_rolls = 0
+                        virtual_rolls_seen = 0
                 
                 # --- BET SIZING ---
                 if fib_step == 0:
@@ -1321,11 +1404,19 @@ class StakeDiceBot:
                 
                 if _stop_event.is_set(): return
 
-                stress_trigger = (fib_step >= 14)
-                time_trigger = (total_bets >= self.next_rotation_bet)
+                now_ts = time.time()
+                stress_trigger = (
+                    virtual_state == "NONE"
+                    and fib_step >= 14
+                    and (now_ts - last_high_stress_rotation_time) >= 60
+                )
+                time_trigger = (virtual_state == "NONE" and total_bets >= self.next_rotation_bet)
                 if stress_trigger or time_trigger:
                     reason = "High Stress" if stress_trigger else "Adaptive"
-                    self.rotate_seed(reason)
+                    if self.rotate_seed(reason) and stress_trigger:
+                        last_high_stress_rotation_time = now_ts
+                    elif stress_trigger:
+                        last_high_stress_rotation_time = now_ts
                 
                 bet_res = self.place_dice_bet(current_bet, target, current_condition)
                 
@@ -1369,6 +1460,8 @@ class StakeDiceBot:
                 is_win = False
                 if current_condition == "above" and result > target: is_win = True
                 elif current_condition == "below" and result < target: is_win = True
+                if virtual_state != "NONE":
+                    virtual_rolls_seen += 1
                 
                 # Z-Score Real-Time Client Seed Rotation
                 expected_prob = target / 100.0 if current_condition == "below" else (100.0 - target) / 100.0
@@ -1523,6 +1616,9 @@ class StakeDiceBot:
                     streak_type = None
                     virtual_state = "TAKE_PROFIT_RESET"
                     virtual_escape_pattern = ['W']
+                    virtual_entry_step = fib_step + 1
+                    virtual_min_rolls = 0
+                    virtual_rolls_seen = 0
                     start_balance = new_balance # Reset start balance to current to track next TP goal
                     total_deposited = 0
                     total_withdrawn = 0
@@ -1680,7 +1776,8 @@ class StakeDiceBot:
                 print(f" 🎯 STRATEGIC STATUS & GUARD:")
                 if virtual_state != "NONE":
                     pattern_str = " - ".join(virtual_escape_pattern)
-                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}")
+                    scan_str = f" ({virtual_rolls_seen}/{virtual_min_rolls} scan)" if virtual_min_rolls else ""
+                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}{scan_str}")
                     print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
                 else:
                     next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
