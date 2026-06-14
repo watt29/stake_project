@@ -8,13 +8,13 @@ echo ================================================
 echo.
 
 REM Check Python
-set "PYTHON_EXE=python"
-python --version >nul 2>&1
-if errorlevel 1 (
-    if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
-        set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-        echo [OK] Python found in Codex runtime.
-    ) else (
+set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+if exist "%PYTHON_EXE%" (
+    echo [OK] Python found in Codex runtime.
+) else (
+    set "PYTHON_EXE=python"
+    python --version >nul 2>&1
+    if errorlevel 1 (
         echo [!] Not found Python - Downloading...
         curl -L "https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe" -o python_installer.exe
         echo [*] Installing Python...
@@ -22,9 +22,9 @@ if errorlevel 1 (
         del python_installer.exe
         set "PYTHON_EXE=python"
         echo [OK] Python installed.
+    ) else (
+        echo [OK] Python found.
     )
-) else (
-    echo [OK] Python found.
 )
 
 echo.

@@ -4,12 +4,11 @@ title New Profile
 chcp 65001 >nul
 cd /d %~dp0
 
-set "PYTHON_EXE=python"
-where python >nul 2>&1
-if errorlevel 1 (
-    if exist "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" (
-        set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-    ) else (
+set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+if not exist "%PYTHON_EXE%" (
+    set "PYTHON_EXE=python"
+    where python >nul 2>&1
+    if errorlevel 1 (
         echo [ERROR] Python not found. Run setup.bat first.
         pause
         exit /b 1
