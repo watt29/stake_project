@@ -99,7 +99,7 @@ def analyze_performance():
     withdrawals = parse_financial_file(WITHDRAWALS_FILE)
     
     initial_capital = 1243.154  # Default baseline
-    base_bet = 0.1
+    base_bet = 0.0005
     if os.path.exists(STATS_FILE):
         try:
             with open(STATS_FILE, "r") as f:
