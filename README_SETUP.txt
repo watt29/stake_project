@@ -74,9 +74,9 @@
   config.json (แก้ได้)
 ================================================
 
-  base_bet    : เงินเดิมพันเริ่มต้น (เช่น 0.0005 TRX)
-  target      : เป้า Roll (49.00)
-  condition   : "below" หรือ "above"
+  base_bet    : เงินเดิมพันเริ่มต้น (เช่น 0.5 TRX)
+  target      : เป้า Roll (48.00)
+  condition   : เงื่อนไข (below/above)"
   simulate    : false=Live จริง / true=ทดสอบ
 
 ================================================
