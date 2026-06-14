@@ -1378,8 +1378,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if fib_step == 0:
                     # base_bet from config.json, with Stake TRX minimum guard
-                    if base_bet < 0.0005:
-                        base_bet = 0.0005
+                    if base_bet < 0.005:
+                        base_bet = 0.005
                         
                 if virtual_state != "NONE":
                     current_bet = 0.0
@@ -1834,7 +1834,7 @@ if __name__ == "__main__":
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.0005)
+    BASE_BET  = _bots.get("base_bet", 0.005)
     TARGET    = _bots.get("target", 48.00)
     CONDITION = _bots.get("condition", "below")
 
@@ -1842,8 +1842,8 @@ if __name__ == "__main__":
     print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
     if "--check" in sys.argv:
-        if BASE_BET < 0.0005:
-            raise ValueError("base_bet must be at least 0.0005 TRX")
+        if BASE_BET < 0.005:
+            raise ValueError("base_bet must be at least 0.005 TRX")
         if not TOKEN or not COOKIES:
             raise ValueError("Stake token/cookies are missing")
         print("[CHECK] Local startup check passed. Bot is ready to launch.")
