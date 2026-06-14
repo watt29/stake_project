@@ -28,13 +28,13 @@ DEFAULT_SKILLS = {
     "loss_streak_escape_wins": 2,
     "loss_streak_mid_step": 8,
     "loss_streak_mid_threshold": 3,
-    "loss_streak_mid_escape_wins": 3,
+    "loss_streak_mid_escape_wins": 2,
     "loss_streak_high_step": 14,
     "loss_streak_high_threshold": 1,
-    "loss_streak_high_escape_wins": 3,
-    "loss_streak_high_min_virtual_rolls": 8,
-    "hard_virtual_step": 0,
-    "hard_virtual_escape_wins": 4,
+    "loss_streak_high_escape_wins": 2,
+    "loss_streak_high_min_virtual_rolls": 16,
+    "hard_virtual_step": 14,
+    "hard_virtual_escape_wins": 2,
     "hard_virtual_min_rolls": 20,
 }
 
