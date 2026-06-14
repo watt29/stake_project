@@ -17,6 +17,7 @@ HISTORY_FILE = "dice_history.csv"
 SKILLS_FILE = "ai_skills.json"
 MEMORY_FILE = "MARKET_MEMORY.md"
 MODEL_STATE_FILE = "hermes_model_state.json"
+API_FILE = "api.txt"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_GROQ_MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-20b"]
 
@@ -48,6 +49,39 @@ def atomic_write_json(path, data):
         json.dump(data, f, indent=4, ensure_ascii=False)
         f.write("\n")
     os.replace(tmp_path, path)
+
+
+def load_api_keys_from_file(path=API_FILE):
+    """Load local API keys from api.txt without requiring them in the repo."""
+    if not os.path.exists(path):
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"API key file could not be read: {e}")
+        return
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        key_name = None
+        key_value = line
+        if "=" in line:
+            key_name, key_value = [part.strip() for part in line.split("=", 1)]
+        elif ":" in line and not line.lower().startswith(("http://", "https://")):
+            key_name, key_value = [part.strip() for part in line.split(":", 1)]
+
+        upper_name = (key_name or "").upper()
+        if upper_name in {"GROQ_API_KEY", "OPENROUTER_API_KEY", "GROQ_MODELS", "GROQ_MODEL"}:
+            os.environ.setdefault(upper_name, key_value)
+        elif key_value.startswith("gsk_"):
+            os.environ.setdefault("GROQ_API_KEY", key_value)
+        elif key_value.startswith("sk-or-"):
+            os.environ.setdefault("OPENROUTER_API_KEY", key_value)
 
 
 def get_groq_models():
@@ -304,6 +338,7 @@ def build_skills(real_df, all_df):
 
 def analyze_and_learn():
     print("[Hermes AI Brain] Starting risk-management loop...")
+    load_api_keys_from_file()
 
     if not os.path.exists(HISTORY_FILE):
         print(f"Error: {HISTORY_FILE} not found.")
