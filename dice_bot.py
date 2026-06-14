@@ -1406,8 +1406,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if fib_step == 0:
                     # base_bet from config.json, with Stake TRX minimum guard
-                    if base_bet < 0.005:
-                        base_bet = 0.005
+                    if base_bet < 0.01:
+                        base_bet = 0.01
                         
                 if virtual_state != "NONE":
                     current_bet = 0.0
@@ -1419,7 +1419,7 @@ class StakeDiceBot:
                     self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX")
                     err_key = f"proactive_funds_{fib_step}"
                     if _bot_state.get('last_error') != err_key:
-                        tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Check)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.005 TRX) และรอ 10 วินาที</b>")
+                        tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Check)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.01 TRX) และรอ 10 วินาที</b>")
                         _bot_state['last_error'] = err_key
                         _bot_state['error_count'] = _bot_state.get('error_count', 0) + 1
                     
@@ -1862,7 +1862,7 @@ if __name__ == "__main__":
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.005)
+    BASE_BET  = _bots.get("base_bet", 0.01)
     TARGET    = _bots.get("target", 48.00)
     CONDITION = _bots.get("condition", "below")
 
@@ -1870,8 +1870,8 @@ if __name__ == "__main__":
     print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
     if "--check" in sys.argv:
-        if BASE_BET < 0.005:
-            raise ValueError("base_bet must be at least 0.005 TRX")
+        if BASE_BET < 0.01:
+            raise ValueError("base_bet must be at least 0.01 TRX")
         if not TOKEN or not COOKIES:
             raise ValueError("Stake token/cookies are missing")
         print("[CHECK] Local startup check passed. Bot is ready to launch.")
