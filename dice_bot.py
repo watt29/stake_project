@@ -71,8 +71,7 @@ logging.basicConfig(
 class SkillManager(FileSystemEventHandler):
     def __init__(self, config_path):
         self.config_path = config_path
-        # Default fallback skills
-        self.ai_skills = {
+        self.default_skills = {
             "isolated_wins_threshold": 16,
             "loss_streak_threshold": 4,
             "sawtooth_length": 6,
@@ -83,8 +82,13 @@ class SkillManager(FileSystemEventHandler):
             "loss_streak_high_step": 14,
             "loss_streak_high_threshold": 1,
             "loss_streak_high_escape_wins": 3,
-            "loss_streak_high_min_virtual_rolls": 8
+            "loss_streak_high_min_virtual_rolls": 8,
+            "hard_virtual_step": 0,
+            "hard_virtual_escape_wins": 4,
+            "hard_virtual_min_rolls": 20
         }
+        # Default fallback skills
+        self.ai_skills = self.default_skills.copy()
         self.load_skills()
 
     def load_skills(self):
@@ -93,6 +97,9 @@ class SkillManager(FileSystemEventHandler):
             time.sleep(0.1)
             with open(self.config_path, 'r', encoding="utf-8") as f:
                 new_skills = json.load(f)
+            merged_skills = self.default_skills.copy()
+            merged_skills.update(new_skills)
+            new_skills = merged_skills
                 
             # ==========================================
             # เริ่มขั้นตอน Schema Validation
@@ -110,7 +117,10 @@ class SkillManager(FileSystemEventHandler):
                 "loss_streak_high_step": int,
                 "loss_streak_high_escape_wins": int,
                 "loss_streak_high_threshold": int,
-                "loss_streak_high_min_virtual_rolls": int
+                "loss_streak_high_min_virtual_rolls": int,
+                "hard_virtual_step": int,
+                "hard_virtual_escape_wins": int,
+                "hard_virtual_min_rolls": int
             }
             
             # เช็ค Key Existence และ Type Checking
@@ -144,6 +154,12 @@ class SkillManager(FileSystemEventHandler):
                 raise ValueError("loss_streak_high_threshold ต้องมีค่ามากกว่า 0")
             if new_skills.get("loss_streak_high_min_virtual_rolls", 8) < 0:
                 raise ValueError("loss_streak_high_min_virtual_rolls ต้องไม่ติดลบ")
+            if new_skills.get("hard_virtual_step", 0) < 0:
+                raise ValueError("hard_virtual_step ต้องไม่ติดลบ")
+            if new_skills.get("hard_virtual_escape_wins", 4) <= 0:
+                raise ValueError("hard_virtual_escape_wins ต้องมีค่ามากกว่า 0")
+            if new_skills.get("hard_virtual_min_rolls", 20) < 0:
+                raise ValueError("hard_virtual_min_rolls ต้องไม่ติดลบ")
             
             # ==========================================
             # 2. การทำ Logging เมื่อ Hot Reload สำเร็จ
@@ -1300,6 +1316,9 @@ class StakeDiceBot:
                 ai_loss_high_threshold = ai_skills.get("loss_streak_high_threshold", 1)
                 ai_loss_high_escape_wins = ai_skills.get("loss_streak_high_escape_wins", 3)
                 ai_loss_high_min_virtual_rolls = ai_skills.get("loss_streak_high_min_virtual_rolls", 8)
+                ai_hard_virtual_step = ai_skills.get("hard_virtual_step", 0)
+                ai_hard_virtual_escape_wins = ai_skills.get("hard_virtual_escape_wins", 4)
+                ai_hard_virtual_min_rolls = ai_skills.get("hard_virtual_min_rolls", 20)
                 display_step = fib_step + 1
                 if display_step >= ai_loss_high_step:
                     active_loss_limit = ai_loss_high_threshold
@@ -1323,7 +1342,16 @@ class StakeDiceBot:
 
                 # แยกการทำงานของเงื่อนไขต่างๆ อย่างชัดเจน
                 if virtual_state == "NONE":
-                    if current_loss_streak >= active_loss_limit:
+                    if ai_hard_virtual_step and display_step >= ai_hard_virtual_step:
+                        virtual_state = "LOSS_STREAK"
+                        virtual_escape_pattern = ['W'] * max(ai_hard_virtual_escape_wins, active_escape_wins)
+                        virtual_entry_step = display_step
+                        virtual_min_rolls = max(ai_hard_virtual_min_rolls, active_min_virtual_rolls)
+                        virtual_rolls_seen = 0
+                        pattern_str = " - ".join(virtual_escape_pattern)
+                        self.log_event(f"🛑 AI HARD VIRTUAL PAUSE (Step {display_step} >= {ai_hard_virtual_step}. Waiting for {pattern_str} + min {virtual_min_rolls} virtual rolls)")
+
+                    elif current_loss_streak >= active_loss_limit:
                         virtual_state = "LOSS_STREAK"
                         virtual_escape_pattern = ['W'] * active_escape_wins
                         virtual_entry_step = display_step
@@ -1861,13 +1889,21 @@ if __name__ == "__main__":
     # ===== AUTO-HERMES AI LOOP =====
     def auto_hermes():
         while True:
-            # Wait 60 minutes before running the AI brain
-            time.sleep(3600)
             try:
                 # Run the AI brain silently in the background
-                subprocess.run([sys.executable, "hermes_brain.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                with open(os.path.join(_BASE_DIR, "hermes_brain.log"), "a", encoding="utf-8") as log_file:
+                    subprocess.run(
+                        [sys.executable, "hermes_brain.py"],
+                        cwd=_BASE_DIR,
+                        stdout=log_file,
+                        stderr=log_file,
+                        timeout=300,
+                    )
             except Exception as e:
-                pass
+                self_msg = f"Hermes AI loop error: {e}"
+                logging.exception(self_msg)
+            # Run once at startup, then refresh every 10 minutes.
+            time.sleep(600)
 
     # Start the AI in a background daemon thread so it runs alongside the bot
     ai_thread = threading.Thread(target=auto_hermes, daemon=True)
