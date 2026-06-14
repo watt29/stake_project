@@ -1295,8 +1295,8 @@ class StakeDiceBot:
                 # --- BET SIZING ---
                 if fib_step == 0:
                     # base_bet from config.json
-                    if base_bet < 0.5:
-                        base_bet = 0.5
+                    if base_bet < 0.1:
+                        base_bet = 0.1
                         
                 if virtual_state != "NONE":
                     current_bet = 0.0
@@ -1737,7 +1737,7 @@ if __name__ == "__main__":
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.5)
+    BASE_BET  = _bots.get("base_bet", 0.1)
     TARGET    = _bots.get("target", 48.00)
     CONDITION = _bots.get("condition", "below")
 

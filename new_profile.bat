@@ -39,7 +39,7 @@ echo Enter Stake account details:
 set /p TOKEN="x-access-token: "
 set /p COOKIES="cookie: "
 set /p CHAT_ID="Telegram chat_id: "
-set /p BASE_BET="base_bet (e.g. 0.5): "
+set /p BASE_BET="base_bet (e.g. 0.1): "
 set /p INIT_CAP="initial_capital (TRX): "
 
 python _profile_helper.py "%NAME%" "%TOKEN%" "%COOKIES%" "%CHAT_ID%" "%BASE_BET%" "%INIT_CAP%"
