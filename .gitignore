@@ -1,6 +1,8 @@
 # Configurations and Secrets
 config*.json
 stake_session.json
+hermes_model_state.json
+api.txt
 
 # Logs and History
 *.log
