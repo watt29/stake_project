@@ -122,13 +122,13 @@ def clamp_skill(key, value):
         "loss_streak_escape_wins": (2, 4),
         "loss_streak_mid_step": (8, 12),
         "loss_streak_mid_threshold": (2, 4),
-        "loss_streak_mid_escape_wins": (3, 5),
+        "loss_streak_mid_escape_wins": (2, 5),
         "loss_streak_high_step": (14, 16),
         "loss_streak_high_threshold": (1, 2),
-        "loss_streak_high_escape_wins": (3, 5),
+        "loss_streak_high_escape_wins": (2, 5),
         "loss_streak_high_min_virtual_rolls": (8, 24),
         "hard_virtual_step": (0, 22),
-        "hard_virtual_escape_wins": (4, 6),
+        "hard_virtual_escape_wins": (2, 6),
         "hard_virtual_min_rolls": (20, 40),
     }
     low, high = ranges[key]
@@ -300,27 +300,29 @@ def build_skills(real_df, all_df):
     if risk_mode == "NORMAL":
         skills["hard_virtual_step"] = 0
         skills["loss_streak_mid_threshold"] = 3
-        skills["loss_streak_mid_escape_wins"] = 3
-        skills["loss_streak_high_escape_wins"] = 3
+        skills["loss_streak_mid_escape_wins"] = 2
+        skills["loss_streak_high_escape_wins"] = 2
         skills["loss_streak_high_min_virtual_rolls"] = 8
     elif risk_mode == "ELEVATED":
         skills["hard_virtual_step"] = 18
         skills["loss_streak_mid_threshold"] = 3
-        skills["loss_streak_mid_escape_wins"] = 3
-        skills["loss_streak_high_escape_wins"] = 3
+        skills["loss_streak_mid_escape_wins"] = 2
+        skills["loss_streak_high_escape_wins"] = 2
         skills["loss_streak_high_min_virtual_rolls"] = 10
     elif risk_mode == "DANGER":
         skills["hard_virtual_step"] = 16
         skills["loss_streak_mid_threshold"] = 2
-        skills["loss_streak_mid_escape_wins"] = 3
-        skills["loss_streak_high_escape_wins"] = 4
+        skills["loss_streak_mid_escape_wins"] = 2
+        skills["loss_streak_high_escape_wins"] = 2
         skills["loss_streak_high_min_virtual_rolls"] = 12
-    else:
-        skills["hard_virtual_step"] = 14
+    else: # CRISIS MODE (AI Lockdown)
+        skills["hard_virtual_step"] = 12
         skills["loss_streak_mid_threshold"] = 2
-        skills["loss_streak_mid_escape_wins"] = 4
-        skills["loss_streak_high_escape_wins"] = 4
+        skills["loss_streak_mid_escape_wins"] = 2
+        skills["loss_streak_high_escape_wins"] = 2
         skills["loss_streak_high_min_virtual_rolls"] = 16
+        skills["hard_virtual_escape_wins"] = 2
+        skills["hard_virtual_min_rolls"] = 20
 
     virtual_counts = recent_all["mode"].value_counts().to_dict() if not recent_all.empty else {}
     return skills, {

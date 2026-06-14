@@ -78,13 +78,13 @@ class SkillManager(FileSystemEventHandler):
             "loss_streak_escape_wins": 2,
             "loss_streak_mid_step": 8,
             "loss_streak_mid_threshold": 3,
-            "loss_streak_mid_escape_wins": 3,
+            "loss_streak_mid_escape_wins": 2,
             "loss_streak_high_step": 14,
             "loss_streak_high_threshold": 1,
-            "loss_streak_high_escape_wins": 3,
-            "loss_streak_high_min_virtual_rolls": 8,
-            "hard_virtual_step": 0,
-            "hard_virtual_escape_wins": 4,
+            "loss_streak_high_escape_wins": 2,
+            "loss_streak_high_min_virtual_rolls": 16,
+            "hard_virtual_step": 14,
+            "hard_virtual_escape_wins": 2,
             "hard_virtual_min_rolls": 20
         }
         # Default fallback skills
@@ -144,17 +144,17 @@ class SkillManager(FileSystemEventHandler):
                 raise ValueError("loss_streak_mid_step ต้องไม่ติดลบ")
             if new_skills.get("loss_streak_mid_threshold", 3) <= 0:
                 raise ValueError("loss_streak_mid_threshold ต้องมีค่ามากกว่า 0")
-            if new_skills.get("loss_streak_mid_escape_wins", 3) <= 0:
+            if new_skills.get("loss_streak_mid_escape_wins", 2) <= 0:
                 raise ValueError("loss_streak_mid_escape_wins ต้องมีค่ามากกว่า 0")
             if new_skills.get("loss_streak_high_step", 14) < 0:
                 raise ValueError("loss_streak_high_step ต้องไม่ติดลบ")
-            if new_skills.get("loss_streak_high_escape_wins", 3) <= 0:
+            if new_skills.get("loss_streak_high_escape_wins", 2) <= 0:
                 raise ValueError("loss_streak_high_escape_wins ต้องมีค่ามากกว่า 0")
             if new_skills.get("loss_streak_high_threshold", 1) <= 0:
                 raise ValueError("loss_streak_high_threshold ต้องมีค่ามากกว่า 0")
-            if new_skills.get("loss_streak_high_min_virtual_rolls", 8) < 0:
+            if new_skills.get("loss_streak_high_min_virtual_rolls", 16) < 0:
                 raise ValueError("loss_streak_high_min_virtual_rolls ต้องไม่ติดลบ")
-            if new_skills.get("hard_virtual_step", 0) < 0:
+            if new_skills.get("hard_virtual_step", 14) < 0:
                 raise ValueError("hard_virtual_step ต้องไม่ติดลบ")
             if new_skills.get("hard_virtual_escape_wins", 4) <= 0:
                 raise ValueError("hard_virtual_escape_wins ต้องมีค่ามากกว่า 0")
@@ -1311,13 +1311,13 @@ class StakeDiceBot:
                 ai_loss_escape_wins = ai_skills.get("loss_streak_escape_wins", 2)
                 ai_loss_mid_step = ai_skills.get("loss_streak_mid_step", 8)
                 ai_loss_mid_threshold = ai_skills.get("loss_streak_mid_threshold", 3)
-                ai_loss_mid_escape_wins = ai_skills.get("loss_streak_mid_escape_wins", 3)
+                ai_loss_mid_escape_wins = ai_skills.get("loss_streak_mid_escape_wins", 2)
                 ai_loss_high_step = ai_skills.get("loss_streak_high_step", 14)
                 ai_loss_high_threshold = ai_skills.get("loss_streak_high_threshold", 1)
-                ai_loss_high_escape_wins = ai_skills.get("loss_streak_high_escape_wins", 3)
+                ai_loss_high_escape_wins = ai_skills.get("loss_streak_high_escape_wins", 2)
                 ai_loss_high_min_virtual_rolls = ai_skills.get("loss_streak_high_min_virtual_rolls", 8)
                 ai_hard_virtual_step = ai_skills.get("hard_virtual_step", 0)
-                ai_hard_virtual_escape_wins = ai_skills.get("hard_virtual_escape_wins", 4)
+                ai_hard_virtual_escape_wins = ai_skills.get("hard_virtual_escape_wins", 2)
                 ai_hard_virtual_min_rolls = ai_skills.get("hard_virtual_min_rolls", 20)
                 display_step = fib_step + 1
                 if display_step >= ai_loss_high_step:
