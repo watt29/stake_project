@@ -1410,7 +1410,7 @@ def _send_main_menu():
 
     tg(
 
-        " <b>COMMANDER BRIAN  </b>\n"
+        f" <b>COMMANDER BRIAN | {self.account_name} </b>\n"
 
         "",
 
@@ -1508,7 +1508,7 @@ def _tg_listener():
 
                         tg_edit(cb_chat, cb_mid,
 
-                            " <b>COMMANDER BRIAN  </b>\n",
+                            f" <b>COMMANDER BRIAN | {self.account_name} </b>\n",
 
                             reply_markup=main_menu_markup())
 
@@ -1639,15 +1639,11 @@ class StakeDiceBot:
         self.api_url = f"https://{mirror_host}/_api/graphql"
 
         self.currency = currency.lower()
-
         self.simulate = simulate
-
         self.history_file = HISTORY_FILE
-
         self.token = token
-
+        self.account_name = "Unknown"
         
-
         options = uc.ChromeOptions()
 
         options.headless = False
@@ -2097,19 +2093,13 @@ class StakeDiceBot:
         # 2. Fallback to GraphQL
 
         query = """
-
         query Balances {
-
           user {
-
+            name
             balances {
-
               available { amount currency }
-
             }
-
           }
-
         }
 
         """
@@ -2151,17 +2141,12 @@ class StakeDiceBot:
                     
 
                 user_data = data["data"].get("user")
-
                 if not user_data: 
-
                     print("   [!] Session possibly EXPIRED (User is null). Please update COOKIES.")
-
                     time.sleep(10)
-
                     continue
-
                     
-
+                self.account_name = user_data.get("name", "Unknown")
                 balances = user_data.get("balances", [])
 
                 for bal in balances:
@@ -2514,7 +2499,7 @@ class StakeDiceBot:
 
         tg(
 
-            " <b>COMMANDER BRIAN !</b>\n"
+            f" <b>COMMANDER BRIAN | {self.account_name} !</b>\n"
 
             f" Currency: <b>{self.currency.upper()}</b> | Mode: <b>{'SIMULATE' if self.simulate else 'LIVE'}</b>\n"
 
@@ -3500,7 +3485,7 @@ class StakeDiceBot:
                 })
                 clear()
                 print("======================================================================")
-                print("                  COMMANDER BRIAN | MISSION CONTROL")
+                print(f"                  COMMANDER BRIAN | MISSION CONTROL - {self.account_name}")
                 print("======================================================================")
                 if _DURATION > 0:
                     elapsed_session = time.time() - _SESSION_START_TIME
@@ -3633,7 +3618,7 @@ class StakeDiceBot:
                 
 
                 print("======================================================================")
-                print(f"                  COMMANDER BRIAN | MISSION CONTROL | {mode}")
+                print(f"                  COMMANDER BRIAN | MISSION CONTROL - {self.account_name} | {mode}")
                 print("======================================================================")
                 if _DURATION > 0:
                     elapsed_session = time.time() - _SESSION_START_TIME
