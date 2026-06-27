@@ -646,47 +646,47 @@ def main_menu_markup():
 
             [
 
-                {"text": " ", "callback_data": "/status"},
+                {"text": "📊 Status", "callback_data": "/status"},
 
-                {"text": " /", "callback_data": "/profit"}
-
-            ],
-
-            [
-
-                {"text": " ", "callback_data": "/info"},
-
-                {"text": "  ", "callback_data": "/health"}
+                {"text": "💰 Profit", "callback_data": "/profit"}
 
             ],
 
             [
 
-                {"text": " ", "callback_data": "tp_menu"},
+                {"text": "ℹ️ Info", "callback_data": "/info"},
 
-                {"text": " ", "callback_data": "sl_menu"}
-
-            ],
-
-            [
-
-                {"text": " ", "callback_data": "/report"},
-
-                {"text": " ", "callback_data": "/deposits"}
+                {"text": "❤️ Health", "callback_data": "/health"}
 
             ],
 
             [
 
-                {"text": " ", "callback_data": "/config"},
+                {"text": "🎯 Set TP", "callback_data": "tp_menu"},
 
-                {"text": "  (Tip)", "callback_data": "tip_menu"}
+                {"text": "🛡️ Set SL", "callback_data": "sl_menu"}
 
             ],
 
             [
 
-                {"text": "  / ", "callback_data": "/stop"}
+                {"text": "📋 Report", "callback_data": "/report"},
+
+                {"text": "🏦 Deposits", "callback_data": "/deposits"}
+
+            ],
+
+            [
+
+                {"text": "⚙️ Config", "callback_data": "/config"},
+
+                {"text": "☕ Tip Menu", "callback_data": "tip_menu"}
+
+            ],
+
+            [
+
+                {"text": "🛑 STOP BOT", "callback_data": "/stop"}
 
             ]
 
@@ -726,7 +726,7 @@ def tp_menu_markup():
 
             ],
 
-            [{"text": " ", "callback_data": "main_menu"}]
+            [{"text": "🔙 Back to Main", "callback_data": "main_menu"}]
 
         ]
 
@@ -764,7 +764,7 @@ def sl_menu_markup():
 
             ],
 
-            [{"text": " ", "callback_data": "main_menu"}]
+            [{"text": "🔙 Back to Main", "callback_data": "main_menu"}]
 
         ]
 
@@ -1526,7 +1526,7 @@ def _tg_listener():
 
                             " <b> (Tip)</b>\n\n\n :\n<code>/tip [username] []</code>\n: <code>/tip watt29 1.5</code>",
 
-                            reply_markup={"inline_keyboard": [[{"text": " ", "callback_data": "main_menu"}]]})
+                            reply_markup={"inline_keyboard": [[{"text": "🔙 Back to Main", "callback_data": "main_menu"}]]})
 
                     elif data == "sl_menu":
 
