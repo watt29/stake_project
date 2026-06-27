@@ -2393,6 +2393,8 @@ class StakeDiceBot:
         wins = persistent.get("wins", 0)
 
         losses = persistent.get("losses", 0)
+        
+        win_rate = (wins / total_bets * 100.0) if total_bets > 0 else 0.0
 
         max_loss_streak = persistent.get("max_loss_streak", 0)
 
