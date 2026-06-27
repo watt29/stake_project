@@ -26,3 +26,7 @@ This project has highly specific legacy structures. To avoid breaking the bot an
 ## 5. Indentation Awareness
 - **Rule:** DO NOT blindly apply standard 4-space dedent/indent logic.
 - **Reason:** The file has a unique, heavily indented structure (some loops are indented 20 or 24 spaces). Before moving a block of code (e.g., moving notification spam logic), check the exact indentation of the target destination block first.
+
+## 6. Variable Initialization (Do not hallucinate global state)
+- **Rule:** Before using ANY variable (especially for timeouts or limits like `_SESSION_START_TIME`), you MUST verify it is actually defined in the file. If adding a new feature that tracks time or state, explicitly initialize the tracking variables at the global level or class constructor.
+- **Reason:** Assuming variables exist based on generic Python patterns leads to `NameError` (e.g., `name '_SESSION_START_TIME' is not defined`).

@@ -1,3 +1,11 @@
+import os
+import runpy
+import sys
+
+if __name__ == "__main__":
+    runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), "dice_bot_utf8.py"), run_name="__main__")
+    sys.exit(0)
+
 import socket
 socket.setdefaulttimeout(30)
 import requests
@@ -306,6 +314,34 @@ def get_fib_multiplier(n):
         a, b = b, a + b
     return b
 
+def get_martingale_multiplier(step_number):
+    if step_number <= 1:
+        return 1
+    return 2 ** (step_number - 1)
+
+def get_expected_gross_multiplier(target, condition):
+    chance = target if condition == "below" else (100.0 - target)
+    chance = max(0.01, chance)
+    return 99.0 / chance
+
+def get_catchup_bet_amount(base_bet, fib_step, target, condition, switch_step=8, profit_target=None):
+    display_step = fib_step + 1
+    if display_step < switch_step:
+        return round(base_bet * get_fib_multiplier(fib_step), 8), "FIB", get_fib_multiplier(fib_step), ""
+
+    lost_total = 0.0
+    for idx in range(fib_step):
+        lost_total += base_bet * get_fib_multiplier(idx)
+
+    if profit_target is None:
+        profit_target = base_bet
+
+    gross_multiplier = get_expected_gross_multiplier(target, condition)
+    net_win_per_bet = max(0.0001, gross_multiplier - 1.0)
+    wager = (lost_total + profit_target) / net_win_per_bet
+    label = f"RECOVER+PROFIT | payout x{gross_multiplier:.4f} | net target {profit_target:.8f}"
+    return round(wager, 8), "CATCH-UP", f"{gross_multiplier:.4f}", label
+
 def tg(msg, reply_markup=None):
     """Corporate Reporting System (CEO to Board)"""
     profile = _CURRENT_USERNAME if _CURRENT_USERNAME else _CURRENT_PROFILE
@@ -353,7 +389,6 @@ def main_menu_markup():
                 {"text": "🏥 สุขภาพบอท", "callback_data": "/health"}
             ],
             [
-                {"text": "🎯 ตั้งเป้ากำไร", "callback_data": "tp_menu"},
                 {"text": "🛑 ตั้งจุดพักบอท", "callback_data": "sl_menu"}
             ],
             [
@@ -367,24 +402,6 @@ def main_menu_markup():
             [
                 {"text": "♻️ รีสตาร์ท / หยุดบอท", "callback_data": "/stop"}
             ]
-        ]
-    }
-
-def tp_menu_markup():
-    """Take Profit preset buttons"""
-    return {
-        "inline_keyboard": [
-            [
-                {"text": "🎯 +5 TRX",  "callback_data": "/tp 5"},
-                {"text": "🎯 +10 TRX", "callback_data": "/tp 10"},
-                {"text": "🎯 +20 TRX", "callback_data": "/tp 20"}
-            ],
-            [
-                {"text": "🎯 +50 TRX",  "callback_data": "/tp 50"},
-                {"text": "🎯 +100 TRX", "callback_data": "/tp 100"},
-                {"text": "🎯 +200 TRX", "callback_data": "/tp 200"}
-            ],
-            [{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]
         ]
     }
 
@@ -416,8 +433,6 @@ def corporate_heartbeat():
             bets = _bot_state.get('bets', 0)
             wins = _bot_state.get('wins', 0)
             wr = (wins / bets * 100) if bets > 0 else 0
-            tp = _bot_state.get('take_profit', 0)
-            progress = (profit / tp * 100) if tp > 0 else 0
             p_icon = "🟢" if profit >= 0 else "🔴"
             uptime = _bot_state.get('total_uptime_seconds', 0)
 
@@ -591,20 +606,12 @@ def _handle_command(cmd: str, show_menu=False):
             f"Last Result   : {s.get('streak', 0)} {s.get('streak_type', '-')}\n"
             f"Current Bet   : {s.get('current_bet', 0):.8f} TRX\n"
             f"--------------------------------\n"
-            f"🎯 <b>TARGETS</b>\n"
-            f"Take Profit   : {s.get('take_profit', 0):+.2f} TRX\n"
+            f"🛑 <b>STOP LOSS</b>\n"
             f"Auto-Reset at : {s.get('stop_loss', 0):.2f} TRX"
         )
     elif cmd == "/stop":
         tg("🛑 <b>รับคำสั่ง /stop — กำลังหยุดบอท...</b>")
         _stop_event.set()
-    elif cmd.startswith("/tp"):
-        try:
-            val = float(cmd.split()[1])
-            _bot_state['take_profit'] = val
-            tg(f"🎯 <b>ตั้งเป้ากำไร (Take Profit)</b>\nหยุดเมื่อกำไรถึง: <b>{val:+.2f} TRX</b>")
-        except:
-            tg("❌ รูปแบบผิด! ใช้: <code>/tp 50</code>")
     elif cmd.startswith("/reset_at") or cmd.startswith("/sl"):
         try:
             val = float(cmd.split()[1])
@@ -614,14 +621,12 @@ def _handle_command(cmd: str, show_menu=False):
             tg("❌ รูปแบบผิด! ใช้: <code>/reset_at 100</code>")
 
     elif cmd == "/config":
-        tp = s.get('take_profit', 0)
         sl = s.get('stop_loss', 0)
         curr_cond = s.get('condition', 'N/A').upper()
         bet = s.get('current_bet', 0)
         tg(
             f"⚙️ <b>BOT CONFIGURATION</b>\n"
             f"------------------------\n"
-            f"🎯 <b>Take Profit</b> : {tp:+.2f} TRX\n"
             f"🛑 <b>Stop Loss</b>   : {sl:.2f} TRX\n"
             f"🎲 <b>Condition</b>   : {curr_cond}\n"
             f"💵 <b>Current Bet</b> : {bet:.8f} TRX\n"
@@ -776,13 +781,9 @@ def _tg_listener():
                         tg_edit(cb_chat, cb_mid,
                             "🤖 <b>COMMANDER BRIAN — เมนูหลัก</b>\nกดปุ่มด้านล่างเพื่อดูข้อมูลหรือตั้งค่า",
                             reply_markup=main_menu_markup())
-                    elif data == "tp_menu":
-                        tg_edit(cb_chat, cb_mid,
-                            "🎯 <b>เลือก Take Profit</b>\nบอทจะหยุดเมื่อกำไรถึงเป้า",
-                            reply_markup=tp_menu_markup())
                     elif data == "tip_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "💸 <b>เมนูโอนเหรียญ (Tip)</b>\n\nระบบจะโอนเงินอัตโนมัติเมื่อกำไรถึงเป้าหมาย\nหากต้องการโอนทันที พิมพ์:\n<code>/tip [username] [จำนวน]</code>\nตัวอย่าง: <code>/tip watt29 1.5</code>",
+                            "💸 <b>เมนูโอนเหรียญ (Tip)</b>\n\nหากต้องการโอนทันที พิมพ์:\n<code>/tip [username] [จำนวน]</code>\nตัวอย่าง: <code>/tip watt29 1.5</code>",
                             reply_markup={"inline_keyboard": [[{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]]})
                     elif data == "sl_menu":
                         tg_edit(cb_chat, cb_mid,
@@ -1276,7 +1277,6 @@ class StakeDiceBot:
         condition_switches = 0
         BALANCE_REPORT_EVERY = 500
         current_highest_alert = 0 
-        take_profit = persistent.get("take_profit", 0.0)
         stop_loss = persistent.get("stop_loss", 0.0)
         total_uptime_seconds = persistent.get("total_uptime_seconds", 0)
         
@@ -1302,7 +1302,6 @@ class StakeDiceBot:
 
         print(" [DEBUG] 4. Entering Main Betting Loop...")
         last_time = datetime.now()
-        take_profit = persistent.get("take_profit", 0.0)
         stop_loss = persistent.get("stop_loss", 0.0)
         total_uptime_seconds = persistent.get("total_uptime_seconds", 0)
         session_uptime_seconds = 0
@@ -1341,7 +1340,6 @@ class StakeDiceBot:
                     break
 
                 
-                take_profit = _bot_state.get('take_profit', 0.0)
                 stop_loss = _bot_state.get('stop_loss', 0.0)
 
                 if start_balance == 0:
@@ -1367,9 +1365,6 @@ class StakeDiceBot:
                     if initial_capital == 0.0:
                         initial_capital = start_balance
                         persistent["initial_capital"] = initial_capital
-                    if take_profit == 0:
-                        take_profit = round(start_balance * 0.01, 2)
-                        _bot_state['take_profit'] = take_profit
                     if stop_loss == 0:
                         stop_loss = -round(start_balance * 0.10, 2)
                         _bot_state['stop_loss'] = stop_loss
@@ -1496,7 +1491,7 @@ class StakeDiceBot:
                 if virtual_state != "NONE":
                     current_bet = 0.0
                 else:
-                    current_bet = round(base_bet * get_fib_multiplier(fib_step), 8)
+                    current_bet, bet_mode, bet_mult, bet_note = get_catchup_bet_amount(base_bet, fib_step, target, current_condition, switch_step=8)
 
                 # --- PROACTIVE BALANCE CHECK ---
                 if virtual_state == "NONE" and current_bet > balance:
@@ -1585,38 +1580,6 @@ class StakeDiceBot:
                 else:
                     new_balance = balance - current_bet + payout
                 
-                # ── 3. GOAL & RISK MANAGEMENT ──
-                # Check Daily Target (TP)
-                target_tp = _bot_state.get('take_profit', 0.0)
-                if target_tp > 0 and total_profit >= target_tp:
-                    tg(f"🎯 <b>DAILY GOAL REACHED! (+{total_profit:.2f} TRX)</b>\n"
-                       f"เป้าหมาย: {target_tp:+.2f} TRX\n"
-                       f"บอททำการบันทึกบัญชีและพักเซสชั่นชั่วคราว...")
-                    
-                    self.save_daily_report(
-                        start_bal=start_balance,
-                        end_bal=balance,
-                        profit=total_profit,
-                        wagered=total_wagered,
-                        deposits=total_deposited,
-                        withdrawals=total_withdrawn
-                    )
-                    
-                    self.log_event(f"🎯 Daily Goal Reached: {total_profit:.8f} TRX. Auto-pausing for safety.")
-                    
-                    # Reset for next potential session or wait for user
-                    start_balance = balance
-                    total_profit = 0
-                    total_deposited = 0
-                    total_withdrawn = 0
-                    _bot_state['take_profit'] = 0 # Clear TP to prevent immediate re-trigger
-                    
-                    save_stats(persistent)
-                    print(f"\n[INFO] 🎯 Daily Goal Reached ({total_profit:.4f} TRX).")
-                    print("[INFO] ⏳ Bot is Auto-Pausing for 5 minutes for safety...")
-                    time.sleep(300) # Pause 5 mins before next automated cycle
-                    continue 
-
                 delta = new_balance - (balance - current_bet + payout)
                 # ใช้ threshold 1.0 TRX เพื่อกรอง floating point error และ payout เล็กๆ
                 if abs(delta) > 1.0:
@@ -1704,42 +1667,6 @@ class StakeDiceBot:
                     recent.pop(0)
                 # Removed fib limit check
 
-                # ── 3. TP/SL AUTOMATION ──
-                if take_profit > 0 and total_profit >= take_profit:
-                    tg(f"🏁 <b>TAKE PROFIT REACHED!</b>\n"
-                       f"Profit: <b>{total_profit:+.8f} TRX</b>\n"
-                       f"เป้าหมาย: {take_profit:+.2f} TRX\n"
-                       f"<b>บอททำการ Reset ยอดแทงและเริ่มนับกำไรใหม่ (No Stop)</b>")
-                    self.log_event(f"🏁 Take Profit Reached: {total_profit:.8f} TRX. Resetting and continuing.")
-                    
-                    # Reset strategy and profit tracking for the next cycle
-                    if fib_step >= 14: # Step 15 or higher
-                        tg(f"⚠️ <b>HIGH-RISK RECOVERY DETECTED (Step {fib_step+1})</b>\n"
-                       f"CEO สั่งการให้พักพนักงาน 15 นาที เพื่อความปลอดภัยของเงินทุนและเปลี่ยนจังหวะ Seed...")
-                        self.log_event(f"Safety Pause triggered after Step {fib_step+1} recovery.")
-                        # Rotate seed to be sure
-                        self.rotate_seed("High-Risk Recovery")
-                        time.sleep(900) # 15 minutes pause
-                    
-                    fib_step -= 2
-
-                    
-                    if fib_step < 0: fib_step = 0
-                    current_loss_streak = 0
-                    streak = 0
-                    streak_type = None
-                    virtual_state = "TAKE_PROFIT_RESET"
-                    virtual_escape_pattern = ['W']
-                    virtual_entry_step = fib_step + 1
-                    virtual_min_rolls = 0
-                    virtual_rolls_seen = 0
-                    start_balance = new_balance # Reset start balance to current to track next TP goal
-                    total_deposited = 0
-                    total_withdrawn = 0
-                    
-                    # Optional: Rotate seed
-                    self.rotate_seed("Take Profit Reset")
-                    continue 
                 # (Stop Loss feature has been removed as per user request)
 
                 # (Dynamic condition switching has been replaced by per-roll random Over/Under)
@@ -1765,7 +1692,6 @@ class StakeDiceBot:
                     "initial_capital": initial_capital,
                     "peak_equity": peak_equity,
                     "max_drawdown": max_drawdown,
-                    "take_profit": take_profit,
                     "stop_loss": stop_loss,
                     "total_uptime_seconds": total_uptime_seconds,
                     "real_bets_without_ww": real_bets_without_ww
@@ -1880,6 +1806,12 @@ class StakeDiceBot:
                 win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
                 mode = "SIMULATION" if self.simulate else "LIVE"
                 p_sign = "+" if total_profit >= 0 else ""
+                session_minutes = int(session_uptime_seconds / 60.0)
+                total_minutes = int(total_uptime_seconds / 60.0)
+                remaining_text = None
+                if _max_duration_minutes > 0:
+                    remaining_seconds = max(0, int(_max_duration_minutes * 60 - session_uptime_seconds))
+                    remaining_text = f"{remaining_seconds // 60:02d}:{remaining_seconds % 60:02d}"
                 
                 print("=" * 65)
                 print(f" 🤖 COMMANDER BRIAN | MISSION CONTROL | {mode}")
@@ -1895,17 +1827,12 @@ class StakeDiceBot:
                     print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}{scan_str}")
                     print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
                 else:
-                    next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
-                    print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    display_step = fib_step + 1
+                    next_bet_amount, bet_mode, bet_mult, bet_note = get_catchup_bet_amount(base_bet, fib_step, target, current_condition, switch_step=8)
+                    print(f"  Current Step    : Step {display_step} ({bet_mode} x{bet_mult})")
                     print(f"  Bet Amount      : {next_bet_amount:.8f} TRX | Roll {current_condition.upper()} {target}")
-                
-                # Progress Bar for Goal (Only if set)
-                if take_profit > 0:
-                    progress = min(100, max(0, (total_profit / take_profit * 100)))
-                    bar_len = 20
-                    filled = int(bar_len * progress / 100)
-                    bar = "█" * filled + "▒" * (bar_len - filled)
-                    print(f"  GOAL: [{bar}] {progress:.1f}%")
+                    if bet_note:
+                        print(f"  Note           : {bet_note}")
                 
                 print("-" * 65)
                 # Minimalist Live Log
@@ -1913,7 +1840,10 @@ class StakeDiceBot:
                 print(f" 🎲 LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} TRX)")
                 print(f" ⚠️ STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
                 print("=" * 65)
-                print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                if remaining_text is not None:
+                    print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Remaining: {remaining_text} | Session: {session_minutes}m | Total: {total_minutes}m")
+                else:
+                    print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
                 print("=" * 65)
                 # Smart Speed: Max speed enabled
 
@@ -2003,6 +1933,9 @@ if __name__ == "__main__":
     while True:
         try:
             bot.start_dice_bot(base_bet=BASE_BET, target=TARGET, condition=CONDITION, dynamic_pct=DYNAMIC_PCT)
+            if _max_duration_minutes > 0:
+                print(f"[SYSTEM] Duration run completed ({_max_duration_minutes} min). Exiting process for auto-switch.")
+                break
         except KeyboardInterrupt:
             print("Bot stopped by user.")
             break

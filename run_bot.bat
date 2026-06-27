@@ -67,13 +67,13 @@ echo [*] Python: %PYTHON_EXE%
 echo.
 
 if "%BOT_CHECK%"=="1" (
-    "%PYTHON_EXE%" -u dice_bot.py --config "%PROFILE%" --check
+    "%PYTHON_EXE%" -u dice_bot_utf8.py --config "%PROFILE%" --check
     exit /b %errorlevel%
 )
 
 :loop
 echo [%date% %time%] Starting bot...
-"%PYTHON_EXE%" -u dice_bot.py --config "%PROFILE%"
+"%PYTHON_EXE%" -u dice_bot_utf8.py --config "%PROFILE%"
 echo.
 echo [%date% %time%] Bot stopped. Restarting in 10 seconds... (Ctrl+C to cancel)
 timeout /t 10

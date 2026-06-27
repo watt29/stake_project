@@ -59,6 +59,7 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _config_arg = "config.json"
 
 _DURATION = 0
+_SESSION_START_TIME = time.time()
 if "--duration" in sys.argv:
     try:
         idx = sys.argv.index("--duration")

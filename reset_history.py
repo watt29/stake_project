@@ -25,7 +25,6 @@ stats_reset = {
     "losses": 0,
     "total_deposited": 0.0,
     "initial_capital": 0.0,
-    "take_profit": 0.0,
     "peak_equity": 0.0,
     "max_drawdown": 0.0,
     "initial_balance": 0.0,
