@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stake Bot Memory"
+  short_description: "Project memory for Stake bot maintenance"
+  default_prompt: "Use $stake-bot-project-memory to work on the Stake bot with the project's known files, states, and debugging flow."

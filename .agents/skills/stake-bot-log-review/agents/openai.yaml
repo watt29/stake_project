@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stake Bot Log Review"
+  short_description: "Review Stake bot logs and infer root cause"
+  default_prompt: "Use $stake-bot-log-review to inspect Stake bot logs and identify which state transition or betting flow is likely wrong."

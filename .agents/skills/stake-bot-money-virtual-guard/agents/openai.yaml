@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stake Bot Guard"
+  short_description: "Guard betting-state edits in stake bot"
+  default_prompt: "Use $stake-bot-money-virtual-guard to update the Stake dice bot without breaking money_state and virtual_state rules."
