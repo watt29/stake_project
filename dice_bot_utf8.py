@@ -3498,57 +3498,42 @@ class StakeDiceBot:
                     'initial_capital': initial_capital,
 
                 })
-                print(f"  STRATEGIC STATUS & GUARD:")
-
+                print("======================================================================")
+                print("                  COMMANDER BRIAN | MISSION CONTROL")
+                print("======================================================================")
+                print("  FINANCIALS:")
+                print(f"    Balance : {balance:.8f} {self.currency.upper()}")
+                print(f"    Profit  : {total_profit:+.8f} {self.currency.upper()}")
+                print(f"    Uptime  : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print("")
+                print("  STATISTICS:")
+                print(f"    Total Bets : {total_bets}")
+                print(f"    Win Rate   : {win_rate:.1f}% ({wins} W / {losses} L)")
+                print(f"    Streak     : {streak} {streak_type}")
+                print(f"    Recent     : {''.join(recent[-6:])}")
+                print("")
+                print("  STRATEGY & GUARD:")
                 if virtual_state != "NONE":
-
                     pattern_str = " - ".join(virtual_escape_pattern)
-
-                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
-
-                    print(f"  Bet Amount      : 0.00000000 {self.currency.upper()} | Virtual Roll")
-
+                    print(f"    Current Step : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
+                    print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
                 else:
-
                     next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
-
-                    print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
-
-                    print(f"  Bet Amount      : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
-
+                    print(f"    Current Step : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
                 
-
-                # Progress Bar for Goal (Only if set)
-
                 if take_profit > 0:
-
                     progress = min(100, max(0, (total_profit / take_profit * 100)))
-
                     bar_len = 20
-
                     filled = int(bar_len * progress / 100)
+                    bar = "=" * filled + "-" * (bar_len - filled)
+                    print(f"    Goal Progress: [{bar}] {progress:.1f}%")
 
-                    bar = "" * filled + "" * (bar_len - filled)
-
-                    print(f"  GOAL: [{bar}] {progress:.1f}%")
-
-                
-
-                print("-" * 65)
-
-                # Minimalist Live Log
-
-                last_result_str = ' WIN ' if last_result == 'WIN' else ' LOSS'
-
-                print(f"  LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
-
-                print(f"   STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
-
-                print("=" * 65)
-
-                print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
-
-                print("=" * 65)
+                print("")
+                print("  LAST ROLL:")
+                last_result_str = 'WIN' if last_result == 'WIN' else 'LOSS'
+                print(f"    Result : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
+                print("======================================================================")
 
                 # Smart Speed: Max speed enabled
 
@@ -3638,69 +3623,42 @@ class StakeDiceBot:
 
                 
 
-                print("=" * 65)
-
-                print(f"  COMMANDER BRIAN | MISSION CONTROL | {mode}")
-
-                print("=" * 65)
-
-                print(f"  FINANCIAL STATEMENT:")
-
-                print(f"   Available Balance : {balance:.8f} {self.currency.upper()}")
-
-                print("-" * 65)
-
-                print(f"  STRATEGIC STATUS & GUARD:")
-
+                print("======================================================================")
+                print(f"                  COMMANDER BRIAN | MISSION CONTROL | {mode}")
+                print("======================================================================")
+                print("  FINANCIALS:")
+                print(f"    Balance : {balance:.8f} {self.currency.upper()}")
+                print(f"    Profit  : {total_profit:+.8f} {self.currency.upper()}")
+                print(f"    Uptime  : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print("")
+                print("  STATISTICS:")
+                print(f"    Total Bets : {total_bets}")
+                print(f"    Win Rate   : {win_rate:.1f}% ({wins} W / {losses} L)")
+                print(f"    Streak     : {streak} {streak_type}")
+                print(f"    Recent     : {''.join(recent[-6:])}")
+                print("")
+                print("  STRATEGY & GUARD:")
                 if virtual_state != "NONE":
-
                     pattern_str = " - ".join(virtual_escape_pattern)
-
-                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
-
-                    print(f"  Bet Amount      : 0.00000000 {self.currency.upper()} | Virtual Roll")
-
+                    print(f"    Current Step : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
+                    print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
                 else:
-
                     next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
-
-                    print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
-
-                    print(f"  Bet Amount      : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
-
+                    print(f"    Current Step : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
                 
-
-                # Progress Bar for Goal (Only if set)
-
                 if take_profit > 0:
-
                     progress = min(100, max(0, (total_profit / take_profit * 100)))
-
                     bar_len = 20
-
                     filled = int(bar_len * progress / 100)
+                    bar = "=" * filled + "-" * (bar_len - filled)
+                    print(f"    Goal Progress: [{bar}] {progress:.1f}%")
 
-                    bar = "" * filled + "" * (bar_len - filled)
-
-                    print(f"  GOAL: [{bar}] {progress:.1f}%")
-
-                
-
-                print("-" * 65)
-
-                # Minimalist Live Log
-
-                last_result_str = ' WIN ' if last_result == 'WIN' else ' LOSS'
-
-                print(f"  LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
-
-                print(f"   STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
-
-                print("=" * 65)
-
-                print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
-
-                print("=" * 65)
+                print("")
+                print("  LAST ROLL:")
+                last_result_str = 'WIN' if last_result == 'WIN' else 'LOSS'
+                print(f"    Result : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
+                print("======================================================================")
 
                 # Smart Speed: Max speed enabled
 
