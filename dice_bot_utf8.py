@@ -3498,13 +3498,22 @@ class StakeDiceBot:
                     'initial_capital': initial_capital,
 
                 })
+                clear()
                 print("======================================================================")
                 print("                  COMMANDER BRIAN | MISSION CONTROL")
                 print("======================================================================")
+                if _DURATION > 0:
+                    elapsed_session = time.time() - _SESSION_START_TIME
+                    left_sec = int(max(0, _DURATION * 60 - elapsed_session))
+                    time_left_str = f"{left_sec // 60}m {left_sec % 60}s"
+                else:
+                    time_left_str = "∞ (No limit)"
+
                 print("  FINANCIALS:")
-                print(f"    Balance : {balance:.8f} {self.currency.upper()}")
-                print(f"    Profit  : {total_profit:+.8f} {self.currency.upper()}")
-                print(f"    Uptime  : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print(f"    Balance   : {balance:.8f} {self.currency.upper()}")
+                print(f"    Profit    : {total_profit:+.8f} {self.currency.upper()}")
+                print(f"    Uptime    : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print(f"    Time Left : {time_left_str}")
                 print("")
                 print("  STATISTICS:")
                 print(f"    Total Bets : {total_bets}")
@@ -3626,10 +3635,18 @@ class StakeDiceBot:
                 print("======================================================================")
                 print(f"                  COMMANDER BRIAN | MISSION CONTROL | {mode}")
                 print("======================================================================")
+                if _DURATION > 0:
+                    elapsed_session = time.time() - _SESSION_START_TIME
+                    left_sec = int(max(0, _DURATION * 60 - elapsed_session))
+                    time_left_str = f"{left_sec // 60}m {left_sec % 60}s"
+                else:
+                    time_left_str = "∞ (No limit)"
+
                 print("  FINANCIALS:")
-                print(f"    Balance : {balance:.8f} {self.currency.upper()}")
-                print(f"    Profit  : {total_profit:+.8f} {self.currency.upper()}")
-                print(f"    Uptime  : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print(f"    Balance   : {balance:.8f} {self.currency.upper()}")
+                print(f"    Profit    : {total_profit:+.8f} {self.currency.upper()}")
+                print(f"    Uptime    : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print(f"    Time Left : {time_left_str}")
                 print("")
                 print("  STATISTICS:")
                 print(f"    Total Bets : {total_bets}")
