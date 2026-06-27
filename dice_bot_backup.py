@@ -1,4 +1,4 @@
-import socket
+﻿import socket
 socket.setdefaulttimeout(30)
 import requests
 import undetected_chromedriver as uc
@@ -22,11 +22,11 @@ if os.name == 'nt':
         pass
 
 # ============================================================
-#  LOAD USER CONFIG (รองรับ --config profile)
+#  LOAD USER CONFIG (เธฃเธญเธเธฃเธฑเธ --config profile)
 # ============================================================
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# รับ --config argument เช่น: python dice_bot.py --config config_user2.json
+# เธฃเธฑเธ --config argument เน€เธเนเธ: python dice_bot.py --config config_user2.json
 _config_arg = "config.json"
 if "--config" in sys.argv:
     idx = sys.argv.index("--config")
@@ -35,17 +35,7 @@ if "--config" in sys.argv:
 
 _CONFIG_FILE = os.path.join(_BASE_DIR, _config_arg)
 
-_max_duration_minutes = 0
-if "--duration" in sys.argv:
-    idx = sys.argv.index("--duration")
-    if idx + 1 < len(sys.argv):
-        try:
-            _max_duration_minutes = int(sys.argv[idx + 1])
-        except:
-            pass
-
-
-# Stats file แยกตาม profile เช่น config_user2.json -> dice_stats_user2.json
+# Stats file เนเธขเธเธ•เธฒเธก profile เน€เธเนเธ config_user2.json -> dice_stats_user2.json
 _profile_suffix = _config_arg.replace("config", "").replace(".json", "") or ""
 _STATS_FILE   = os.path.join(_BASE_DIR, f"dice_stats{_profile_suffix}.json")
 _HISTORY_FILE = os.path.join(_BASE_DIR, f"dice_history{_profile_suffix}.csv")
@@ -61,7 +51,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # ==========================================
-# 1. ตั้งค่าระบบ Logging
+# 1. เธ•เธฑเนเธเธเนเธฒเธฃเธฐเธเธ Logging
 # ==========================================
 logging.basicConfig(
     level=logging.INFO,
@@ -88,14 +78,7 @@ class SkillManager(FileSystemEventHandler):
             "loss_streak_escape_wins": 2,
             "loss_streak_mid_step": 8,
             "loss_streak_mid_threshold": 3,
-            "loss_streak_mid_escape_wins": 2,
-            "loss_streak_high_step": 14,
-            "loss_streak_high_threshold": 1,
-            "loss_streak_high_escape_wins": 2,
-            "loss_streak_high_min_virtual_rolls": 16,
-            "hard_virtual_step": 14,
-            "hard_virtual_escape_wins": 2,
-            "hard_virtual_min_rolls": 20
+            "loss_streak_mid_escape_wins": 2
         }
         # Default fallback skills
         self.ai_skills = self.default_skills.copy()
@@ -103,7 +86,7 @@ class SkillManager(FileSystemEventHandler):
 
     def load_skills(self):
         try:
-            # ป้องกัน I/O Race Condition
+            # เธเนเธญเธเธเธฑเธ I/O Race Condition
             time.sleep(0.1)
             with open(self.config_path, 'r', encoding="utf-8") as f:
                 new_skills = json.load(f)
@@ -112,7 +95,7 @@ class SkillManager(FileSystemEventHandler):
             new_skills = merged_skills
                 
             # ==========================================
-            # เริ่มขั้นตอน Schema Validation
+            # เน€เธฃเธดเนเธกเธเธฑเนเธเธ•เธญเธ Schema Validation
             # ==========================================
             expected_schema = {
                 "isolated_wins_threshold": int,
@@ -123,79 +106,64 @@ class SkillManager(FileSystemEventHandler):
                 "loss_streak_escape_wins": int,
                 "loss_streak_mid_step": int,
                 "loss_streak_mid_threshold": int,
-                "loss_streak_mid_escape_wins": int,
-                "loss_streak_high_step": int,
-                "loss_streak_high_escape_wins": int,
-                "loss_streak_high_threshold": int,
-                "loss_streak_high_min_virtual_rolls": int,
-                "hard_virtual_step": int,
-                "hard_virtual_escape_wins": int,
-                "hard_virtual_min_rolls": int
+                "loss_streak_mid_escape_wins": int
             }
             
-            # เช็ค Key Existence และ Type Checking
+            # เน€เธเนเธ Key Existence เนเธฅเธฐ Type Checking
             for key, expected_type in expected_schema.items():
                 if key not in new_skills:
-                    raise ValueError(f"คีย์ที่จำเป็นสูญหาย: '{key}'")
+                    raise ValueError(f"เธเธตเธขเนเธ—เธตเนเธเธณเน€เธเนเธเธชเธนเธเธซเธฒเธข: '{key}'")
                 if not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool):
-                    raise TypeError(f"คีย์ '{key}' ต้องเป็นตัวเลข ({expected_type.__name__}) เท่านั้น")
+                    raise TypeError(f"เธเธตเธขเน '{key}' เธ•เนเธญเธเน€เธเนเธเธ•เธฑเธงเน€เธฅเธ ({expected_type.__name__}) เน€เธ—เนเธฒเธเธฑเนเธ")
             for key, expected_type in optional_int_schema.items():
                 if key in new_skills and (not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool)):
-                    raise TypeError(f"คีย์ '{key}' ต้องเป็นตัวเลข ({expected_type.__name__}) เท่านั้น")
+                    raise TypeError(f"เธเธตเธขเน '{key}' เธ•เนเธญเธเน€เธเนเธเธ•เธฑเธงเน€เธฅเธ ({expected_type.__name__}) เน€เธ—เนเธฒเธเธฑเนเธ")
 
-            # เช็ค Value Constraints
+            # เน€เธเนเธ Value Constraints
             if new_skills["loss_streak_threshold"] <= 0:
-                raise ValueError("loss_streak_threshold ต้องมีค่ามากกว่า 0")
+                raise ValueError("loss_streak_threshold เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
             if new_skills["sawtooth_length"] < 2:
-                raise ValueError("sawtooth_length ต้องมีความยาวอย่างน้อย 2")
+                raise ValueError("sawtooth_length เธ•เนเธญเธเธกเธตเธเธงเธฒเธกเธขเธฒเธงเธญเธขเนเธฒเธเธเนเธญเธข 2")
             if new_skills.get("loss_streak_escape_wins", 2) <= 0:
-                raise ValueError("loss_streak_escape_wins ต้องมีค่ามากกว่า 0")
+                raise ValueError("loss_streak_escape_wins เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
             if new_skills.get("loss_streak_mid_step", 8) < 0:
-                raise ValueError("loss_streak_mid_step ต้องไม่ติดลบ")
+                raise ValueError("loss_streak_mid_step เธ•เนเธญเธเนเธกเนเธ•เธดเธ”เธฅเธ")
             if new_skills.get("loss_streak_mid_threshold", 3) <= 0:
-                raise ValueError("loss_streak_mid_threshold ต้องมีค่ามากกว่า 0")
+                raise ValueError("loss_streak_mid_threshold เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
             if new_skills.get("loss_streak_mid_escape_wins", 2) <= 0:
-                raise ValueError("loss_streak_mid_escape_wins ต้องมีค่ามากกว่า 0")
+                raise ValueError("loss_streak_mid_escape_wins เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
             if new_skills.get("loss_streak_high_step", 14) < 0:
-                raise ValueError("loss_streak_high_step ต้องไม่ติดลบ")
+                raise ValueError("loss_streak_high_step เธ•เนเธญเธเนเธกเนเธ•เธดเธ”เธฅเธ")
             if new_skills.get("loss_streak_high_escape_wins", 2) <= 0:
-                raise ValueError("loss_streak_high_escape_wins ต้องมีค่ามากกว่า 0")
+                raise ValueError("loss_streak_high_escape_wins เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
             if new_skills.get("loss_streak_high_threshold", 1) <= 0:
-                raise ValueError("loss_streak_high_threshold ต้องมีค่ามากกว่า 0")
-            if new_skills.get("loss_streak_high_min_virtual_rolls", 16) < 0:
-                raise ValueError("loss_streak_high_min_virtual_rolls ต้องไม่ติดลบ")
-            if new_skills.get("hard_virtual_step", 14) < 0:
-                raise ValueError("hard_virtual_step ต้องไม่ติดลบ")
-            if new_skills.get("hard_virtual_escape_wins", 4) <= 0:
-                raise ValueError("hard_virtual_escape_wins ต้องมีค่ามากกว่า 0")
-            if new_skills.get("hard_virtual_min_rolls", 20) < 0:
-                raise ValueError("hard_virtual_min_rolls ต้องไม่ติดลบ")
+                raise ValueError("loss_streak_high_threshold เธ•เนเธญเธเธกเธตเธเนเธฒเธกเธฒเธเธเธงเนเธฒ 0")
+            
+
             
             # ==========================================
-            # 2. การทำ Logging เมื่อ Hot Reload สำเร็จ
+            # 2. เธเธฒเธฃเธ—เธณ Logging เน€เธกเธทเนเธญ Hot Reload เธชเธณเน€เธฃเนเธ
             # ==========================================
-            old_skills = self.ai_skills.copy() # เก็บค่าเดิมไว้เทียบก่อน
+            old_skills = self.ai_skills.copy() # เน€เธเนเธเธเนเธฒเน€เธ”เธดเธกเนเธงเนเน€เธ—เธตเธขเธเธเนเธญเธ
             
             # Atomic Replacement
             self.ai_skills = new_skills
             
             if old_skills != self.ai_skills:
                 logging.info(
-                    f"🚀 [Hot Reload Success] AI Skills updated!\n"
+                    f"๐€ [Hot Reload Success] AI Skills updated!\n"
                     f"   --> Old: {old_skills}\n"
                     f"   --> New: {self.ai_skills}"
                 )
             else:
-                logging.debug("⚡ [Hot Reload] File modified but values remain unchanged.")
+                logging.debug("โก [Hot Reload] File modified but values remain unchanged.")
             
-        except FileNotFoundError:
-            logging.info("ℹ️ [Info] ไฟล์ ai_skills.json ไม่มีอยู่ จะใช้ค่าดีฟอลต์ (Default Skills) ต่อไป")
         except json.JSONDecodeError:
-            logging.error("⚠️ [JSON Error] โครงสร้างไฟล์ JSON ไม่สมบูรณ์ (อาจกำลังถูกเขียนทับ) บอทจะใช้ค่าเดิมต่อไป")
+            logging.error("โ ๏ธ [JSON Error] เนเธเธฃเธเธชเธฃเนเธฒเธเนเธเธฅเน JSON เนเธกเนเธชเธกเธเธนเธฃเธ“เน (เธญเธฒเธเธเธณเธฅเธฑเธเธ–เธนเธเน€เธเธตเธขเธเธ—เธฑเธ) เธเธญเธ—เธเธฐเนเธเนเธเนเธฒเน€เธ”เธดเธกเธ•เนเธญเนเธ")
         except (ValueError, TypeError) as validate_err:
-            logging.warning(f"🛡️ [Validation Failed] ค่า Config ไม่ปลอดภัย: {validate_err} -> บอทจะใช้ค่าเดิมต่อไป")
+            logging.warning(f"๐ก๏ธ [Validation Failed] เธเนเธฒ Config เนเธกเนเธเธฅเธญเธ”เธ เธฑเธข: {validate_err} -> เธเธญเธ—เธเธฐเนเธเนเธเนเธฒเน€เธ”เธดเธกเธ•เนเธญเนเธ")
         except Exception:
-            logging.exception("⚠️ [Unknown Error] โหลด AI Skills ล้มเหลว")
+            logging.exception("โ ๏ธ [Unknown Error] เนเธซเธฅเธ” AI Skills เธฅเนเธกเน€เธซเธฅเธง")
 
     def on_modified(self, event):
         # normalize paths to prevent cross-platform issues
@@ -204,7 +172,7 @@ class SkillManager(FileSystemEventHandler):
 
 def _load_config():
     if not os.path.exists(_CONFIG_FILE):
-        print(f"[ERROR] ไม่พบไฟล์ {_config_arg} กรุณาสร้างไฟล์ก่อนรัน")
+        print(f"[ERROR] เนเธกเนเธเธเนเธเธฅเน {_config_arg} เธเธฃเธธเธ“เธฒเธชเธฃเนเธฒเธเนเธเธฅเนเธเนเธญเธเธฃเธฑเธ")
         sys.exit(1)
     with open(_CONFIG_FILE, "r", encoding="utf-8-sig") as f:
         return json.load(f)
@@ -220,7 +188,6 @@ _PROFILE_NAMES = {
     "config_account4.json": "Gen45"
 }
 _CURRENT_PROFILE = _PROFILE_NAMES.get(_config_arg, _config_arg.replace(".json", ""))
-_CURRENT_USERNAME = None
 STATS_FILE   = _STATS_FILE
 HISTORY_FILE = _HISTORY_FILE
 EVENT_LOG    = _EVENT_LOG
@@ -233,11 +200,18 @@ _bot_state = {}
 _stop_event = threading.Event()
 _active_bot = None  # Reference to bot instance for tip commands
 
+def get_currency():
+    global _active_bot
+    if _active_bot and hasattr(_active_bot, 'currency') and _active_bot.currency:
+        return _active_bot.currency.upper()
+    return "BTC"
+
 def get_min_bet(currency_str):
     c = currency_str.lower()
-    if c == 'trx':
-        return 0.001
+    if c == "trx":
+        return 0.0005
     return 0.00000001
+
 
 
 def load_stats():
@@ -285,7 +259,7 @@ def save_stats(stats):
     threading.Thread(target=_save_stats_worker, args=(stats.copy(),), daemon=True).start()
 
 def log_event(message):
-    """บันทึกเหตุการณ์สำคัญลงไฟล์เพื่อให้คนอ่านย้อนหลังได้ง่าย"""
+    """เธเธฑเธเธ—เธถเธเน€เธซเธ•เธธเธเธฒเธฃเธ“เนเธชเธณเธเธฑเธเธฅเธเนเธเธฅเนเน€เธเธทเนเธญเนเธซเนเธเธเธญเนเธฒเธเธขเนเธญเธเธซเธฅเธฑเธเนเธ”เนเธเนเธฒเธข"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(EVENT_LOG, "a", encoding="utf-8") as f:
@@ -308,8 +282,7 @@ def get_fib_multiplier(n):
 
 def tg(msg, reply_markup=None):
     """Corporate Reporting System (CEO to Board)"""
-    profile = _CURRENT_USERNAME if _CURRENT_USERNAME else _CURRENT_PROFILE
-    full_msg = f"👤 [<b>{profile}</b>]\n{msg}"
+    full_msg = f"๐‘ค [<b>{_CURRENT_PROFILE}</b>]\n{msg}"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": full_msg, "parse_mode": "HTML"}
     if reply_markup: payload["reply_markup"] = reply_markup
@@ -317,8 +290,7 @@ def tg(msg, reply_markup=None):
 
 def tg_edit(chat_id, message_id, msg, reply_markup=None):
     """Edit existing message (for callback updates)"""
-    profile = _CURRENT_USERNAME if _CURRENT_USERNAME else _CURRENT_PROFILE
-    full_msg = f"👤 [<b>{profile}</b>]\n{msg}"
+    full_msg = f"๐‘ค [<b>{_CURRENT_PROFILE}</b>]\n{msg}"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/editMessageText"
     payload = {"chat_id": chat_id, "message_id": message_id, "text": full_msg, "parse_mode": "HTML"}
     if reply_markup: payload["reply_markup"] = reply_markup
@@ -345,64 +317,66 @@ def main_menu_markup():
     return {
         "inline_keyboard": [
             [
-                {"text": "📊 สถานะ", "callback_data": "/status"},
-                {"text": "💰 กำไร/ขาดทุน", "callback_data": "/profit"}
+                {"text": "๐“ เธชเธ–เธฒเธเธฐ", "callback_data": "/status"},
+                {"text": "๐’ฐ เธเธณเนเธฃ/เธเธฒเธ”เธ—เธธเธ", "callback_data": "/profit"}
             ],
             [
-                {"text": "ℹ️ ข้อมูลบอท", "callback_data": "/info"},
-                {"text": "🏥 สุขภาพบอท", "callback_data": "/health"}
+                {"text": "โน๏ธ เธเนเธญเธกเธนเธฅเธเธญเธ—", "callback_data": "/info"},
+                {"text": "๐ฅ เธชเธธเธเธ เธฒเธเธเธญเธ—", "callback_data": "/health"}
             ],
             [
-                {"text": "🎯 ตั้งเป้ากำไร", "callback_data": "tp_menu"},
-                {"text": "🛑 ตั้งจุดพักบอท", "callback_data": "sl_menu"}
+                {"text": "๐ฏ เธ•เธฑเนเธเน€เธเนเธฒเธเธณเนเธฃ", "callback_data": "tp_menu"},
+                {"text": "๐‘ เธ•เธฑเนเธเธเธธเธ”เธเธฑเธเธเธญเธ—", "callback_data": "sl_menu"}
             ],
             [
-                {"text": "📄 รายงานบัญชี", "callback_data": "/report"},
-                {"text": "📥 ประวัติเติมเงิน", "callback_data": "/deposits"}
+                {"text": "๐“ เธฃเธฒเธขเธเธฒเธเธเธฑเธเธเธต", "callback_data": "/report"},
+                {"text": "๐“ฅ เธเธฃเธฐเธงเธฑเธ•เธดเน€เธ•เธดเธกเน€เธเธดเธ", "callback_data": "/deposits"}
             ],
             [
-                {"text": "⚙️ การตั้งค่า", "callback_data": "/config"},
-                {"text": "💸 โอนเหรียญ (Tip)", "callback_data": "tip_menu"}
+                {"text": "โ๏ธ เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒ", "callback_data": "/config"},
+                {"text": "๐’ธ เนเธญเธเน€เธซเธฃเธตเธขเธ (Tip)", "callback_data": "tip_menu"}
             ],
             [
-                {"text": "♻️ รีสตาร์ท / หยุดบอท", "callback_data": "/stop"}
+                {"text": "โป๏ธ เธฃเธตเธชเธ•เธฒเธฃเนเธ— / เธซเธขเธธเธ”เธเธญเธ—", "callback_data": "/stop"}
             ]
         ]
     }
 
 def tp_menu_markup():
     """Take Profit preset buttons"""
+    cc = get_currency()
     return {
         "inline_keyboard": [
             [
-                {"text": "🎯 +5 TRX",  "callback_data": "/tp 5"},
-                {"text": "🎯 +10 TRX", "callback_data": "/tp 10"},
-                {"text": "🎯 +20 TRX", "callback_data": "/tp 20"}
+                {"text": f"๐ฏ +5 {cc}",  "callback_data": "/tp 5"},
+                {"text": f"๐ฏ +10 {cc}", "callback_data": "/tp 10"},
+                {"text": f"๐ฏ +20 {cc}", "callback_data": "/tp 20"}
             ],
             [
-                {"text": "🎯 +50 TRX",  "callback_data": "/tp 50"},
-                {"text": "🎯 +100 TRX", "callback_data": "/tp 100"},
-                {"text": "🎯 +200 TRX", "callback_data": "/tp 200"}
+                {"text": f"๐ฏ +50 {cc}",  "callback_data": "/tp 50"},
+                {"text": f"๐ฏ +100 {cc}", "callback_data": "/tp 100"},
+                {"text": f"๐ฏ +200 {cc}", "callback_data": "/tp 200"}
             ],
-            [{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]
+            [{"text": "โ—€๏ธ เธเธฅเธฑเธเน€เธกเธเธนเธซเธฅเธฑเธ", "callback_data": "main_menu"}]
         ]
     }
 
 def sl_menu_markup():
     """Stop Loss preset buttons"""
+    cc = get_currency()
     return {
         "inline_keyboard": [
             [
-                {"text": "🛑 -5 TRX",  "callback_data": "/sl 5"},
-                {"text": "🛑 -10 TRX", "callback_data": "/sl 10"},
-                {"text": "🛑 -20 TRX", "callback_data": "/sl 20"}
+                {"text": f"๐‘ -5 {cc}",  "callback_data": "/sl 5"},
+                {"text": f"๐‘ -10 {cc}", "callback_data": "/sl 10"},
+                {"text": f"๐‘ -20 {cc}", "callback_data": "/sl 20"}
             ],
             [
-                {"text": "🛑 -50 TRX",  "callback_data": "/sl 50"},
-                {"text": "🛑 -100 TRX", "callback_data": "/sl 100"},
-                {"text": "🛑 -200 TRX", "callback_data": "/sl 200"}
+                {"text": f"๐‘ -50 {cc}",  "callback_data": "/sl 50"},
+                {"text": f"๐‘ -100 {cc}", "callback_data": "/sl 100"},
+                {"text": f"๐‘ -200 {cc}", "callback_data": "/sl 200"}
             ],
-            [{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]
+            [{"text": "โ—€๏ธ เธเธฅเธฑเธเน€เธกเธเธนเธซเธฅเธฑเธ", "callback_data": "main_menu"}]
         ]
     }
 
@@ -418,18 +392,18 @@ def corporate_heartbeat():
             wr = (wins / bets * 100) if bets > 0 else 0
             tp = _bot_state.get('take_profit', 0)
             progress = (profit / tp * 100) if tp > 0 else 0
-            p_icon = "🟢" if profit >= 0 else "🔴"
+            p_icon = "๐ข" if profit >= 0 else "๐”ด"
             uptime = _bot_state.get('total_uptime_seconds', 0)
 
             tg(
-                f"💓 <b>รายงานสถานะ (ทุก 30 นาที)</b>\n"
-                f"━━━━━━━━━━━━━━━━\n"
-                f"💰 Balance  : <b>{balance:.4f} TRX</b>\n"
-                f"{p_icon} P/L     : <b>{profit:+.4f} TRX</b>\n"
-                f"📊 Win Rate : <b>{wr:.1f}%</b>\n"
-                f"🎰 Bets     : <b>{bets:,}</b>\n"
-                f"📍 Step     : <b>{_bot_state.get('fib_step', 1)}</b>\n"
-                f"⏱️ Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
+                f"๐’“ <b>เธฃเธฒเธขเธเธฒเธเธชเธ–เธฒเธเธฐ (เธ—เธธเธ 30 เธเธฒเธ—เธต)</b>\n"
+                f"โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”\n"
+                f"๐’ฐ Balance  : <b>{balance:.8f} BTC</b>\n"
+                f"{p_icon} P/L     : <b>{profit:+.8f} BTC</b>\n"
+                f"๐“ Win Rate : <b>{wr:.1f}%</b>\n"
+                f"๐ฐ Bets     : <b>{bets:,}</b>\n"
+                f"๐“ Step     : <b>{_bot_state.get('fib_step', 1)}</b>\n"
+                f"โฑ๏ธ Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
                 reply_markup=main_menu_markup()
             )
 
@@ -456,28 +430,28 @@ def _handle_command(cmd: str, show_menu=False):
         s['force_balance_check'] = True
         
         tg(
-            f"📊 <b>COMPANY STYLE PORTFOLIO</b>\n"
+            f"๐“ <b>COMPANY STYLE PORTFOLIO</b>\n"
             f"--------------------------------\n"
-            f"🏦 <b>CAPITAL ACCOUNT</b>\n"
-            f"• Initial Deposit : {initial_cap:.3f} TRX\n"
+            f"๐ฆ <b>CAPITAL ACCOUNT</b>\n"
+            f"โ€ข Initial Deposit : {initial_cap:.3f} BTC\n"
             f"--------------------------------\n"
-            f"💵 <b>TREASURY</b>\n"
-            f"• Current Equity  : {balance:.8f} TRX\n"
-            f"• Realized Profit : {withdrawn:.2f} TRX\n"
-            f"• Unrealized Prof : {unrealized:+.4f} TRX\n"
+            f"๐’ต <b>TREASURY</b>\n"
+            f"โ€ข Current Equity  : {balance:.8f} BTC\n"
+            f"โ€ข Realized Profit : {withdrawn:.2f} BTC\n"
+            f"โ€ข Unrealized Prof : {unrealized:+.8f} BTC\n"
             f"--------------------------------\n"
-            f"📈 <b>PERFORMANCE</b>\n"
-            f"• Real Net Profit : {real_net_profit:+.4f} TRX\n"
-            f"• ROI             : {roi:+.2f}%\n"
-            f"• Peak Equity     : {s.get('peak_equity', 0):.2f} TRX\n"
-            f"• Max Drawdown    : {s.get('max_drawdown', 0):.2f} TRX\n"
+            f"๐“ <b>PERFORMANCE</b>\n"
+            f"โ€ข Real Net Profit : {real_net_profit:+.8f} BTC\n"
+            f"โ€ข ROI             : {roi:+.2f}%\n"
+            f"โ€ข Peak Equity     : {s.get('peak_equity', 0):.2f} BTC\n"
+            f"โ€ข Max Drawdown    : {s.get('max_drawdown', 0):.2f} BTC\n"
             f"--------------------------------\n"
-            f"🎰 Bets: {s.get('bets', 0):,} | WR: {wr:.1f}%\n"
+            f"๐ฐ Bets: {s.get('bets', 0):,} | WR: {wr:.1f}%\n"
             f"<i>Reported by: Board of Directors Bot</i>"
         )
     elif cmd == "/deposits":
         balance = s.get('balance', 0)
-        msg = f"💰 <b>ยอดเงินคงเหลือปัจจุบัน:</b> {balance:.4f} TRX\n"
+        msg = f"๐’ฐ <b>เธขเธญเธ”เน€เธเธดเธเธเธเน€เธซเธฅเธทเธญเธเธฑเธเธเธธเธเธฑเธ:</b> {balance:.8f} BTC\n"
         msg += "--------------------------------\n"
         
         if os.path.exists(_DEPOSIT_FILE):
@@ -489,81 +463,81 @@ def _handle_command(cmd: str, show_menu=False):
                     latest_line = recent[-1]
                     parts = latest_line.strip().split(',')
                     if len(parts) >= 3:
-                        msg += f"⚡ <b>ยอดเติมล่าสุด:</b> +{parts[1]} TRX ({parts[0]})\n"
+                        msg += f"โก <b>เธขเธญเธ”เน€เธ•เธดเธกเธฅเนเธฒเธชเธธเธ”:</b> +{parts[1]} BTC ({parts[0]})\n"
                     
                     msg += "--------------------------------\n"
-                    msg += "📥 <b>ประวัติย้อนหลัง (สูงสุด 10 ครั้ง)</b>\n"
+                    msg += "๐“ฅ <b>เธเธฃเธฐเธงเธฑเธ•เธดเธขเนเธญเธเธซเธฅเธฑเธ (เธชเธนเธเธชเธธเธ” 10 เธเธฃเธฑเนเธ)</b>\n"
                     for line in reversed(recent): # Show newest first
                         parts = line.strip().split(',')
                         if len(parts) >= 3:
-                            msg += f"• <b>+{parts[1]} TRX</b> | {parts[0]}\n"
+                            msg += f"โ€ข <b>+{parts[1]} BTC</b> | {parts[0]}\n"
                     tg(msg)
                 else:
-                    tg(msg + "📥 ยังไม่มีประวัติการเติมเงินในระบบครับ")
+                    tg(msg + "๐“ฅ เธขเธฑเธเนเธกเนเธกเธตเธเธฃเธฐเธงเธฑเธ•เธดเธเธฒเธฃเน€เธ•เธดเธกเน€เธเธดเธเนเธเธฃเธฐเธเธเธเธฃเธฑเธ")
             except:
-                tg("⚠️ ไม่สามารถอ่านไฟล์ประวัติการเติมเงินได้")
+                tg("โ ๏ธ เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเนเธฒเธเนเธเธฅเนเธเธฃเธฐเธงเธฑเธ•เธดเธเธฒเธฃเน€เธ•เธดเธกเน€เธเธดเธเนเธ”เน")
         else:
-            tg(msg + "📥 ยังไม่มีประวัติการเติมเงินในระบบครับ")
+            tg(msg + "๐“ฅ เธขเธฑเธเนเธกเนเธกเธตเธเธฃเธฐเธงเธฑเธ•เธดเธเธฒเธฃเน€เธ•เธดเธกเน€เธเธดเธเนเธเธฃเธฐเธเธเธเธฃเธฑเธ")
     
     elif cmd == "/health":
-        last_err = s.get('last_error', 'ไม่มี')
+        last_err = s.get('last_error', 'เนเธกเนเธกเธต')
         err_count = s.get('error_count', 0)
-        api_status = s.get('api_status', '🟢 ปกติ')
+        api_status = s.get('api_status', '๐ข เธเธเธ•เธด')
         v_state = s.get('virtual_state', 'NONE')
-        v_mode = "เปิด (แทงลม)" if v_state != "NONE" else "ปิด (เงินจริง)"
+        v_mode = "เน€เธเธดเธ” (เนเธ—เธเธฅเธก)" if v_state != "NONE" else "เธเธดเธ” (เน€เธเธดเธเธเธฃเธดเธ)"
         balance = s.get('balance', 0)
         
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
         step = s.get('fib_step', 1)
         profit = s.get('profit', 0)
         
-        status = "🟢 <b>แข็งแรงมาก (Healthy)</b>"
-        advice = "บอททำงานปกติ เดินหน้าต่อได้ยาวๆ ครับ"
+        status = "๐ข <b>เนเธเนเธเนเธฃเธเธกเธฒเธ (Healthy)</b>"
+        advice = "เธเธญเธ—เธ—เธณเธเธฒเธเธเธเธ•เธด เน€เธ”เธดเธเธซเธเนเธฒเธ•เนเธญเนเธ”เนเธขเธฒเธงเน เธเธฃเธฑเธ"
         if wr < 47:
-            status = "🟡 <b>เฝ้าระวัง (Warning)</b>"
-            advice = "ช่วงนี้ดวงตกเล็กน้อย แพ้บ่อยกว่าปกติ"
+            status = "๐ก <b>เน€เธเนเธฒเธฃเธฐเธงเธฑเธ (Warning)</b>"
+            advice = "เธเนเธงเธเธเธตเนเธ”เธงเธเธ•เธเน€เธฅเนเธเธเนเธญเธข เนเธเนเธเนเธญเธขเธเธงเนเธฒเธเธเธ•เธด"
         if step >= 10:
-            status = "🟠 <b>ความดันสูง (Caution)</b>"
-            advice = "บอทกำลังสู้หนัก (Step 10+) ควรจับตาดูใกล้ชิด"
+            status = "๐  <b>เธเธงเธฒเธกเธ”เธฑเธเธชเธนเธ (Caution)</b>"
+            advice = "เธเธญเธ—เธเธณเธฅเธฑเธเธชเธนเนเธซเธเธฑเธ (Step 10+) เธเธงเธฃเธเธฑเธเธ•เธฒเธ”เธนเนเธเธฅเนเธเธดเธ”"
         if step >= 18:
-            status = "🔴 <b>อันตราย (Critical)</b>"
-            advice = "เสี่ยงพอร์ตแตก! พิจารณาหยุดบอทชั่วคราว"
+            status = "๐”ด <b>เธญเธฑเธเธ•เธฃเธฒเธข (Critical)</b>"
+            advice = "เน€เธชเธตเนเธขเธเธเธญเธฃเนเธ•เนเธ•เธ! เธเธดเธเธฒเธฃเธ“เธฒเธซเธขเธธเธ”เธเธญเธ—เธเธฑเนเธงเธเธฃเธฒเธง"
         if profit < 0:
-            advice += "\n<i>*ตอนนี้ยังอยู่ในช่วงทวงทุนคืน</i>"
+            advice += "\n<i>*เธ•เธญเธเธเธตเนเธขเธฑเธเธญเธขเธนเนเนเธเธเนเธงเธเธ—เธงเธเธ—เธธเธเธเธทเธ</i>"
 
         msg = (
-            "🏥 <b>สถานะระบบบอท (System & Strategy Health)</b>\n"
+            "๐ฅ <b>เธชเธ–เธฒเธเธฐเธฃเธฐเธเธเธเธญเธ— (System & Strategy Health)</b>\n"
             "--------------------------------\n"
-            f"🔌 <b>API Status :</b> {api_status}\n"
-            f"⚠️ <b>Last Error :</b> {last_err} ({err_count} ครั้ง)\n"
-            f"🌬️ <b>Virtual Mode:</b> {v_mode}\n"
+            f"๐” <b>API Status :</b> {api_status}\n"
+            f"โ ๏ธ <b>Last Error :</b> {last_err} ({err_count} เธเธฃเธฑเนเธ)\n"
+            f"๐ฌ๏ธ <b>Virtual Mode:</b> {v_mode}\n"
             "--------------------------------\n"
-            f"📊 <b>Strategy   :</b> {status}\n"
-            f"🎯 <b>Win Rate   :</b> {wr:.1f}%\n"
-            f"📈 <b>Fib Step   :</b> ขั้นที่ {step}\n"
+            f"๐“ <b>Strategy   :</b> {status}\n"
+            f"๐ฏ <b>Win Rate   :</b> {wr:.1f}%\n"
+            f"๐“ <b>Fib Step   :</b> เธเธฑเนเธเธ—เธตเน {step}\n"
             "--------------------------------\n"
-            f"🩺 <b>คำแนะนำ:</b>\n{advice}"
+            f"๐ฉบ <b>เธเธณเนเธเธฐเธเธณ:</b>\n{advice}"
         )
         tg(msg)
     elif cmd == "/profit":
         p = s.get('profit', 0)
-        icon = "🟢" if p >= 0 else "🔴"
+        icon = "๐ข" if p >= 0 else "๐”ด"
         tg(
             f"{icon} <b>PROFIT & LOSS REPORT</b>\n"
-            f"Gross Profit : {p:+.8f} TRX\n"
-            f"Withdrawn    : {s.get('total_withdrawn', 0):.8f} TRX\n"
-            f"Deposited    : {s.get('total_deposited', 0):.8f} TRX\n"
-            f"Initial Cap  : {s.get('start_balance', 0):.8f} TRX\n"
+            f"Gross Profit : {p:+.8f} BTC\n"
+            f"Withdrawn    : {s.get('total_withdrawn', 0):.8f} BTC\n"
+            f"Deposited    : {s.get('total_deposited', 0):.8f} BTC\n"
+            f"Initial Cap  : {s.get('start_balance', 0):.8f} BTC\n"
             f"Time Period  : Live Session"
         )
     elif cmd == "/info":
-        # เวลาของ Session ปัจจุบัน
+        # เน€เธงเธฅเธฒเธเธญเธ Session เธเธฑเธเธเธธเธเธฑเธ
         session_start = s.get('session_start', datetime.now())
         session_dur = datetime.now() - session_start
         s_h, s_rem = divmod(int(session_dur.total_seconds()), 3600)
         s_m, _ = divmod(s_rem, 60)
         
-        # เวลาสะสมทั้งหมด (Total Uptime)
+        # เน€เธงเธฅเธฒเธชเธฐเธชเธกเธ—เธฑเนเธเธซเธกเธ” (Total Uptime)
         total_sec = s.get('total_uptime_seconds', 0)
         t_h, t_rem = divmod(total_sec, 3600)
         t_m, _ = divmod(t_rem, 60)
@@ -572,46 +546,46 @@ def _handle_command(cmd: str, show_menu=False):
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
         
         tg(
-            f"ℹ️ <b>BOT HISTORICAL REPORT</b>\n"
+            f"โน๏ธ <b>BOT HISTORICAL REPORT</b>\n"
             f"--------------------------------\n"
-            f"🗓️ <b>First Started</b> : {first_start}\n"
-            f"⏳ <b>Total Uptime</b>  : {t_h}h {t_m}m (All-time)\n"
-            f"⏰ <b>This Session</b>  : {s_h}h {s_m}m\n"
-            f"🎰 <b>Total Bets</b>    : {s.get('bets', 0):,}\n"
+            f"๐—“๏ธ <b>First Started</b> : {first_start}\n"
+            f"โณ <b>Total Uptime</b>  : {t_h}h {t_m}m (All-time)\n"
+            f"โฐ <b>This Session</b>  : {s_h}h {s_m}m\n"
+            f"๐ฐ <b>Total Bets</b>    : {s.get('bets', 0):,}\n"
             f"--------------------------------\n"
-            f"🏆 <b>ALL-TIME RECORDS</b>\n"
-            f"Max Loss Streak: {s.get('max_loss_streak', 0)} ครั้ง\n"
-            f"Max Step   : ขั้นที่ {s.get('max_fib_step', 0)}\n"
-            f"Max Single Bet : {s.get('max_single_loss', 0):.8f} TRX\n"
+            f"๐ <b>ALL-TIME RECORDS</b>\n"
+            f"Max Loss Streak: {s.get('max_loss_streak', 0)} เธเธฃเธฑเนเธ\n"
+            f"Max Step   : เธเธฑเนเธเธ—เธตเน {s.get('max_fib_step', 0)}\n"
+            f"Max Single Bet : {s.get('max_single_loss', 0):.8f} BTC\n"
             f"--------------------------------\n"
-            f"⚙️ <b>STRATEGY STATS</b>\n"
+            f"โ๏ธ <b>STRATEGY STATS</b>\n"
             f"Win Rate      : {wr:.1f}%\n"
             f"Step      : {s.get('fib_step', 1)}\n"
-            f"Condition Sw  : {s.get('switches', 0)} ครั้ง\n"
+            f"Condition Sw  : {s.get('switches', 0)} เธเธฃเธฑเนเธ\n"
             f"Last Result   : {s.get('streak', 0)} {s.get('streak_type', '-')}\n"
-            f"Current Bet   : {s.get('current_bet', 0):.8f} TRX\n"
+            f"Current Bet   : {s.get('current_bet', 0):.8f} BTC\n"
             f"--------------------------------\n"
-            f"🎯 <b>TARGETS</b>\n"
-            f"Take Profit   : {s.get('take_profit', 0):+.2f} TRX\n"
-            f"Auto-Reset at : {s.get('stop_loss', 0):.2f} TRX"
+            f"๐ฏ <b>TARGETS</b>\n"
+            f"Take Profit   : {s.get('take_profit', 0):+.2f} BTC\n"
+            f"Auto-Reset at : {s.get('stop_loss', 0):.2f} BTC"
         )
     elif cmd == "/stop":
-        tg("🛑 <b>รับคำสั่ง /stop — กำลังหยุดบอท...</b>")
+        tg("๐‘ <b>เธฃเธฑเธเธเธณเธชเธฑเนเธ /stop โ€” เธเธณเธฅเธฑเธเธซเธขเธธเธ”เธเธญเธ—...</b>")
         _stop_event.set()
     elif cmd.startswith("/tp"):
         try:
             val = float(cmd.split()[1])
             _bot_state['take_profit'] = val
-            tg(f"🎯 <b>ตั้งเป้ากำไร (Take Profit)</b>\nหยุดเมื่อกำไรถึง: <b>{val:+.2f} TRX</b>")
+            tg(f"๐ฏ <b>เธ•เธฑเนเธเน€เธเนเธฒเธเธณเนเธฃ (Take Profit)</b>\nเธซเธขเธธเธ”เน€เธกเธทเนเธญเธเธณเนเธฃเธ–เธถเธ: <b>{val:+.2f} BTC</b>")
         except:
-            tg("❌ รูปแบบผิด! ใช้: <code>/tp 50</code>")
+            tg("โ เธฃเธนเธเนเธเธเธเธดเธ”! เนเธเน: <code>/tp 50</code>")
     elif cmd.startswith("/reset_at") or cmd.startswith("/sl"):
         try:
             val = float(cmd.split()[1])
             _bot_state['stop_loss'] = -abs(val)
-            tg(f"🔄 <b>ตั้งจุดพักยกอัตโนมัติ (Auto-Reset)</b>\nบอทจะพัก 2 นาทีเมื่อติดลบถึง: <b>-{abs(val):.2f} TRX</b>")
+            tg(f"๐” <b>เธ•เธฑเนเธเธเธธเธ”เธเธฑเธเธขเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธด (Auto-Reset)</b>\nเธเธญเธ—เธเธฐเธเธฑเธ 2 เธเธฒเธ—เธตเน€เธกเธทเนเธญเธ•เธดเธ”เธฅเธเธ–เธถเธ: <b>-{abs(val):.2f} BTC</b>")
         except:
-            tg("❌ รูปแบบผิด! ใช้: <code>/reset_at 100</code>")
+            tg("โ เธฃเธนเธเนเธเธเธเธดเธ”! เนเธเน: <code>/reset_at 100</code>")
 
     elif cmd == "/config":
         tp = s.get('take_profit', 0)
@@ -619,18 +593,18 @@ def _handle_command(cmd: str, show_menu=False):
         curr_cond = s.get('condition', 'N/A').upper()
         bet = s.get('current_bet', 0)
         tg(
-            f"⚙️ <b>BOT CONFIGURATION</b>\n"
+            f"โ๏ธ <b>BOT CONFIGURATION</b>\n"
             f"------------------------\n"
-            f"🎯 <b>Take Profit</b> : {tp:+.2f} TRX\n"
-            f"🛑 <b>Stop Loss</b>   : {sl:.2f} TRX\n"
-            f"🎲 <b>Condition</b>   : {curr_cond}\n"
-            f"💵 <b>Current Bet</b> : {bet:.8f} TRX\n"
-            f"🔄 <b>Auto-Reset</b>  : Enabled (2m Pause)"
+            f"๐ฏ <b>Take Profit</b> : {tp:+.2f} BTC\n"
+            f"๐‘ <b>Stop Loss</b>   : {sl:.2f} BTC\n"
+            f"๐ฒ <b>Condition</b>   : {curr_cond}\n"
+            f"๐’ต <b>Current Bet</b> : {bet:.8f} BTC\n"
+            f"๐” <b>Auto-Reset</b>  : Enabled (2m Pause)"
         )
     elif cmd == "/reset_stats":
         if os.path.exists(STATS_FILE):
             os.remove(STATS_FILE)
-        tg("🧹 <b>ล้างสถิติสะสมเรียบร้อยแล้ว!</b>\nกรุณารีสตาร์ทบอทเพื่อเริ่มนับใหม่")
+        tg("๐งน <b>เธฅเนเธฒเธเธชเธ–เธดเธ•เธดเธชเธฐเธชเธกเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง!</b>\nเธเธฃเธธเธ“เธฒเธฃเธตเธชเธ•เธฒเธฃเนเธ—เธเธญเธ—เน€เธเธทเนเธญเน€เธฃเธดเนเธกเธเธฑเธเนเธซเธกเน")
     
     elif cmd.startswith("/tip"):
         parts = cmd.strip().split()
@@ -639,9 +613,9 @@ def _handle_command(cmd: str, show_menu=False):
             try:
                 tip_amount = float(parts[2])
                 if tip_amount <= 0:
-                    tg("❌ จำนวนเงินต้องมากกว่า 0 ครับ")
+                    tg("โ เธเธณเธเธงเธเน€เธเธดเธเธ•เนเธญเธเธกเธฒเธเธเธงเนเธฒ 0 เธเธฃเธฑเธ")
                 elif _active_bot is None:
-                    tg("❌ บอทยังไม่พร้อม ลองใหม่อีกครั้ง")
+                    tg("โ เธเธญเธ—เธขเธฑเธเนเธกเนเธเธฃเนเธญเธก เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ")
                 else:
                     # Execute Tip via Stake API
                     tip_query = """
@@ -658,28 +632,28 @@ def _handle_command(cmd: str, show_menu=False):
                         "currency": _active_bot.currency,
                         "username": target_user
                     }
-                    tg(f"💸 กำลังโอน <b>{tip_amount:.4f} TRX</b> ไปยัง <b>{target_user}</b>...")
+                    tg(f"๐’ธ เธเธณเธฅเธฑเธเนเธญเธ <b>{tip_amount:.8f} BTC</b> เนเธเธขเธฑเธ <b>{target_user}</b>...")
                     res = _active_bot._execute_graphql(tip_query, variables=variables, operation_name="SendTip")
                     if res and "data" in res and res["data"] and res["data"].get("sendTip"):
                         tip_data = res["data"]["sendTip"]
                         tg(
-                            f"✅ <b>โอนเหรียญสำเร็จ!</b>\n"
-                            f"📤 จาก   : <b>{_CURRENT_PROFILE}</b>\n"
-                            f"📥 ถึง   : <b>{target_user}</b>\n"
-                            f"💵 จำนวน : <b>{tip_amount:.4f} TRX</b>"
+                            f"โ… <b>เนเธญเธเน€เธซเธฃเธตเธขเธเธชเธณเน€เธฃเนเธ!</b>\n"
+                            f"๐“ค เธเธฒเธ   : <b>{_CURRENT_PROFILE}</b>\n"
+                            f"๐“ฅ เธ–เธถเธ   : <b>{target_user}</b>\n"
+                            f"๐’ต เธเธณเธเธงเธ : <b>{tip_amount:.8f} BTC</b>"
                         )
                     elif res and "errors" in res:
                         err = res["errors"][0].get("message", "Unknown error")
-                        tg(f"❌ <b>โอนไม่สำเร็จ!</b>\nสาเหตุ: {err}")
+                        tg(f"โ <b>เนเธญเธเนเธกเนเธชเธณเน€เธฃเนเธ!</b>\nเธชเธฒเน€เธซเธ•เธธ: {err}")
                     else:
-                        tg("❌ ไม่ได้รับการตอบกลับจาก Stake API")
+                        tg("โ เนเธกเนเนเธ”เนเธฃเธฑเธเธเธฒเธฃเธ•เธญเธเธเธฅเธฑเธเธเธฒเธ Stake API")
             except ValueError:
-                tg("❌ รูปแบบผิด! ตัวอย่าง: <code>/tip watt29 5.5</code>")
+                tg("โ เธฃเธนเธเนเธเธเธเธดเธ”! เธ•เธฑเธงเธญเธขเนเธฒเธ: <code>/tip watt29 5.5</code>")
         else:
             tg(
-                "💸 <b>คำสั่งโอนเหรียญ (Tip)</b>\n\n"
-                "รูปแบบ: <code>/tip [username] [จำนวน]</code>\n\n"
-                "ตัวอย่าง:\n"
+                "๐’ธ <b>เธเธณเธชเธฑเนเธเนเธญเธเน€เธซเธฃเธตเธขเธ (Tip)</b>\n\n"
+                "เธฃเธนเธเนเธเธ: <code>/tip [username] [เธเธณเธเธงเธ]</code>\n\n"
+                "เธ•เธฑเธงเธญเธขเนเธฒเธ:\n"
                 f"<code>/tip watt29 5.5</code>\n"
                 f"<code>/tip Win29 10</code>\n"
                 f"<code>/tip Gen45 2.5</code>"
@@ -700,22 +674,22 @@ def _handle_command(cmd: str, show_menu=False):
         operating = curr_bal - locked - reserve
         
         msg = (
-            f"📄 <b>ACCOUNTING DAILY REPORT</b>\n"
+            f"๐“ <b>ACCOUNTING DAILY REPORT</b>\n"
             f"--------------------------------\n"
-            f"📅 Date: {datetime.now().strftime('%d/%m/%Y')}\n"
-            f"⏰ Time: {datetime.now().strftime('%H:%M')}\n"
+            f"๐“… Date: {datetime.now().strftime('%d/%m/%Y')}\n"
+            f"โฐ Time: {datetime.now().strftime('%H:%M')}\n"
             f"--------------------------------\n"
-            f"💰 <b>Total Assets:</b> {curr_bal:.8f} TRX\n"
-            f"📈 <b>Total Profit:</b> {profit:+.8f} TRX\n"
-            f"📊 <b>Current ROI :</b> {roi:.2f}%\n"
+            f"๐’ฐ <b>Total Assets:</b> {curr_bal:.8f} BTC\n"
+            f"๐“ <b>Total Profit:</b> {profit:+.8f} BTC\n"
+            f"๐“ <b>Current ROI :</b> {roi:.2f}%\n"
             f"--------------------------------\n"
-            f"🏢 <b>FUND BREAKDOWN</b>\n"
-            f"💵 Operating  : {operating:.4f} TRX\n"
-            f"🔒 Locked Prof: {locked:.4f} TRX\n"
-            f"🛡️ Reserve    : {reserve:.4f} TRX\n"
+            f"๐ข <b>FUND BREAKDOWN</b>\n"
+            f"๐’ต Operating  : {operating:.8f} BTC\n"
+            f"๐”’ Locked Prof: {locked:.8f} BTC\n"
+            f"๐ก๏ธ Reserve    : {reserve:.8f} BTC\n"
             f"--------------------------------\n"
-            f"🎰 Total Wagered: {wagered:.4f} TRX\n"
-            f"🔢 Total Counts : {bets:,} bets\n"
+            f"๐ฐ Total Wagered: {wagered:.8f} BTC\n"
+            f"๐”ข Total Counts : {bets:,} bets\n"
             f"--------------------------------\n"
             f"<i>Reported by: Corporate Accountant Bot</i>"
         )
@@ -725,8 +699,8 @@ def _handle_command(cmd: str, show_menu=False):
 
 def _send_main_menu():
     tg(
-        "🤖 <b>COMMANDER BRIAN — เมนูหลัก</b>\n"
-        "กดปุ่มด้านล่างเพื่อดูข้อมูลหรือตั้งค่า",
+        "๐ค– <b>COMMANDER BRIAN โ€” เน€เธกเธเธนเธซเธฅเธฑเธ</b>\n"
+        "เธเธ”เธเธธเนเธกเธ”เนเธฒเธเธฅเนเธฒเธเน€เธเธทเนเธญเธ”เธนเธเนเธญเธกเธนเธฅเธซเธฃเธทเธญเธ•เธฑเนเธเธเนเธฒ",
         reply_markup=main_menu_markup()
     )
 
@@ -734,7 +708,7 @@ def _tg_listener():
     """Background thread: poll Telegram every 2s for commands."""
     global _tg_offset
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    # Flush old messages on startup — skip anything already queued
+    # Flush old messages on startup โ€” skip anything already queued
     try:
         r = requests.get(url, params={"timeout": 0, "offset": -1}, timeout=5)
         updates = r.json().get("result", [])
@@ -749,7 +723,7 @@ def _tg_listener():
             for upd in updates:
                 _tg_offset = upd["update_id"] + 1
 
-                # ── ข้อความปกติ (text command) ──
+                # โ”€โ”€ เธเนเธญเธเธงเธฒเธกเธเธเธ•เธด (text command) โ”€โ”€
                 msg = upd.get("message", {})
                 if msg:
                     chat_id = str(msg.get("chat", {}).get("id", ""))
@@ -760,7 +734,7 @@ def _tg_listener():
                         elif text.startswith("/"):
                             _handle_command(text)
 
-                # ── Callback query (กดปุ่ม inline keyboard) ──
+                # โ”€โ”€ Callback query (เธเธ”เธเธธเนเธก inline keyboard) โ”€โ”€
                 cb = upd.get("callback_query", {})
                 if cb:
                     cb_id   = cb["id"]
@@ -774,19 +748,19 @@ def _tg_listener():
 
                     if data == "main_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "🤖 <b>COMMANDER BRIAN — เมนูหลัก</b>\nกดปุ่มด้านล่างเพื่อดูข้อมูลหรือตั้งค่า",
+                            "๐ค– <b>COMMANDER BRIAN โ€” เน€เธกเธเธนเธซเธฅเธฑเธ</b>\nเธเธ”เธเธธเนเธกเธ”เนเธฒเธเธฅเนเธฒเธเน€เธเธทเนเธญเธ”เธนเธเนเธญเธกเธนเธฅเธซเธฃเธทเธญเธ•เธฑเนเธเธเนเธฒ",
                             reply_markup=main_menu_markup())
                     elif data == "tp_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "🎯 <b>เลือก Take Profit</b>\nบอทจะหยุดเมื่อกำไรถึงเป้า",
+                            "๐ฏ <b>เน€เธฅเธทเธญเธ Take Profit</b>\nเธเธญเธ—เธเธฐเธซเธขเธธเธ”เน€เธกเธทเนเธญเธเธณเนเธฃเธ–เธถเธเน€เธเนเธฒ",
                             reply_markup=tp_menu_markup())
                     elif data == "tip_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "💸 <b>เมนูโอนเหรียญ (Tip)</b>\n\nระบบจะโอนเงินอัตโนมัติเมื่อกำไรถึงเป้าหมาย\nหากต้องการโอนทันที พิมพ์:\n<code>/tip [username] [จำนวน]</code>\nตัวอย่าง: <code>/tip watt29 1.5</code>",
-                            reply_markup={"inline_keyboard": [[{"text": "◀️ กลับเมนูหลัก", "callback_data": "main_menu"}]]})
+                            "๐’ธ <b>เน€เธกเธเธนเนเธญเธเน€เธซเธฃเธตเธขเธ (Tip)</b>\n\nเธฃเธฐเธเธเธเธฐเนเธญเธเน€เธเธดเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธดเน€เธกเธทเนเธญเธเธณเนเธฃเธ–เธถเธเน€เธเนเธฒเธซเธกเธฒเธข\nเธซเธฒเธเธ•เนเธญเธเธเธฒเธฃเนเธญเธเธ—เธฑเธเธ—เธต เธเธดเธกเธเน:\n<code>/tip [username] [เธเธณเธเธงเธ]</code>\nเธ•เธฑเธงเธญเธขเนเธฒเธ: <code>/tip watt29 1.5</code>",
+                            reply_markup={"inline_keyboard": [[{"text": "โ—€๏ธ เธเธฅเธฑเธเน€เธกเธเธนเธซเธฅเธฑเธ", "callback_data": "main_menu"}]]})
                     elif data == "sl_menu":
                         tg_edit(cb_chat, cb_mid,
-                            "🛑 <b>เลือก Stop Loss</b>\nบอทจะพัก 2 นาทีเมื่อขาดทุนถึงจุดนี้",
+                            "๐‘ <b>เน€เธฅเธทเธญเธ Stop Loss</b>\nเธเธญเธ—เธเธฐเธเธฑเธ 2 เธเธฒเธ—เธตเน€เธกเธทเนเธญเธเธฒเธ”เธ—เธธเธเธ–เธถเธเธเธธเธ”เธเธตเน",
                             reply_markup=sl_menu_markup())
                     elif data.startswith("/"):
                         _handle_command(data)
@@ -835,7 +809,7 @@ class ZScoreSeedRotator:
             self.results.clear()
 
 class StakeDiceBot:
-    def __init__(self, token, cookies, currency="trx", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None):
+    def __init__(self, token, cookies, currency="btc", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None):
         self.token = token
         self.skill_manager = skill_manager
         self.api_url = f"https://{mirror_host}/_api/graphql"
@@ -900,9 +874,9 @@ class StakeDiceBot:
         changed = self.change_client_seed(new_seed)
         rotated = self.rotate_seed(f"Z-Score {z_score:.2f} Triggered")
         if changed and rotated:
-            tg(f"🐉 <b>Z-Score Circuit Breaker Triggered ({z_score:.2f})</b>\n"
-               f"ระบบเปลี่ยน Client Seed & Server Seed สำเร็จ!\n"
-               f"Client Seed ใหม่: <code>{new_seed}</code>")
+            tg(f"๐ <b>Z-Score Circuit Breaker Triggered ({z_score:.2f})</b>\n"
+               f"เธฃเธฐเธเธเน€เธเธฅเธตเนเธขเธ Client Seed & Server Seed เธชเธณเน€เธฃเนเธ!\n"
+               f"Client Seed เนเธซเธกเน: <code>{new_seed}</code>")
 
     def change_client_seed(self, new_seed):
         mutation = """
@@ -944,7 +918,7 @@ class StakeDiceBot:
     def rotate_seed(self, reason="Adaptive"):
         import secrets
         new_client_seed = secrets.token_hex(16)
-        # ใช้ rotateServerSeed ซึ่งเป็นวิธีมาตรฐานที่เว็บยอมรับ (หมุนทั้ง Server และ Client Seed)
+        # เนเธเน rotateServerSeed เธเธถเนเธเน€เธเนเธเธงเธดเธเธตเธกเธฒเธ•เธฃเธเธฒเธเธ—เธตเนเน€เธงเนเธเธขเธญเธกเธฃเธฑเธ (เธซเธกเธธเธเธ—เธฑเนเธ Server เนเธฅเธฐ Client Seed)
         mutation = """
         mutation RotateServerSeed {
           rotateServerSeed {
@@ -959,25 +933,25 @@ class StakeDiceBot:
             
             self.next_rotation_bet = self.get_total_bets_from_stats() + random.randint(800, 1500)
             if data and data.get("rotateServerSeed"):
-                msg = f"🔄 <b>Seed Rotated ({reason})</b>\nระบบทำการหมุน Seed ใหม่เรียบร้อยแล้ว\n<i>*Server Seed Reset สำเร็จ</i>"
-                self.log_event(f"🔄 Seed Rotated ({reason}): Server seed changed successfully.")
+                msg = f"๐” <b>Seed Rotated ({reason})</b>\nเธฃเธฐเธเธเธ—เธณเธเธฒเธฃเธซเธกเธธเธ Seed เนเธซเธกเนเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง\n<i>*Server Seed Reset เธชเธณเน€เธฃเนเธ</i>"
+                self.log_event(f"๐” Seed Rotated ({reason}): Server seed changed successfully.")
                 tg(msg)
                 return True
             else:
                 error_list = res.get("errors") if res else []
                 error_msg = error_list[0].get("message", "Unknown API rejection") if error_list else "No response from API"
-                self.log_event(f"⚠️ Seed Rotation Rejected: {error_msg}")
-                # tg(f"⚠️ <b>API Seed Rotation Rejected</b>\nเหตุผล: {error_msg}") # Don't spam TG for minor rotation failure
+                self.log_event(f"โ ๏ธ Seed Rotation Rejected: {error_msg}")
+                # tg(f"โ ๏ธ <b>API Seed Rotation Rejected</b>\nเน€เธซเธ•เธธเธเธฅ: {error_msg}") # Don't spam TG for minor rotation failure
         except Exception as e:
-            self.log_event(f"⚠️ Seed Rotation Error: {str(e)}")
+            self.log_event(f"โ ๏ธ Seed Rotation Error: {str(e)}")
         return False
 
     def get_total_bets_from_stats(self):
-        """ดึงจำนวน Bet ปัจจุบันจากสถานะล่าสุด"""
+        """เธ”เธถเธเธเธณเธเธงเธ Bet เธเธฑเธเธเธธเธเธฑเธเธเธฒเธเธชเธ–เธฒเธเธฐเธฅเนเธฒเธชเธธเธ”"""
         return _bot_state.get('bets', 0)
 
     def save_daily_report(self, start_bal, end_bal, profit, wagered, deposits=0, withdrawals=0):
-        """บันทึกบัญชีรายวันสำหรับบริษัท (CSV)"""
+        """เธเธฑเธเธ—เธถเธเธเธฑเธเธเธตเธฃเธฒเธขเธงเธฑเธเธชเธณเธซเธฃเธฑเธเธเธฃเธดเธฉเธฑเธ— (CSV)"""
         filename = _DAILY_REPORT
         file_exists = os.path.exists(filename)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -989,9 +963,9 @@ class StakeDiceBot:
                 if not file_exists:
                     writer.writerow(["Date", "Timestamp", "Opening Balance", "Closing Balance", "Net Profit", "Total Wagered", "Deposits", "Withdrawals"])
                 writer.writerow([date_today, now, f"{start_bal:.8f}", f"{end_bal:.8f}", f"{profit:.8f}", f"{wagered:.8f}", f"{deposits:.8f}", f"{withdrawals:.8f}"])
-            self.log_event(f"📈 Daily Accounting Report Saved: {date_today}")
+            self.log_event(f"๐“ Daily Accounting Report Saved: {date_today}")
         except Exception as e:
-            self.log_event(f"⚠️ Failed to save daily report: {str(e)}")
+            self.log_event(f"โ ๏ธ Failed to save daily report: {str(e)}")
 
     def _execute_graphql(self, query, variables=None, operation_name=None):
         payload = {"query": query}
@@ -1003,17 +977,7 @@ class StakeDiceBot:
             method: 'POST',
             headers: {'content-type': 'application/json', 'x-access-token': '%s'},
             body: JSON.stringify(%s)
-        }).then(async r => {
-            const text = await r.text();
-            try {
-                return JSON.parse(text);
-            } catch(e) {
-                if (text.includes('<html') || text.toLowerCase().includes('cloudflare') || text.toLowerCase().includes('challenge')) {
-                    throw new Error('Cloudflare Challenge Active');
-                }
-                throw e;
-            }
-        }).then(data => { window.__gql_result = JSON.stringify(data); }).catch(e => { window.__gql_result = "ERROR: " + e; });
+        }).then(r => r.json()).then(data => { window.__gql_result = JSON.stringify(data); }).catch(e => { window.__gql_result = "ERROR: " + e; });
         """ % (self.token, __import__('json').dumps(payload))
         import time as _time
         try:
@@ -1035,6 +999,49 @@ class StakeDiceBot:
         return self._execute_graphql(query, variables)
 
     def get_wallet_balance(self):
+        # 1. First, try reading directly from the UI (faster and no GraphQL rate limit)
+        if hasattr(self, 'driver') and self.driver:
+            try:
+                # Enforce that the scraped currency matches the active bot currency
+                target_currency = self.currency.lower()
+                js_script = """
+                    var btn = document.querySelector('button[data-testid="coin-toggle"]');
+                    if (btn && btn.getAttribute('data-active-currency') === 'TARGET_CURRENCY') {
+                        // Try Method 1: The exact user-provided path
+                        var span = document.querySelector('#navigation-container-header > div.w-full.flex.justify-center > div > div > div > div > button > div > div > span.content > span');
+                        if (span && span.innerText) {
+                            var val = span.innerText.replace(/,/g, '').trim();
+                            if (val !== "" && !isNaN(val)) return val;
+                        }
+                        
+                        // Method 2: Resilient search inside the matching coin-toggle button
+                        var spans = btn.querySelectorAll('span');
+                        for (var i = 0; i < spans.length; i++) {
+                            var text = spans[i].innerText;
+                            if (text) {
+                                text = text.replace(/,/g, '').trim();
+                                if (text !== "" && !isNaN(text) && text.length > 2) {
+                                    return text;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    return null;
+                """.replace("TARGET_CURRENCY", target_currency)
+                
+                for _ in range(3): # Try 3 times quickly if DOM is still rendering
+                    bal_text = self.driver.execute_script(js_script)
+                    if bal_text is not None:
+                        try:
+                            return float(bal_text)
+                        except ValueError:
+                            pass
+                    time.sleep(0.5)
+            except Exception as e:
+                print(f"   [!] UI Balance Scrape Error: {e}")
+
+        # 2. Fallback to GraphQL
         query = """
         query Balances {
           user {
@@ -1079,48 +1086,6 @@ class StakeDiceBot:
                 time.sleep(2 ** attempt)
         return 0.0
 
-    def save_browser_cookies_to_config(self):
-        try:
-            cookies_list = self.driver.get_cookies()
-            if not cookies_list:
-                return
-            
-            cookie_dict = {c['name']: c['value'] for c in cookies_list}
-            cookie_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
-            
-            # Load config file
-            with open(_CONFIG_FILE, "r", encoding="utf-8-sig") as f:
-                data = json.load(f)
-                
-            data["stake"]["cookies"] = cookie_str
-            if "session" in cookie_dict:
-                data["stake"]["access_token"] = cookie_dict["session"]
-                self.token = cookie_dict["session"] # update current bot token too
-                
-            with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4)
-                
-            print(" [SYSTEM] Browser cookies successfully auto-saved to config!")
-        except Exception as e:
-            print(f" [!] Failed to auto-save cookies: {str(e)}")
-
-    def get_username(self):
-        query = """
-        query User {
-          user {
-            name
-          }
-        }
-        """
-        for attempt in range(5):
-            try:
-                data = self._execute_graphql(query, operation_name="User")
-                if data and "data" in data and data["data"] and data["data"].get("user"):
-                    return data["data"]["user"].get("name", "Unknown")
-            except:
-                time.sleep(1)
-        return "Unknown"
-
     def claim_rakeback(self):
         query = """
         mutation ClaimRakeback {
@@ -1132,24 +1097,24 @@ class StakeDiceBot:
         """
         try:
             print(" [SYSTEM] Attempting to Auto-Claim Rakeback...")
-            self.log_event("🔄 Attempting to Auto-Claim Rakeback...")
+            self.log_event("๐” Attempting to Auto-Claim Rakeback...")
             res = self._execute_graphql(query, operation_name="ClaimRakeback")
             if res and "data" in res and res["data"]:
-                print(" [SYSTEM] ✅ Rakeback Claimed Successfully!")
-                self.log_event("✅ Rakeback Claimed Successfully!")
-                tg("🎁 <b>ระบบ Auto-Claim Rakeback สำเร็จ!</b>\nรับเงินคืนเข้ากระเป๋าเรียบร้อยแล้ว")
+                print(" [SYSTEM] โ… Rakeback Claimed Successfully!")
+                self.log_event("โ… Rakeback Claimed Successfully!")
+                tg("๐ <b>เธฃเธฐเธเธ Auto-Claim Rakeback เธชเธณเน€เธฃเนเธ!</b>\nเธฃเธฑเธเน€เธเธดเธเธเธทเธเน€เธเนเธฒเธเธฃเธฐเน€เธเนเธฒเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง")
                 return True
             else:
                 if res and "errors" in res:
                     err = res["errors"][0].get("message", "Unknown Error")
-                    print(f" [SYSTEM] ⚠️ Rakeback claim error: {err}")
-                    self.log_event(f"⚠️ Rakeback claim error: {err}")
+                    print(f" [SYSTEM] โ ๏ธ Rakeback claim error: {err}")
+                    self.log_event(f"โ ๏ธ Rakeback claim error: {err}")
                 else:
-                    print(" [SYSTEM] ⚠️ Rakeback claim returned empty response")
-                    self.log_event("⚠️ Rakeback claim returned empty response")
+                    print(" [SYSTEM] โ ๏ธ Rakeback claim returned empty response")
+                    self.log_event("โ ๏ธ Rakeback claim returned empty response")
         except Exception as e:
-            print(f" [SYSTEM] ⚠️ Rakeback claim exception: {str(e)}")
-            self.log_event(f"⚠️ Rakeback claim exception: {str(e)}")
+            print(f" [SYSTEM] โ ๏ธ Rakeback claim exception: {str(e)}")
+            self.log_event(f"โ ๏ธ Rakeback claim exception: {str(e)}")
         return False
 
     def place_dice_bet(self, amount, target, condition):
@@ -1194,10 +1159,10 @@ class StakeDiceBot:
                     err_msg = str(result["errors"][0].get("message", ""))
                     print(f"   [!] API Error (Attempt {attempt+1}): {err_msg}")
                     if "cloudflare" in err_msg.lower() or "challenge" in err_msg.lower():
-                        print("   [🔒] Cloudflare challenge active! Please check the browser window and solve the captcha.")
+                        print("   [๐”’] Cloudflare challenge active! Please check the browser window and solve the captcha.")
                         time.sleep(5)
                     elif "rate limit" in err_msg.lower() or "too many" in err_msg.lower():
-                        self.log_event("⏳ API Rate Limit detected. Cooling down...")
+                        self.log_event("โณ API Rate Limit detected. Cooling down...")
                         time.sleep(15)
                     else:
                         time.sleep(2)
@@ -1216,10 +1181,7 @@ class StakeDiceBot:
     def log_to_csv(self, row):
         threading.Thread(target=self._log_to_csv_worker, args=(row,), daemon=True).start()
 
-    def start_dice_bot(self, base_bet, target=48.00, condition="below", dynamic_pct=0.0):
-        min_bet_allowed = get_min_bet(self.currency)
-        if base_bet < min_bet_allowed:
-            base_bet = min_bet_allowed
+    def start_dice_bot(self, base_bet, dynamic_percent=0.0, target=48.00, condition="below"):
         session_wins = 0
         balance = 0.0
         print(" [SYSTEM] Loading persistent stats...")
@@ -1232,17 +1194,13 @@ class StakeDiceBot:
         max_loss_streak = persistent.get("max_loss_streak", 0)
         max_single_loss = persistent.get("max_single_loss", 0.0)
         fib_step = persistent.get("last_fib_step", 0)
-        saved_condition = persistent.get("last_condition")
-        current_condition = saved_condition if saved_condition else condition
-        if current_condition == "above":
-            target = 52.00
-        else:
-            target = 48.00
-        total_withdrawn = persistent.get("total_withdrawn", 0.0)
+        current_condition = condition
+        target = target
+        total_withdrawn = persistent.get("total_withdrawn", 300.0)
         total_deposited = persistent.get("total_deposited", 0.0)
         max_fib_step = persistent.get("max_fib_step", 0)
         start_balance = persistent.get("initial_balance", 0.0)
-        initial_capital = persistent.get("initial_capital", 0.0)
+        initial_capital = persistent.get("initial_capital", 1243.154)
         peak_equity = persistent.get("peak_equity", 0.0)
         max_drawdown = persistent.get("max_drawdown", 0.0)
 
@@ -1262,11 +1220,11 @@ class StakeDiceBot:
         current_loss_streak = 0
         real_consecutive_wins = 0
         real_bets_without_ww = persistent.get("real_bets_without_ww", 0)
+        isolated_win_count = persistent.get("isolated_win_count", 0)
         
         virtual_state = "NONE"
         virtual_escape_pattern = ['W']
         virtual_entry_step = 0
-        virtual_min_rolls = 0
         virtual_rolls_seen = 0
         
         cycle_start_balance = 0.0
@@ -1283,20 +1241,18 @@ class StakeDiceBot:
         print(" [DEBUG] 3. Starting Background Threads...")
         _bot_state['session_start'] = datetime.now()
         _bot_state['active'] = True
-        global _active_bot, _CURRENT_USERNAME
+        global _active_bot
         _active_bot = self
-        _CURRENT_USERNAME = self.get_username()
-        self.save_browser_cookies_to_config()
 
         listener = threading.Thread(target=_tg_listener, daemon=True)
         listener.start()
         threading.Thread(target=corporate_heartbeat, daemon=True).start()
 
-        # แจ้ง Telegram พร้อม inline menu
+        # เนเธเนเธ Telegram เธเธฃเนเธญเธก inline menu
         tg(
-            "🟢 <b>COMMANDER BRIAN เริ่มทำงานแล้ว!</b>\n"
-            f"💱 Currency: <b>{self.currency.upper()}</b> | Mode: <b>{'SIMULATE' if self.simulate else 'LIVE'}</b>\n"
-            "กดปุ่มด้านล่างเพื่อควบคุมบอท",
+            "๐ข <b>COMMANDER BRIAN เน€เธฃเธดเนเธกเธ—เธณเธเธฒเธเนเธฅเนเธง!</b>\n"
+            f"๐’ฑ Currency: <b>{self.currency.upper()}</b> | Mode: <b>{'SIMULATE' if self.simulate else 'LIVE'}</b>\n"
+            "เธเธ”เธเธธเนเธกเธ”เนเธฒเธเธฅเนเธฒเธเน€เธเธทเนเธญเธเธงเธเธเธธเธกเธเธญเธ—",
             reply_markup=main_menu_markup()
         )
 
@@ -1305,7 +1261,6 @@ class StakeDiceBot:
         take_profit = persistent.get("take_profit", 0.0)
         stop_loss = persistent.get("stop_loss", 0.0)
         total_uptime_seconds = persistent.get("total_uptime_seconds", 0)
-        session_uptime_seconds = 0
         first_run_time = persistent.get("first_run_time")
         if not first_run_time:
             first_run_time = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1331,15 +1286,8 @@ class StakeDiceBot:
                 now = datetime.now()
                 delta_sec = int((now - last_time).total_seconds())
                 total_uptime_seconds += delta_sec
-                session_uptime_seconds += delta_sec
                 last_time = now
                 _bot_state['total_uptime_seconds'] = total_uptime_seconds
-
-                if _max_duration_minutes > 0 and (session_uptime_seconds / 60.0) >= _max_duration_minutes:
-                    print(f" [SYSTEM] Auto-switch: Maximum runtime of {_max_duration_minutes} minutes reached. Stopping bot gracefully...")
-                    self.log_event(f"Bot stopped via duration limit ({_max_duration_minutes} min)")
-                    break
-
                 
                 take_profit = _bot_state.get('take_profit', 0.0)
                 stop_loss = _bot_state.get('stop_loss', 0.0)
@@ -1364,9 +1312,6 @@ class StakeDiceBot:
                     _bot_state['start_balance'] = balance
                     cycle_start_balance = balance
                     persistent["initial_balance"] = start_balance
-                    if initial_capital == 0.0:
-                        initial_capital = start_balance
-                        persistent["initial_capital"] = initial_capital
                     if take_profit == 0:
                         take_profit = round(start_balance * 0.01, 2)
                         _bot_state['take_profit'] = take_profit
@@ -1385,7 +1330,7 @@ class StakeDiceBot:
                 # Calculate Session Profit
                 session_profit = balance - _bot_state.get('start_balance', balance)
 
-                # สลับสุ่มระหว่าง Over 52.00 และ Under 48.00 ทุกตา (โอกาสชนะ 48% เท่ากัน)
+                # เธชเธฅเธฑเธเธเธฑเนเธเนเธ—เธเนเธเธเน€เธงเนเธเธเนเธญเธ (BELOW 48.00 / ABOVE 52.00)
                 current_condition = random.choice(["above", "below"])
                 target = 52.00 if current_condition == "above" else 48.00
 
@@ -1402,17 +1347,13 @@ class StakeDiceBot:
                 ai_loss_mid_step = ai_skills.get("loss_streak_mid_step", 8)
                 ai_loss_mid_threshold = ai_skills.get("loss_streak_mid_threshold", 3)
                 ai_loss_mid_escape_wins = ai_skills.get("loss_streak_mid_escape_wins", 2)
-                ai_loss_high_step = ai_skills.get("loss_streak_high_step", 14)
-                ai_loss_high_threshold = ai_skills.get("loss_streak_high_threshold", 1)
-                ai_loss_high_escape_wins = ai_skills.get("loss_streak_high_escape_wins", 2)
-                ai_loss_high_min_virtual_rolls = ai_skills.get("loss_streak_high_min_virtual_rolls", 8)
-                ai_hard_virtual_step = ai_skills.get("hard_virtual_step", 0)
-                ai_hard_virtual_escape_wins = ai_skills.get("hard_virtual_escape_wins", 2)
-                ai_hard_virtual_min_rolls = ai_skills.get("hard_virtual_min_rolls", 20)
                 display_step = fib_step + 1
-                active_loss_limit = 10
-                active_escape_wins = 1
-                active_min_virtual_rolls = 0
+                if display_step >= ai_loss_mid_step:
+                    active_loss_limit = ai_loss_mid_threshold
+                    active_escape_wins = max(ai_loss_mid_escape_wins, ai_loss_escape_wins)
+                else:
+                    active_loss_limit = ai_loss_streak
+                    active_escape_wins = ai_loss_escape_wins
 
                 # --- VIRTUAL PAUSE MODE (STREAK BREAKER) ---
                 is_sawtooth = False
@@ -1421,36 +1362,23 @@ class StakeDiceBot:
                     if last_n == ["W", "L"] * (ai_sawtooth_len // 2) or last_n == ["L", "W"] * (ai_sawtooth_len // 2):
                         is_sawtooth = True
 
-                # แยกการทำงานของเงื่อนไขต่างๆ อย่างชัดเจน
+                # เนเธขเธเธเธฒเธฃเธ—เธณเธเธฒเธเธเธญเธเน€เธเธทเนเธญเธเนเธเธ•เนเธฒเธเน เธญเธขเนเธฒเธเธเธฑเธ”เน€เธเธ
                 if virtual_state == "NONE":
-                    if ai_hard_virtual_step and display_step >= ai_hard_virtual_step:
-                        virtual_state = "LOSS_STREAK"
-                        virtual_escape_pattern = ['W'] * max(ai_hard_virtual_escape_wins, active_escape_wins)
-                        virtual_entry_step = display_step
-                        virtual_min_rolls = max(ai_hard_virtual_min_rolls, active_min_virtual_rolls)
-                        virtual_rolls_seen = 0
-                        pattern_str = " - ".join(virtual_escape_pattern)
-                        self.log_event(f"🛑 AI HARD VIRTUAL PAUSE (Step {display_step} >= {ai_hard_virtual_step}. Waiting for {pattern_str} + min {virtual_min_rolls} virtual rolls)")
-
-                    elif current_loss_streak >= active_loss_limit:
+                    if current_loss_streak >= active_loss_limit:
                         virtual_state = "LOSS_STREAK"
                         virtual_escape_pattern = ['W'] * active_escape_wins
                         virtual_entry_step = display_step
-                        virtual_min_rolls = active_min_virtual_rolls
                         virtual_rolls_seen = 0
                         pattern_str = " - ".join(virtual_escape_pattern)
-                        min_scan = f" และแทงลมอย่างน้อย {virtual_min_rolls} ตา" if virtual_min_rolls else ""
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (แพ้ติด {current_loss_streak} ตา ที่ Step {display_step}; limit {active_loss_limit}. รอรูปแบบ {pattern_str}{min_scan})")
+                        self.log_event(f"๐ VIRTUAL PAUSE ENGAGED (เนเธเนเธ•เธดเธ” {current_loss_streak} เธ•เธฒ เธ—เธตเน Step {display_step}; limit {active_loss_limit}. เธฃเธญเธฃเธนเธเนเธเธ {pattern_str})")
 
                     elif is_sawtooth:
                         virtual_state = "SAWTOOTH"
-                        virtual_escape_pattern = ['W', 'W']
+                        virtual_escape_pattern = ['W'] * active_escape_wins
                         virtual_entry_step = display_step
-                        virtual_min_rolls = active_min_virtual_rolls
                         virtual_rolls_seen = 0
                         pattern_str = " - ".join(virtual_escape_pattern)
-                        min_scan = f" + min {virtual_min_rolls} virtual rolls" if virtual_min_rolls else ""
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating at Step {display_step}. Waiting for {pattern_str}{min_scan})")
+                        self.log_event(f"๐ VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating at Step {display_step}. Waiting for {pattern_str})")
                         if len(recent) >= ai_sawtooth_len:
                             recent[-ai_sawtooth_len] = "X" # Corrupt the pattern so it doesn't loop
                             
@@ -1458,38 +1386,45 @@ class StakeDiceBot:
                         virtual_state = "ISOLATED_WINS"
                         virtual_escape_pattern = ['W'] * active_escape_wins
                         virtual_entry_step = display_step
-                        virtual_min_rolls = active_min_virtual_rolls
                         virtual_rolls_seen = 0
                         pattern_str = " - ".join(virtual_escape_pattern)
-                        min_scan = f" + min {virtual_min_rolls} virtual rolls" if virtual_min_rolls else ""
-                        self.log_event(f"🐉 VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W at Step {display_step}. AI Threshold: {ai_isolated_wins}. Waiting for {pattern_str}{min_scan})")
+                        self.log_event(f"๐ VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W at Step {display_step}. AI Threshold: {ai_isolated_wins}. Waiting for {pattern_str})")
                         real_bets_without_ww = 0 # Reset so it doesn't re-trigger immediately
+                        
+                    elif isolated_win_count >= 6:
+                        virtual_state = "ISOLATED_WIN_COUNT"
+                        virtual_escape_pattern = ['W'] * active_escape_wins
+                        virtual_entry_step = display_step
+                        virtual_rolls_seen = 0
+                        pattern_str = " - ".join(virtual_escape_pattern)
+                        self.log_event(f"๐ VIRTUAL PAUSE ENGAGED (Isolated Win Count reached {isolated_win_count} at Step {display_step}. Waiting for {pattern_str})")
+                        isolated_win_count = 0 # Reset so it doesn't re-trigger immediately
                 
-                # การหลุดพ้นจาก Virtual Mode
+                # เธเธฒเธฃเธซเธฅเธธเธ”เธเนเธเธเธฒเธ Virtual Mode
                 if virtual_state != "NONE":
                     matched = False
                     pat = virtual_escape_pattern
-                    enough_scan = virtual_rolls_seen >= virtual_min_rolls
-                    if len(recent) >= len(pat) and recent[-len(pat):] == pat and enough_scan:
+                    if len(recent) >= len(pat) and recent[-len(pat):] == pat:
                         matched = True
                     
                     if matched:
                         old_state = virtual_state
                         virtual_state = "NONE"
                         pattern_str = "-".join(pat)
-                        self.log_event(f"✂️ STREAK BREAKER MATCHED (Got {pattern_str} after {virtual_rolls_seen} virtual rolls)! Exited {old_state} from Step {virtual_entry_step}. Resuming real bet from current step.")
+                        self.log_event(f"โ๏ธ STREAK BREAKER MATCHED (Got {pattern_str} after {virtual_rolls_seen} virtual rolls)! Exited {old_state} from Step {virtual_entry_step}. Resuming real bet from current step.")
                         current_loss_streak = 0
                         streak = 0
                         streak_type = None
-                        virtual_min_rolls = 0
                         virtual_rolls_seen = 0
                 
                 # --- BET SIZING ---
                 if fib_step == 0:
-                    if dynamic_pct > 0 and balance > 0:
-                        base_bet = round(balance * dynamic_pct, 8)
-                    # Stake TRX minimum guard
                     min_bet_allowed = get_min_bet(self.currency)
+                    if dynamic_percent > 0 and balance > 0:
+                        calculated_base = balance * dynamic_percent
+                        base_bet = max(min_bet_allowed, round(calculated_base, 8))
+                        
+                    # base_bet from config.json, with Stake minimum guard
                     if base_bet < min_bet_allowed:
                         base_bet = min_bet_allowed
                         
@@ -1500,14 +1435,14 @@ class StakeDiceBot:
 
                 # --- PROACTIVE BALANCE CHECK ---
                 if virtual_state == "NONE" and current_bet > balance:
-                    self.log_event(f"⚠️ ยอดเงินไม่พอทบไม้! ต้องการ {current_bet:.4f} TRX แต่มี {balance:.4f} TRX")
+                    self.log_event(f"โ ๏ธ เธขเธญเธ”เน€เธเธดเธเนเธกเนเธเธญเธ—เธเนเธกเน! เธ•เนเธญเธเธเธฒเธฃ {current_bet:.8f} {self.currency.upper()} เนเธ•เนเธกเธต {balance:.8f} {self.currency.upper()}")
                     err_key = f"proactive_funds_{fib_step}"
                     if _bot_state.get('last_error') != err_key:
-                        tg(f"⚠️ <b>ยอดเงินไม่พอทบไม้! (Proactive Check)</b>\nไม้ {fib_step+1} ต้องใช้ {current_bet:.4f} TRX แต่ยอดเงินคงเหลือ {balance:.4f} TRX\n<b>ระบบสลับกลับไปเริ่มไม้ 1 (0.05 TRX) และรอ 10 วินาที</b>")
+                        tg(f"โ ๏ธ <b>เธขเธญเธ”เน€เธเธดเธเนเธกเนเธเธญเธ—เธเนเธกเน! (Proactive Check)</b>\nเนเธกเน {fib_step+1} เธ•เนเธญเธเนเธเน {current_bet:.8f} {self.currency.upper()} เนเธ•เนเธขเธญเธ”เน€เธเธดเธเธเธเน€เธซเธฅเธทเธญ {balance:.8f} {self.currency.upper()}\n<b>เธฃเธฐเธเธเธชเธฅเธฑเธเธเธฅเธฑเธเนเธเน€เธฃเธดเนเธกเนเธกเน 1 ({base_bet:.8f} {self.currency.upper()}) เนเธฅเธฐเธฃเธญ 10 เธงเธดเธเธฒเธ—เธต</b>")
                         _bot_state['last_error'] = err_key
                         _bot_state['error_count'] = _bot_state.get('error_count', 0) + 1
                     
-                    _bot_state['api_status'] = "🔴 รอเติมเงิน (Proactive)"
+                    _bot_state['api_status'] = "๐”ด เธฃเธญเน€เธ•เธดเธกเน€เธเธดเธ (Proactive)"
                     fib_step = 0
                     current_loss_streak = 0
                     streak = 0
@@ -1535,25 +1470,25 @@ class StakeDiceBot:
                 if bet_res and "errors" in bet_res:
                     err_msg = bet_res["errors"][0].get("message", "")
                     if "balance" in err_msg.lower() or "funds" in err_msg.lower():
-                        self.log_event("❌ INSUFFICIENT BALANCE! (API Error) Pausing bot.")
+                        self.log_event("โ INSUFFICIENT BALANCE! (API Error) Pausing bot.")
                         err_key = "insufficient_funds_api"
                         if _bot_state.get('last_error') != err_key:
-                            tg(f"🚨 <b>ยอดเงินไม่พอ! (ตรวจพบจาก API)</b>\nเงินในกระเป๋าไม่พอสำหรับการแทงไม้ต่อไป\n<b>บอทจะหยุดพักจนกว่าคุณจะเติมเงิน หรือกดสั่งทำงานใหม่</b>")
+                            tg(f"๐จ <b>เธขเธญเธ”เน€เธเธดเธเนเธกเนเธเธญ! (เธ•เธฃเธงเธเธเธเธเธฒเธ API)</b>\nเน€เธเธดเธเนเธเธเธฃเธฐเน€เธเนเธฒเนเธกเนเธเธญเธชเธณเธซเธฃเธฑเธเธเธฒเธฃเนเธ—เธเนเธกเนเธ•เนเธญเนเธ\n<b>เธเธญเธ—เธเธฐเธซเธขเธธเธ”เธเธฑเธเธเธเธเธงเนเธฒเธเธธเธ“เธเธฐเน€เธ•เธดเธกเน€เธเธดเธ เธซเธฃเธทเธญเธเธ”เธชเธฑเนเธเธ—เธณเธเธฒเธเนเธซเธกเน</b>")
                             _bot_state['last_error'] = err_key
                         
                         # Instead of looping wildly, pause and wait for user intervention
-                        _bot_state['api_status'] = "🔴 รอเติมเงิน"
+                        _bot_state['api_status'] = "๐”ด เธฃเธญเน€เธ•เธดเธกเน€เธเธดเธ"
                         fib_step = 0
                         current_loss_streak = 0
                         time.sleep(15) # Wait 15 seconds before retrying so it doesn't spam
                         continue
                     else:
-                        self.log_event(f"⚠️ API Error: {err_msg}")
+                        self.log_event(f"โ ๏ธ API Error: {err_msg}")
                         time.sleep(5)
                         continue
 
                 if not bet_res or "data" not in bet_res or not bet_res["data"] or not bet_res["data"].get("diceRoll"):
-                    self.log_event("⚠️ Incomplete bet response. Retrying...")
+                    self.log_event("โ ๏ธ Incomplete bet response. Retrying...")
                     time.sleep(5); continue
 
                 roll_data = bet_res["data"]["diceRoll"]
@@ -1561,11 +1496,11 @@ class StakeDiceBot:
                 # Clear error state on successful bet
                 _bot_state.pop('last_error', None)
                 _bot_state['error_count'] = 0
-                _bot_state['api_status'] = "🟢 ปกติ" 
+                _bot_state['api_status'] = "๐ข เธเธเธ•เธด" 
                 payout = float(roll_data.get("payout", 0))
                 result_state = roll_data.get("state")
                 if not result_state:
-                    self.log_event("⚠️ Missing roll state. Retrying...")
+                    self.log_event("โ ๏ธ Missing roll state. Retrying...")
                     time.sleep(5); continue
                 result = float(result_state.get("result", 0))
                 
@@ -1585,13 +1520,13 @@ class StakeDiceBot:
                 else:
                     new_balance = balance - current_bet + payout
                 
-                # ── 3. GOAL & RISK MANAGEMENT ──
+                # โ”€โ”€ 3. GOAL & RISK MANAGEMENT โ”€โ”€
                 # Check Daily Target (TP)
                 target_tp = _bot_state.get('take_profit', 0.0)
                 if target_tp > 0 and total_profit >= target_tp:
-                    tg(f"🎯 <b>DAILY GOAL REACHED! (+{total_profit:.2f} TRX)</b>\n"
-                       f"เป้าหมาย: {target_tp:+.2f} TRX\n"
-                       f"บอททำการบันทึกบัญชีและพักเซสชั่นชั่วคราว...")
+                    tg(f"๐ฏ <b>DAILY GOAL REACHED! (+{total_profit:.2f} BTC)</b>\n"
+                       f"เน€เธเนเธฒเธซเธกเธฒเธข: {target_tp:+.2f} BTC\n"
+                       f"เธเธญเธ—เธ—เธณเธเธฒเธฃเธเธฑเธเธ—เธถเธเธเธฑเธเธเธตเนเธฅเธฐเธเธฑเธเน€เธเธชเธเธฑเนเธเธเธฑเนเธงเธเธฃเธฒเธง...")
                     
                     self.save_daily_report(
                         start_bal=start_balance,
@@ -1602,7 +1537,7 @@ class StakeDiceBot:
                         withdrawals=total_withdrawn
                     )
                     
-                    self.log_event(f"🎯 Daily Goal Reached: {total_profit:.8f} TRX. Auto-pausing for safety.")
+                    self.log_event(f"๐ฏ Daily Goal Reached: {total_profit:.8f} BTC. Auto-pausing for safety.")
                     
                     # Reset for next potential session or wait for user
                     start_balance = balance
@@ -1612,28 +1547,26 @@ class StakeDiceBot:
                     _bot_state['take_profit'] = 0 # Clear TP to prevent immediate re-trigger
                     
                     save_stats(persistent)
-                    print(f"\n[INFO] 🎯 Daily Goal Reached ({total_profit:.4f} TRX).")
-                    print("[INFO] ⏳ Bot is Auto-Pausing for 5 minutes for safety...")
                     time.sleep(300) # Pause 5 mins before next automated cycle
                     continue 
 
                 delta = new_balance - (balance - current_bet + payout)
-                # ใช้ threshold 1.0 TRX เพื่อกรอง floating point error และ payout เล็กๆ
+                # เนเธเน threshold 1.0 BTC เน€เธเธทเนเธญเธเธฃเธญเธ floating point error เนเธฅเธฐ payout เน€เธฅเนเธเน
                 if abs(delta) > 1.0:
                     type_str = "DEPOSIT" if delta > 0 else "WITHDRAWAL"
-                    self.log_event(f"🏦 External Balance Change: {type_str} detected ({delta:+.8f} TRX)")
+                    self.log_event(f"๐ฆ External Balance Change: {type_str} detected ({delta:+.8f} BTC)")
                     if delta < 0:
                         total_withdrawn += abs(delta)
                     else:
-                        # ฝากเงินเพิ่ม → อัปเดตต้นทุนอัตโนมัติ
+                        # เธเธฒเธเน€เธเธดเธเน€เธเธดเนเธก โ’ เธญเธฑเธเน€เธ”เธ•เธ•เนเธเธ—เธธเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธด
                         total_deposited += delta
                         initial_capital += delta
                         log_deposit_to_csv(delta, new_balance)
                         tg(
-                            f"🏦 <b>ตรวจพบการฝากเงิน!</b>\n"
-                            f"💵 ฝากเพิ่ม : <b>+{delta:.4f} TRX</b>\n"
-                            f"📊 ต้นทุนรวม : <b>{initial_capital:.4f} TRX</b>\n"
-                            f"<i>อัปเดตต้นทุนอัตโนมัติแล้ว</i>"
+                            f"๐ฆ <b>เธ•เธฃเธงเธเธเธเธเธฒเธฃเธเธฒเธเน€เธเธดเธ!</b>\n"
+                            f"๐’ต เธเธฒเธเน€เธเธดเนเธก : <b>+{delta:.8f} BTC</b>\n"
+                            f"๐“ เธ•เนเธเธ—เธธเธเธฃเธงเธก : <b>{initial_capital:.8f} BTC</b>\n"
+                            f"<i>เธญเธฑเธเน€เธ”เธ•เธ•เนเธเธ—เธธเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธดเนเธฅเนเธง</i>"
                         )
                     start_balance += delta
                     cycle_start_balance += delta
@@ -1671,15 +1604,17 @@ class StakeDiceBot:
                         session_wins += 1
                         current_loss_streak = 0
                         real_consecutive_wins += 1
+                        isolated_win_count += 1
                         
                         fib_step -= 2
                         if fib_step < 0: fib_step = 0
                         
                         # Reset Fibonacci fully on 2 consecutive real wins (W-W)
                         if real_consecutive_wins >= 2:
-                            self.log_event("🔄 Real W-W achieved: Resetting Fibonacci step to 0")
+                            self.log_event("๐” Real W-W achieved: Resetting Fibonacci step to 0")
                             fib_step = 0
                             real_bets_without_ww = 0
+                            isolated_win_count = 0
                 else:
                     if virtual_state != "NONE":
                         pass # Do nothing special for virtual loss
@@ -1691,7 +1626,7 @@ class StakeDiceBot:
                         if fib_step > max_fib_step:
                             max_fib_step = fib_step
                             if max_fib_step >= 10:
-                                self.log_event(f"🧗 Climber: Reached new high Step {max_fib_step+1}")
+                                self.log_event(f"๐ง— Climber: Reached new high Step {max_fib_step+1}")
                         if current_bet > max_single_loss: max_single_loss = current_bet
                         fib_step += 1
                 
@@ -1704,18 +1639,18 @@ class StakeDiceBot:
                     recent.pop(0)
                 # Removed fib limit check
 
-                # ── 3. TP/SL AUTOMATION ──
+                # โ”€โ”€ 3. TP/SL AUTOMATION โ”€โ”€
                 if take_profit > 0 and total_profit >= take_profit:
-                    tg(f"🏁 <b>TAKE PROFIT REACHED!</b>\n"
-                       f"Profit: <b>{total_profit:+.8f} TRX</b>\n"
-                       f"เป้าหมาย: {take_profit:+.2f} TRX\n"
-                       f"<b>บอททำการ Reset ยอดแทงและเริ่มนับกำไรใหม่ (No Stop)</b>")
-                    self.log_event(f"🏁 Take Profit Reached: {total_profit:.8f} TRX. Resetting and continuing.")
+                    tg(f"๐ <b>TAKE PROFIT REACHED!</b>\n"
+                       f"Profit: <b>{total_profit:+.8f} BTC</b>\n"
+                       f"เน€เธเนเธฒเธซเธกเธฒเธข: {take_profit:+.2f} BTC\n"
+                       f"<b>เธเธญเธ—เธ—เธณเธเธฒเธฃ Reset เธขเธญเธ”เนเธ—เธเนเธฅเธฐเน€เธฃเธดเนเธกเธเธฑเธเธเธณเนเธฃเนเธซเธกเน (No Stop)</b>")
+                    self.log_event(f"๐ Take Profit Reached: {total_profit:.8f} BTC. Resetting and continuing.")
                     
                     # Reset strategy and profit tracking for the next cycle
                     if fib_step >= 14: # Step 15 or higher
-                        tg(f"⚠️ <b>HIGH-RISK RECOVERY DETECTED (Step {fib_step+1})</b>\n"
-                       f"CEO สั่งการให้พักพนักงาน 15 นาที เพื่อความปลอดภัยของเงินทุนและเปลี่ยนจังหวะ Seed...")
+                        tg(f"โ ๏ธ <b>HIGH-RISK RECOVERY DETECTED (Step {fib_step+1})</b>\n"
+                       f"CEO เธชเธฑเนเธเธเธฒเธฃเนเธซเนเธเธฑเธเธเธเธฑเธเธเธฒเธ 15 เธเธฒเธ—เธต เน€เธเธทเนเธญเธเธงเธฒเธกเธเธฅเธญเธ”เธ เธฑเธขเธเธญเธเน€เธเธดเธเธ—เธธเธเนเธฅเธฐเน€เธเธฅเธตเนเธขเธเธเธฑเธเธซเธงเธฐ Seed...")
                         self.log_event(f"Safety Pause triggered after Step {fib_step+1} recovery.")
                         # Rotate seed to be sure
                         self.rotate_seed("High-Risk Recovery")
@@ -1730,8 +1665,7 @@ class StakeDiceBot:
                     streak_type = None
                     virtual_state = "TAKE_PROFIT_RESET"
                     virtual_escape_pattern = ['W']
-                    virtual_entry_step = fib_step + 1
-                    virtual_min_rolls = 0
+                    virtual_state = "NONE"
                     virtual_rolls_seen = 0
                     start_balance = new_balance # Reset start balance to current to track next TP goal
                     total_deposited = 0
@@ -1744,10 +1678,10 @@ class StakeDiceBot:
 
                 # (Dynamic condition switching has been replaced by per-roll random Over/Under)
 
-                # ── 5. สรุปยอดเพื่อเตรียมตาถัดไป ──
+                # โ”€โ”€ 5. เธชเธฃเธธเธเธขเธญเธ”เน€เธเธทเนเธญเน€เธ•เธฃเธตเธขเธกเธ•เธฒเธ–เธฑเธ”เนเธ โ”€โ”€
                 balance = new_balance
 
-                # ── 4. บันทึกและอัปเดตสถานะ (State Sync) ──
+                # โ”€โ”€ 4. เธเธฑเธเธ—เธถเธเนเธฅเธฐเธญเธฑเธเน€เธ”เธ•เธชเธ–เธฒเธเธฐ (State Sync) โ”€โ”€
                 save_stats({
                     "total_profit": total_profit,
                     "total_bets": total_bets,
@@ -1768,7 +1702,8 @@ class StakeDiceBot:
                     "take_profit": take_profit,
                     "stop_loss": stop_loss,
                     "total_uptime_seconds": total_uptime_seconds,
-                    "real_bets_without_ww": real_bets_without_ww
+                    "real_bets_without_ww": real_bets_without_ww,
+                    "isolated_win_count": isolated_win_count
                 })
 
                 _bot_state.update({
@@ -1778,66 +1713,67 @@ class StakeDiceBot:
                     'profit'        : total_profit,
                     'total_withdrawn': total_withdrawn,
                     'initial_capital': initial_capital,
-                    'peak_equity': peak_equity,
-                    'max_drawdown': max_drawdown,
-                    'bets'          : total_bets,
-                    'wins'          : wins,
-                    'max_loss_streak': max_loss_streak,
-                    'max_single_loss': max_single_loss,
-                    'max_fib_step'  : max_fib_step,
-                    'fib_step'      : fib_step + 1,
-                    'condition'     : current_condition,
-                    'switches'      : condition_switches,
-                    'streak'        : streak,
-                    'streak_type'   : streak_type,
-                    'current_bet'   : current_bet,
-                    'total_wagered' : total_wagered
-                })
-
-                # ── 6. ระบบบันทึกบัญชีรายวันสำหรับบริษัท ──
-                # บันทึกทุก 500 Bet หรือเมื่อมีการฝากเงิน
-                if total_bets % 500 == 0:
-                    self.save_daily_report(
-                        start_bal=start_balance,
-                        end_bal=balance,
-                        profit=total_profit,
-                        wagered=total_wagered,
-                        deposits=total_deposited,
-                        withdrawals=total_withdrawn
-                    )
-
-                # ── 5. การแจ้งเตือนพิเศษ (Telegram Alerts) ──
-                if payout > 0:
-                    if fib_step == 0 and current_highest_alert > 0: # กลับมาที่ step 1 หลังติดหล่ม
-                        tg(f"✅ <b>ดึงทุนคืนสำเร็จ! (Full Recovery)</b>\nสถานะ: กลับเข้าสู่ภาวะปกติ\nProfit รวม : {total_profit:+.8f} TRX")
-                        current_highest_alert = 0
+                       print(f" ๐’ฐ FINANCIAL STATEMENT:")
+                print(f"  ๐’ต Available Balance : {balance:.8f} {self.currency.upper()}")
+                print("-" * 65)
+                print(f" ๐ฏ STRATEGIC STATUS & GUARD:")
+                if virtual_state != "NONE":
+                    pattern_str = " - ".join(virtual_escape_pattern)
+                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
+                    print(f"  Bet Amount      : 0.00000000 {self.currency.upper()} | Virtual Roll")
                 else:
-                    # New Record Alert (Step / Streak)
-                    # แจ้งเตือนเมื่อทำลายสถิติเดิม (16, 17, 18...)
-                    if (fib_step + 1) > persistent.get("max_fib_step", 0) and (fib_step + 1) >= 15:
-                         danger = "🔴 อันตราย!" if fib_step + 1 >= 18 else "🟠 ระวัง!"
-                         tg(
-                             f"🏆 <b>ทำลายสถิติใหม่! (Max Step)</b>\n"
-                             f"━━━━━━━━━━━━━━━━\n"
-                             f"📍 ขั้นที่     : <b>{fib_step+1}</b>  {danger}\n"
-                             f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
-                             f"💰 Balance     : <b>{new_balance:.4f} TRX</b>\n"
-                             f"📉 P/L         : <b>{total_profit:+.4f} TRX</b>\n"
-                             f"🔥 แพ้ติด      : <b>{current_loss_streak} ครั้ง</b>\n"
-                             f"━━━━━━━━━━━━━━━━\n"
-                             f"<i>⚠️ พิจารณาหยุดบอทถ้า Step สูงมาก</i>"
+                    next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
+                    print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    print(f"  Bet Amount      : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
+                
+                # Progress Bar for Goal (Only if set)
+                if take_profit > 0:
+                    progress = min(100, max(0, (total_profit / take_profit * 100)))
+                    bar_len = 20
+                    filled = int(bar_len * progress / 100)
+                    bar = "โ–" * filled + "โ–’" * (bar_len - filled)
+                    print(f"  GOAL: [{bar}] {progress:.1f}%")
+                
+                print("-" * 65)
+                # Minimalist Live Log
+                last_result_str = 'โ… WIN ' if last_result == 'WIN' else 'โ LOSS'
+                print(f" ๐ฒ LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
+                print(f" โ ๏ธ STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
+                print("=" * 65)
+                print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print("=" * 65)
+                # Smart Speed: Max speed enabled
+ 
+            except KeyboardInterrupt:
+                clear()
+                tg(f"๐‘ <b>Bot Stopped (Manual)</b>\nFinal Profit: {total_profit:+.8f} {self.currency.upper()}\nBets: {total_bets} ({wins}W/{losses}L)\nBalance: {balance:.8f} {self.currency.upper()}")
+                print("Bot stopped by user.")
+                print(f"Final Profit: {total_profit:.8f} {self.currency.upper()} | Bets: {total_bets} ({wins}W/{losses}L)")
+                raise  # re-raise เน€เธเธทเนเธญเนเธซเน outer loop เธซเธขเธธเธ”เธ”เนเธงเธข
+            except Exception as e:
+                clear()
+                tg(f"โ <b>Bot Error</b>\n{str(e)[:200]}\nRetrying in 5s...")
+                print("=======================================================")
+                print(f"  [ERROR] {str(e)[:60]}")
+                print(f"  [RECOVER] Retrying in 5 seconds...")
+                print(f"  [INFO] Profit so far: {total_profit:.8f} {self.currency.upper()}") : <b>{current_bet:.8f} BTC</b>\n"
+                             f"๐’ฐ Balance     : <b>{new_balance:.8f} BTC</b>\n"
+                             f"๐“ P/L         : <b>{total_profit:+.8f} BTC</b>\n"
+                             f"๐”ฅ เนเธเนเธ•เธดเธ”      : <b>{current_loss_streak} เธเธฃเธฑเนเธ</b>\n"
+                             f"โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”\n"
+                             f"<i>โ ๏ธ เธเธดเธเธฒเธฃเธ“เธฒเธซเธขเธธเธ”เธเธญเธ—เธ–เนเธฒ Step เธชเธนเธเธกเธฒเธ</i>"
                          )
                          persistent["max_fib_step"] = (fib_step + 1)
 
                     if current_loss_streak > persistent.get("max_loss_streak", 0) and current_loss_streak >= 15:
                          tg(
-                             f"🔥 <b>ทำลายสถิติใหม่! (Max Streak)</b>\n"
-                             f"━━━━━━━━━━━━━━━━\n"
-                             f"💥 แพ้ต่อเนื่อง : <b>{current_loss_streak} ครั้ง</b>\n"
-                             f"📍 ขั้นที่      : <b>{fib_step+1}</b>\n"
-                             f"💸 Bet ปัจจุบัน : <b>{current_bet:.8f} TRX</b>\n"
-                             f"💰 Balance      : <b>{new_balance:.4f} TRX</b>\n"
-                             f"📉 P/L          : <b>{total_profit:+.4f} TRX</b>"
+                             f"๐”ฅ <b>เธ—เธณเธฅเธฒเธขเธชเธ–เธดเธ•เธดเนเธซเธกเน! (Max Streak)</b>\n"
+                             f"โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”\n"
+                             f"๐’ฅ เนเธเนเธ•เนเธญเน€เธเธทเนเธญเธ : <b>{current_loss_streak} เธเธฃเธฑเนเธ</b>\n"
+                             f"๐“ เธเธฑเนเธเธ—เธตเน      : <b>{fib_step+1}</b>\n"
+                             f"๐’ธ Bet เธเธฑเธเธเธธเธเธฑเธ : <b>{current_bet:.8f} BTC</b>\n"
+                             f"๐’ฐ Balance      : <b>{new_balance:.8f} BTC</b>\n"
+                             f"๐“ P/L          : <b>{total_profit:+.8f} BTC</b>"
                          )
                          persistent["max_loss_streak"] = current_loss_streak
                     
@@ -1848,23 +1784,23 @@ class StakeDiceBot:
                         if bet_mult >= m: target_m = m; break
                     if target_m > current_highest_alert:
                         current_highest_alert = target_m
-                        tg(f"🚨 <b>Bet ใหญ่ถึง {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} TRX\nStep: {fib_step+1}")
+                        tg(f"๐จ <b>Bet เนเธซเธเนเธ–เธถเธ {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} BTC\nStep: {fib_step+1}")
 
                     # Milestone Streak
                     if current_loss_streak in STREAK_MILESTONES:
-                        tg(f"💥 <b>แพ้ต่อเนื่อง {current_loss_streak} ครั้ง</b>\nStep: {fib_step+1}\nProfit: {total_profit:+.8f} TRX")
+                        tg(f"๐’ฅ <b>เนเธเนเธ•เนเธญเน€เธเธทเนเธญเธ {current_loss_streak} เธเธฃเธฑเนเธ</b>\nStep: {fib_step+1}\nProfit: {total_profit:+.8f} BTC")
 
-                # Health Check (ทุก 100 bets)
+                # Health Check (เธ—เธธเธ 100 bets)
                 if total_bets % BALANCE_REPORT_EVERY == 0:
                     win_rate_now = (wins / total_bets * 100)
-                    p_icon = "🟢" if total_profit >= 0 else "🔴"
+                    p_icon = "๐ข" if total_profit >= 0 else "๐”ด"
                     tg(
-                        f"📈 <b>รายงานอัตโนมัติ ({total_bets:,} Bets)</b>\n"
-                        f"━━━━━━━━━━━━━━━━\n"
-                        f"💰 Balance  : <b>{balance:.4f} TRX</b>\n"
-                        f"📊 Win Rate : <b>{win_rate_now:.1f}%</b>\n"
-                        f"📍 Step     : <b>{fib_step+1}</b>\n"
-                        f"⏱️ Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
+                        f"๐“ <b>เธฃเธฒเธขเธเธฒเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธด ({total_bets:,} Bets)</b>\n"
+                        f"โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”โ”\n"
+                        f"๐’ฐ Balance  : <b>{balance:.8f} BTC</b>\n"
+                        f"๐“ Win Rate : <b>{win_rate_now:.1f}%</b>\n"
+                        f"๐“ Step     : <b>{fib_step+1}</b>\n"
+                        f"โฑ๏ธ Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
                         reply_markup=main_menu_markup()
                     )
 
@@ -1882,36 +1818,34 @@ class StakeDiceBot:
                 p_sign = "+" if total_profit >= 0 else ""
                 
                 print("=" * 65)
-                print(f" 🤖 COMMANDER BRIAN | MISSION CONTROL | {mode}")
-                print(f" 👤 ACCOUNT : {_CURRENT_USERNAME.upper() if _CURRENT_USERNAME else _CURRENT_PROFILE.upper()}")
+                print(f" ๐ค– COMMANDER BRIAN | MISSION CONTROL | {mode}")
                 print("=" * 65)
-                print(f" 💰 FINANCIAL STATEMENT:")
-                print(f"  💵 Available Balance : {balance:.8f} TRX")
+                print(f" ๐’ฐ FINANCIAL STATEMENT:")
+                print(f"  ๐’ต Available Balance : {balance:.8f} BTC")
                 print("-" * 65)
-                print(f" 🎯 STRATEGIC STATUS & GUARD:")
+                print(f" ๐ฏ STRATEGIC STATUS & GUARD:")
                 if virtual_state != "NONE":
                     pattern_str = " - ".join(virtual_escape_pattern)
-                    scan_str = f" ({virtual_rolls_seen}/{virtual_min_rolls} scan)" if virtual_min_rolls else ""
-                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str}{scan_str}")
-                    print(f"  Bet Amount      : 0.00000000 TRX | Virtual Roll")
+                    print(f"  Current Step    : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
+                    print(f"  Bet Amount      : 0.00000000 BTC | Virtual Roll")
                 else:
                     next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
                     print(f"  Current Step    : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
-                    print(f"  Bet Amount      : {next_bet_amount:.8f} TRX | Roll {current_condition.upper()} {target}")
+                    print(f"  Bet Amount      : {next_bet_amount:.8f} BTC | Roll {current_condition.upper()} {target}")
                 
                 # Progress Bar for Goal (Only if set)
                 if take_profit > 0:
                     progress = min(100, max(0, (total_profit / take_profit * 100)))
                     bar_len = 20
                     filled = int(bar_len * progress / 100)
-                    bar = "█" * filled + "▒" * (bar_len - filled)
+                    bar = "โ–" * filled + "โ–’" * (bar_len - filled)
                     print(f"  GOAL: [{bar}] {progress:.1f}%")
                 
                 print("-" * 65)
                 # Minimalist Live Log
-                last_result_str = '✅ WIN ' if last_result == 'WIN' else '❌ LOSS'
-                print(f" 🎲 LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} TRX)")
-                print(f" ⚠️ STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
+                last_result_str = 'โ… WIN ' if last_result == 'WIN' else 'โ LOSS'
+                print(f" ๐ฒ LAST ROLL : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} BTC)")
+                print(f" โ ๏ธ STREAK    : {streak} {streak_type} | Recent: {''.join(recent[-6:])}")
                 print("=" * 65)
                 print(f" [BETS: {total_bets} | WR: {win_rate:.1f}%] | Uptime: {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
                 print("=" * 65)
@@ -1919,48 +1853,47 @@ class StakeDiceBot:
 
             except KeyboardInterrupt:
                 clear()
-                tg(f"🛑 <b>Bot Stopped (Manual)</b>\nFinal Profit: {total_profit:+.8f} TRX\nBets: {total_bets} ({wins}W/{losses}L)\nBalance: {balance:.8f} TRX")
+                tg(f"๐‘ <b>Bot Stopped (Manual)</b>\nFinal Profit: {total_profit:+.8f} BTC\nBets: {total_bets} ({wins}W/{losses}L)\nBalance: {balance:.8f} BTC")
                 print("Bot stopped by user.")
-                print(f"Final Profit: {total_profit:.8f} TRX | Bets: {total_bets} ({wins}W/{losses}L)")
-                raise  # re-raise เพื่อให้ outer loop หยุดด้วย
+                print(f"Final Profit: {total_profit:.8f} BTC | Bets: {total_bets} ({wins}W/{losses}L)")
+                raise  # re-raise เน€เธเธทเนเธญเนเธซเน outer loop เธซเธขเธธเธ”เธ”เนเธงเธข
             except Exception as e:
                 clear()
-                tg(f"❌ <b>Bot Error</b>\n{str(e)[:200]}\nRetrying in 5s...")
+                tg(f"โ <b>Bot Error</b>\n{str(e)[:200]}\nRetrying in 5s...")
                 print("=======================================================")
                 print(f"  [ERROR] {str(e)[:60]}")
                 print(f"  [RECOVER] Retrying in 5 seconds...")
-                print(f"  [INFO] Profit so far: {total_profit:.8f} TRX")
+                print(f"  [INFO] Profit so far: {total_profit:.8f} BTC")
                 print("=======================================================")
                 time.sleep(5)
 
 if __name__ == "__main__":
     # ============================================================
-    #  อ่านค่าจาก config.json (แก้ไขได้ที่ไฟล์ config.json)
+    #  เธญเนเธฒเธเธเนเธฒเธเธฒเธ config.json (เนเธเนเนเธเนเธ”เนเธ—เธตเนเนเธเธฅเน config.json)
     # ============================================================
     _stake = _CFG["stake"]
     _bots  = _CFG["bot_settings"]
 
     TOKEN       = _stake["access_token"]
     COOKIES     = _stake["cookies"]
-    CURRENCY    = _stake.get("currency", "trx")
+    CURRENCY    = _stake.get("currency", "btc")
     MIRROR_HOST = _stake.get("mirror_host", "stake.games")
     PROXY       = _stake.get("proxy", "")
     SIMULATE    = _bots.get("simulate", False)
 
     print(f"[CONFIG] Mirror: {MIRROR_HOST} | Proxy: {PROXY or 'none'}")
 
-    BASE_BET  = _bots.get("base_bet", 0.0001)
-    DYNAMIC_PCT = _bots.get("dynamic_percent", 0.0)
+    BASE_BET  = _bots.get("base_bet", 0.05)
+    DYNAMIC_PERCENT = _bots.get("dynamic_percent", 0.0)
     TARGET    = _bots.get("target", 48.00)
     CONDITION = _bots.get("condition", "below")
 
     print(f"[CONFIG] Telegram Chat: {TELEGRAM_CHAT_ID}")
-    dyn_label = f"Dynamic {DYNAMIC_PCT*100:.4f}%" if DYNAMIC_PCT > 0 else f"{BASE_BET}"
-    print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {dyn_label} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
+    print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
     if "--check" in sys.argv:
         min_bet_allowed = get_min_bet(CURRENCY)
-        if DYNAMIC_PCT == 0 and BASE_BET < min_bet_allowed:
+        if BASE_BET < min_bet_allowed:
             raise ValueError(f"base_bet must be at least {min_bet_allowed} {CURRENCY.upper()}")
         if not TOKEN or not COOKIES:
             raise ValueError("Stake token/cookies are missing")
@@ -1983,7 +1916,7 @@ if __name__ == "__main__":
                 # Run the AI brain silently in the background
                 with open(os.path.join(_BASE_DIR, "hermes_brain.log"), "a", encoding="utf-8") as log_file:
                     subprocess.run(
-                        [sys.executable, "hermes_brain.py"],
+                        [sys.executable, "hermes_brain.py", _profile_suffix],
                         cwd=_BASE_DIR,
                         stdout=log_file,
                         stderr=log_file,
@@ -2002,15 +1935,16 @@ if __name__ == "__main__":
     # ===== RESURRECTION LOOP =====
     while True:
         try:
-            bot.start_dice_bot(base_bet=BASE_BET, target=TARGET, condition=CONDITION, dynamic_pct=DYNAMIC_PCT)
+            bot.start_dice_bot(base_bet=BASE_BET, dynamic_percent=DYNAMIC_PERCENT, target=TARGET, condition=CONDITION)
         except KeyboardInterrupt:
             print("Bot stopped by user.")
             break
         except Exception as e:
-            tg(f"💀 <b>Bot Crashed! Restarting...</b>\n{str(e)[:200]}\nRestarting in 15s")
+            tg(f"๐’€ <b>Bot Crashed! Restarting...</b>\n{str(e)[:200]}\nRestarting in 15s")
             print(f"[RESURRECTION] Crashed: {e}")
             print("[RESURRECTION] Restarting in 15 seconds...")
             time.sleep(15)
+
 
 
 

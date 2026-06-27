@@ -3,6 +3,9 @@ config*.json
 stake_session.json
 hermes_model_state.json
 api.txt
+run_auto_switch.txt
+scratch/
+
 
 # Logs and History
 *.log
