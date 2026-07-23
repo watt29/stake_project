@@ -158,17 +158,7 @@ class SkillManager(FileSystemEventHandler):
 
             "isolated_wins_threshold": 16,
 
-            "loss_streak_threshold": 4,
-
             "sawtooth_length": 6,
-
-            "loss_streak_escape_wins": 2,
-
-            "loss_streak_mid_step": 8,
-
-            "loss_streak_mid_threshold": 3,
-
-            "loss_streak_mid_escape_wins": 2
 
         }
 
@@ -210,21 +200,7 @@ class SkillManager(FileSystemEventHandler):
 
                 "isolated_wins_threshold": int,
 
-                "loss_streak_threshold": int,
-
                 "sawtooth_length": int
-
-            }
-
-            optional_int_schema = {
-
-                "loss_streak_escape_wins": int,
-
-                "loss_streak_mid_step": int,
-
-                "loss_streak_mid_threshold": int,
-
-                "loss_streak_mid_escape_wins": int
 
             }
 
@@ -242,51 +218,10 @@ class SkillManager(FileSystemEventHandler):
 
                     raise TypeError(f" '{key}'  ({expected_type.__name__}) ")
 
-            for key, expected_type in optional_int_schema.items():
-
-                if key in new_skills and (not isinstance(new_skills[key], expected_type) or isinstance(new_skills[key], bool)):
-
-                    raise TypeError(f" '{key}'  ({expected_type.__name__}) ")
-
-
-
             #  Value Constraints
-
-            if new_skills["loss_streak_threshold"] <= 0:
-
-                raise ValueError("loss_streak_threshold  0")
-
             if new_skills["sawtooth_length"] < 2:
 
                 raise ValueError("sawtooth_length  2")
-
-            if new_skills.get("loss_streak_escape_wins", 2) <= 0:
-
-                raise ValueError("loss_streak_escape_wins  0")
-
-            if new_skills.get("loss_streak_mid_step", 8) < 0:
-
-                raise ValueError("loss_streak_mid_step ")
-
-            if new_skills.get("loss_streak_mid_threshold", 3) <= 0:
-
-                raise ValueError("loss_streak_mid_threshold  0")
-
-            if new_skills.get("loss_streak_mid_escape_wins", 2) <= 0:
-
-                raise ValueError("loss_streak_mid_escape_wins  0")
-
-            if new_skills.get("loss_streak_high_step", 14) < 0:
-
-                raise ValueError("loss_streak_high_step ")
-
-            if new_skills.get("loss_streak_high_escape_wins", 2) <= 0:
-
-                raise ValueError("loss_streak_high_escape_wins  0")
-
-            if new_skills.get("loss_streak_high_threshold", 1) <= 0:
-
-                raise ValueError("loss_streak_high_threshold  0")
 
             
 
@@ -425,14 +360,7 @@ def get_currency():
 
 
 def get_min_bet(currency_str):
-
-    c = currency_str.lower()
-
-    if c == "trx":
-
-        return 0.0005
-
-    return 0.00000001
+    return 0.0005
 
 
 
@@ -478,10 +406,6 @@ def load_stats():
 
         "recent_all_bets": [], # To replace the "recent" list
 
-
-
-        "last_fib_step": 0,
-
         "last_condition": None,
 
         "initial_balance": 0.0,
@@ -489,8 +413,6 @@ def load_stats():
         "total_withdrawn": _fin.get("total_withdrawn", 0.0),
 
         "total_deposited": 0.0,
-
-        "max_fib_step": 0,
 
         "initial_capital": _fin.get("initial_capital", 0.0),
 
@@ -555,20 +477,6 @@ def _tg_worker(url, payload):
 
 
 
-
-def get_fib_multiplier(n):
-
-    if n <= 0: return 1
-
-    if n == 1: return 1
-
-    a, b = 1, 1
-
-    for _ in range(2, n + 1):
-
-        a, b = b, a + b
-
-    return b
 
 
 
@@ -816,8 +724,6 @@ def corporate_heartbeat():
 
                 f" Bets     : <b>{bets:,}</b>\n"
 
-                f" Step     : <b>{_bot_state.get('fib_step', 1)}</b>\n"
-
                 f" Uptime   : <b>{uptime//3600}h {(uptime%3600)//60}m</b>",
 
                 reply_markup=main_menu_markup()
@@ -978,7 +884,7 @@ def _handle_command(cmd: str, show_menu=False):
 
         api_status = s.get('api_status', ' ')
 
-        v_state = s.get('virtual_state', 'NONE')
+        v_state = 'NONE'
 
         v_mode = " ()" if v_state != "NONE" else " ()"
 
@@ -987,8 +893,6 @@ def _handle_command(cmd: str, show_menu=False):
         
 
         wr = (s.get('wins', 0) / s['bets'] * 100) if s.get('bets', 0) > 0 else 0
-
-        step = s.get('fib_step', 1)
 
         profit = s.get('profit', 0)
 
@@ -1039,8 +943,6 @@ def _handle_command(cmd: str, show_menu=False):
             f" <b>Strategy   :</b> {status}\n"
 
             f" <b>Win Rate   :</b> {wr:.1f}%\n"
-
-            f" <b>Fib Step   :</b>  {step}\n"
 
             "--------------------------------\n"
 
@@ -1122,8 +1024,6 @@ def _handle_command(cmd: str, show_menu=False):
 
             f"Max Loss Streak: {s.get('max_loss_streak', 0)} \n"
 
-            f"Max Step   :  {s.get('max_fib_step', 0)}\n"
-
             f"Max Single Bet : {s.get('max_single_loss', 0):.8f} {self.currency.upper()}\n"
 
             f"--------------------------------\n"
@@ -1131,8 +1031,6 @@ def _handle_command(cmd: str, show_menu=False):
             f" <b>STRATEGY STATS</b>\n"
 
             f"Win Rate      : {wr:.1f}%\n"
-
-            f"Step      : {s.get('fib_step', 1)}\n"
 
             f"Condition Sw  : {s.get('switches', 0)} \n"
 
@@ -1630,7 +1528,7 @@ class ZScoreSeedRotator:
 
 class StakeDiceBot:
 
-    def __init__(self, token, cookies, currency="btc", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None):
+    def __init__(self, token, cookies, currency="btc", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None, account_name=None):
 
         self.token = token
 
@@ -1642,11 +1540,16 @@ class StakeDiceBot:
         self.simulate = simulate
         self.history_file = HISTORY_FILE
         self.token = token
-        self.account_name = "Unknown"
+        self.account_name = account_name or "Unknown"
         
         options = uc.ChromeOptions()
 
         options.headless = False
+
+        browser_profile_name = _profile_suffix.lstrip("_") or "default"
+        browser_profile_dir = os.path.join(_BASE_DIR, "browser_profiles", browser_profile_name)
+        os.makedirs(browser_profile_dir, exist_ok=True)
+        options.add_argument(f"--user-data-dir={browser_profile_dir}")
 
         if proxy:
 
@@ -1656,9 +1559,10 @@ class StakeDiceBot:
 
         print(" [SYSTEM] Starting Browser for Cloudflare bypass...")
 
-        self.driver = uc.Chrome(options=options, version_main=148)
+        self.driver = uc.Chrome(options=options, version_main=150)
 
         self.driver.set_script_timeout(10)
+        self.driver.set_page_load_timeout(30)
 
         self.driver.get(f"https://{mirror_host}/")
 
@@ -1820,8 +1724,6 @@ class StakeDiceBot:
 
             pass
 
-
-
         if not os.path.exists(self.history_file):
 
             with open(self.history_file, 'w', newline='', encoding='utf-8') as f:
@@ -1874,11 +1776,11 @@ class StakeDiceBot:
 
             if data and data.get("rotateServerSeed"):
 
-                msg = f" <b>Seed Rotated ({reason})</b>\n Seed \n<i>*Server Seed Reset </i>"
+                # msg = f" <b>Seed Rotated ({reason})</b>\n Seed \n<i>*Server Seed Reset </i>"
 
                 self.log_event(f" Seed Rotated ({reason}): Server seed changed successfully.")
 
-                tg(msg)
+                # tg(msg) # Disabled per user request
 
                 return True
 
@@ -1889,8 +1791,6 @@ class StakeDiceBot:
                 error_msg = error_list[0].get("message", "Unknown API rejection") if error_list else "No response from API"
 
                 self.log_event(f"  Seed Rotation Rejected: {error_msg}")
-
-                # tg(f"  <b>API Seed Rotation Rejected</b>\n: {error_msg}") # Don't spam TG for minor rotation failure
 
         except Exception as e:
 
@@ -1904,7 +1804,9 @@ class StakeDiceBot:
 
         """ Bet """
 
-        return _bot_state.get('bets', 0)
+        stats = load_stats()
+
+        return stats.get("total_bets", 0)
 
 
 
@@ -1978,7 +1880,7 @@ class StakeDiceBot:
 
             for _ in range(20):
 
-                _time.sleep(0.5)
+                _time.sleep(0.35)
 
                 res = self.driver.execute_script("return window.__gql_result;")
 
@@ -2359,7 +2261,7 @@ class StakeDiceBot:
 
 
 
-    def start_dice_bot(self, base_bet, dynamic_percent=0.0, target=48.00, condition="below"):
+    def start_dice_bot(self, base_bet, dynamic_percent=0.0, target=65.00, condition="below", strategy="default"):
 
         session_wins = 0
 
@@ -2385,7 +2287,15 @@ class StakeDiceBot:
 
         max_single_loss = persistent.get("max_single_loss", 0.0)
 
-        fib_step = persistent.get("last_fib_step", 0)
+        if strategy in [None, "", "random", "default"]:
+            active_strategy = random.choice(["default", "matchmaker"]) if strategy == "random" else (strategy or "default")
+        else:
+            active_strategy = strategy
+
+        current_win_chance = persistent.get("current_win_chance", 66.00)
+        base_win_chance = 66.00
+
+        print(f" [STRATEGY] Active Strategy Mode: {active_strategy.upper()}")
 
         current_condition = condition
 
@@ -2394,8 +2304,6 @@ class StakeDiceBot:
         total_withdrawn = persistent.get("total_withdrawn", 300.0)
 
         total_deposited = persistent.get("total_deposited", 0.0)
-
-        max_fib_step = persistent.get("max_fib_step", 0)
 
         start_balance = persistent.get("initial_balance", 0.0)
 
@@ -2443,13 +2351,18 @@ class StakeDiceBot:
 
         
 
-        virtual_state = "NONE"
+        shadow_bet_enabled = bool(_bots.get("shadow_bet_enabled", True))
+        shadow_escape_wins = max(1, int(_bots.get("shadow_escape_wins", 2)))
+        shadow_sawtooth_skip_rolls = max(0, int(_bots.get("shadow_sawtooth_skip_rolls", 10)))
+        virtual_state = persistent.get("virtual_state", "NONE")
+        if not shadow_bet_enabled or virtual_state in ("LOSS_STREAK", "WARMUP", "WAIT_WW"):
+            virtual_state = "NONE"
 
-        virtual_escape_pattern = ['W']
+        virtual_escape_pattern = ['W'] * shadow_escape_wins
 
         virtual_entry_step = 0
 
-        virtual_rolls_seen = 0
+        virtual_rolls_seen = persistent.get("virtual_rolls_seen", 0)
 
         
 
@@ -2555,6 +2468,27 @@ class StakeDiceBot:
 
             balance = self.get_wallet_balance()
 
+        # A zero balance is not a betting condition.  End this account cleanly
+        # so the rotation controller can move on without sending any bet.
+        if balance <= 0:
+            persistent["rotation_status"] = "INSUFFICIENT_FUNDS"
+            persistent["rotation_session_start_balance"] = 0.0
+            persistent["rotation_session_profit"] = 0.0
+            save_stats(persistent)
+            _bot_state['active'] = False
+            _bot_state['api_status'] = "Insufficient funds - account paused"
+            self.log_event("INSUFFICIENT FUNDS: account paused; no bet was sent.")
+            tg(f"<b>Account paused</b>\nInsufficient {self.currency.upper()} balance. No bet was sent; rotation will continue.")
+            print(" [SYSTEM] Insufficient balance. Account paused; no bet was sent.")
+            return
+
+        rotation_session_start_balance = balance
+        persistent["rotation_session_start_balance"] = rotation_session_start_balance
+        persistent["rotation_session_profit"] = 0.0
+        persistent["rotation_status"] = "RUNNING"
+        save_stats(persistent)
+        _bot_state['api_status'] = "RUNNING - connected"
+
 
 
         # Removed recovery_mode
@@ -2623,12 +2557,6 @@ class StakeDiceBot:
 
                     persistent["initial_balance"] = start_balance
 
-                    if take_profit == 0:
-
-                        take_profit = round(start_balance * 0.01, 2)
-
-                        _bot_state['take_profit'] = take_profit
-
                     if stop_loss == 0:
 
                         stop_loss = -round(start_balance * 0.10, 2)
@@ -2655,15 +2583,18 @@ class StakeDiceBot:
 
                 # Calculate Session Profit
 
-                session_profit = balance - _bot_state.get('start_balance', balance)
+                session_profit = balance - rotation_session_start_balance
 
 
 
-                #  (BELOW 48.00 / ABOVE 52.00)
+                #  (BELOW / ABOVE)
 
                 current_condition = random.choice(["above", "below"])
 
-                target = 52.00 if current_condition == "above" else 48.00
+                if active_strategy == "matchmaker":
+                    target = (100.0 - current_win_chance) if current_condition == "above" else current_win_chance
+                else:
+                    target = 35.00 if current_condition == "above" else 65.00
 
 
 
@@ -2675,7 +2606,7 @@ class StakeDiceBot:
 
                 else:
 
-                    ai_skills = {"isolated_wins_threshold": 16, "loss_streak_threshold": 4, "sawtooth_length": 6}
+                    ai_skills = {"isolated_wins_threshold": 16, "sawtooth_length": 6}
 
                 
 
@@ -2683,29 +2614,7 @@ class StakeDiceBot:
 
                 ai_isolated_wins = ai_skills.get("isolated_wins_threshold", 16)
 
-                ai_loss_streak = ai_skills.get("loss_streak_threshold", 4)
-
-                ai_loss_escape_wins = ai_skills.get("loss_streak_escape_wins", 2)
-
-                ai_loss_mid_step = ai_skills.get("loss_streak_mid_step", 8)
-
-                ai_loss_mid_threshold = ai_skills.get("loss_streak_mid_threshold", 3)
-
-                ai_loss_mid_escape_wins = ai_skills.get("loss_streak_mid_escape_wins", 2)
-
-                display_step = fib_step + 1
-
-                if display_step >= ai_loss_mid_step:
-
-                    active_loss_limit = ai_loss_mid_threshold
-
-                    active_escape_wins = max(ai_loss_mid_escape_wins, ai_loss_escape_wins)
-
-                else:
-
-                    active_loss_limit = ai_loss_streak
-
-                    active_escape_wins = ai_loss_escape_wins
+                display_step = 1
 
 
 
@@ -2725,144 +2634,18 @@ class StakeDiceBot:
 
                 #  
 
-                if virtual_state == "NONE":
-
-                    if current_loss_streak >= active_loss_limit:
-
-                        virtual_state = "LOSS_STREAK"
-
-                        virtual_escape_pattern = ['W'] * active_escape_wins
-
-                        virtual_entry_step = display_step
-
-                        virtual_rolls_seen = 0
-
-                        pattern_str = " - ".join(virtual_escape_pattern)
-
-                        self.log_event(f" VIRTUAL PAUSE ENGAGED ( {current_loss_streak}   Step {display_step}; limit {active_loss_limit}.  {pattern_str})")
-
-
-
-                    elif is_sawtooth:
-
-                        virtual_state = "SAWTOOTH"
-
-                        virtual_escape_pattern = ['W'] * active_escape_wins
-
-                        virtual_entry_step = display_step
-
-                        virtual_rolls_seen = 0
-
-                        pattern_str = " - ".join(virtual_escape_pattern)
-
-                        self.log_event(f" VIRTUAL PAUSE ENGAGED (Sawtooth detected: {ai_sawtooth_len} alternating at Step {display_step}. Waiting for {pattern_str})")
-
-                        if len(recent) >= ai_sawtooth_len:
-
-                            recent[-ai_sawtooth_len] = "X" # Corrupt the pattern so it doesn't loop
-
-                            
-
-                    elif real_bets_without_ww >= ai_isolated_wins:
-
-                        virtual_state = "ISOLATED_WINS"
-
-                        virtual_escape_pattern = ['W'] * active_escape_wins
-
-                        virtual_entry_step = display_step
-
-                        virtual_rolls_seen = 0
-
-                        pattern_str = " - ".join(virtual_escape_pattern)
-
-                        self.log_event(f" VIRTUAL PAUSE ENGAGED (Isolated Wins: {real_bets_without_ww} bets without W-W at Step {display_step}. AI Threshold: {ai_isolated_wins}. Waiting for {pattern_str})")
-
-                        real_bets_without_ww = 0 # Reset so it doesn't re-trigger immediately
-
-                        
-
-                    elif isolated_win_count >= 6:
-
-                        virtual_state = "ISOLATED_WIN_COUNT"
-
-                        virtual_escape_pattern = ['W'] * active_escape_wins
-
-                        virtual_entry_step = display_step
-
-                        virtual_rolls_seen = 0
-
-                        pattern_str = " - ".join(virtual_escape_pattern)
-
-                        self.log_event(f" VIRTUAL PAUSE ENGAGED (Isolated Win Count reached {isolated_win_count} at Step {display_step}. Waiting for {pattern_str})")
-
-                        isolated_win_count = 0 # Reset so it doesn't re-trigger immediately
-
-                
-
-                #  Virtual Mode
-
-                if virtual_state != "NONE":
-
-                    matched = False
-
-                    pat = virtual_escape_pattern
-
-                    if len(recent) >= len(pat) and recent[-len(pat):] == pat:
-
-                        matched = True
-
-                    
-
-                    if matched:
-
-                        old_state = virtual_state
-
-                        virtual_state = "NONE"
-
-                        pattern_str = "-".join(pat)
-
-                        self.log_event(f" STREAK BREAKER MATCHED (Got {pattern_str} after {virtual_rolls_seen} virtual rolls)! Exited {old_state} from Step {virtual_entry_step}. Resuming real bet from current step.")
-
-                        current_loss_streak = 0
-
-                        streak = 0
-
-                        streak_type = None
-
-                        virtual_rolls_seen = 0
-
-                
-
                 # --- BET SIZING ---
-
-                if fib_step == 0:
-
+                if True:
                     min_bet_allowed = get_min_bet(self.currency)
 
-                    if dynamic_percent > 0 and balance > 0:
-
-                        calculated_base = balance * dynamic_percent
-
-                        base_bet = max(min_bet_allowed, round(calculated_base, 8))
-
-                        
-
                     # base_bet from config.json, with Stake minimum guard
-
                     if base_bet < min_bet_allowed:
-
                         base_bet = min_bet_allowed
 
-                        
-
-                if virtual_state != "NONE":
-
-                    current_bet = 0.0
-
-                else:
-
-                    current_bet = round(base_bet * get_fib_multiplier(fib_step), 8)
-
+                current_bet = persistent.get("current_bet", base_bet)
+                if current_bet < min_bet_allowed:
+                    current_bet = min_bet_allowed
+                planned_bet = current_bet
 
 
                 # --- PROACTIVE BALANCE CHECK ---
@@ -2871,11 +2654,11 @@ class StakeDiceBot:
 
                     self.log_event(f"  !  {current_bet:.8f} {self.currency.upper()}  {balance:.8f} {self.currency.upper()}")
 
-                    err_key = f"proactive_funds_{fib_step}"
+                    err_key = "proactive_funds"
 
                     if _bot_state.get('last_error') != err_key:
 
-                        tg(f"  <b>! (Proactive Check)</b>\n {fib_step+1}  {current_bet:.8f} {self.currency.upper()}  {balance:.8f} {self.currency.upper()}\n<b> 1 ({base_bet:.8f} {self.currency.upper()})  10 </b>")
+                        tg(f"  <b>! (Proactive Check)</b>\n 1  {current_bet:.8f} {self.currency.upper()}  {balance:.8f} {self.currency.upper()}\n<b> 1 ({base_bet:.8f} {self.currency.upper()})  10 </b>")
 
                         _bot_state['last_error'] = err_key
 
@@ -2885,15 +2668,17 @@ class StakeDiceBot:
 
                     _bot_state['api_status'] = "  (Proactive)"
 
-                    fib_step = 0
-
                     current_loss_streak = 0
 
                     streak = 0
 
                     streak_type = None
 
-                    time.sleep(10)
+                    persistent["rotation_status"] = "INSUFFICIENT_FUNDS"
+                    save_stats(persistent)
+                    self.log_event("INSUFFICIENT FUNDS: account paused before a bet was sent.")
+                    print(" [SYSTEM] Insufficient balance. Account paused before placing a bet.")
+                    return
 
                 
 
@@ -2907,13 +2692,11 @@ class StakeDiceBot:
 
                     virtual_state == "NONE"
 
-                    and fib_step >= 14
-
                     and (now_ts - last_high_stress_rotation_time) >= 60
 
                 )
 
-                time_trigger = (virtual_state == "NONE" and total_bets >= self.next_rotation_bet)
+                time_trigger = (total_bets >= self.next_rotation_bet)
 
                 if stress_trigger or time_trigger:
 
@@ -2929,7 +2712,18 @@ class StakeDiceBot:
 
                 
 
-                bet_res = self.place_dice_bet(current_bet, target, current_condition)
+                real_escape_turn = virtual_state == "NONE"
+                is_virtual_bet = not real_escape_turn
+
+                if real_escape_turn:
+                    current_bet = planned_bet
+                    bet_res = self.place_dice_bet(current_bet, target, current_condition)
+                else:
+                    current_bet = 0.0
+                    virtual_result = round(random.uniform(0, 100), 2)
+                    self.log_event(f"Virtual bet active: current_bet = 0.0 ({virtual_state})")
+                    bet_res = {"data": {"diceRoll": {"id": "virtual", "amount": 0.0,
+                              "payout": 0.0, "state": {"result": virtual_result}}}}
 
                 
 
@@ -2939,7 +2733,7 @@ class StakeDiceBot:
 
                     if "balance" in err_msg.lower() or "funds" in err_msg.lower():
 
-                        self.log_event(" INSUFFICIENT BALANCE! (API Error) Pausing bot.")
+                        self.log_event(" INSUFFICIENT BALANCE! (API Error) Account paused.")
 
                         err_key = "insufficient_funds_api"
 
@@ -2951,17 +2745,16 @@ class StakeDiceBot:
 
                         
 
-                        # Instead of looping wildly, pause and wait for user intervention
-
-                        _bot_state['api_status'] = " "
-
-                        fib_step = 0
+                        # Do not retry an insufficient-funds request.  Persist a
+                        # terminal status so the rotation controller can advance.
+                        _bot_state['api_status'] = "Insufficient funds - account paused"
 
                         current_loss_streak = 0
 
-                        time.sleep(15) # Wait 15 seconds before retrying so it doesn't spam
-
-                        continue
+                        persistent["rotation_status"] = "INSUFFICIENT_FUNDS"
+                        save_stats(persistent)
+                        print(" [SYSTEM] Insufficient balance from Stake. Account paused.")
+                        return
 
                     else:
 
@@ -2991,7 +2784,7 @@ class StakeDiceBot:
 
                 _bot_state['error_count'] = 0
 
-                _bot_state['api_status'] = " " 
+                _bot_state['api_status'] = "RUNNING - last bet confirmed"
 
                 payout = float(roll_data.get("payout", 0))
 
@@ -3041,11 +2834,11 @@ class StakeDiceBot:
 
                 #  3. GOAL & RISK MANAGEMENT 
 
-                # Check Daily Target (TP)
+                # Automatic take-profit pause is disabled.
 
                 target_tp = _bot_state.get('take_profit', 0.0)
 
-                if target_tp > 0 and total_profit >= target_tp:
+                if False:
 
                     tg(f" <b>DAILY GOAL REACHED! (+{total_profit:.2f} {self.currency.upper()})</b>\n"
 
@@ -3089,11 +2882,30 @@ class StakeDiceBot:
 
                     _bot_state['take_profit'] = 0 # Clear TP to prevent immediate re-trigger
 
+                    pause_seconds = 300
+                    pause_until = time.time() + pause_seconds
+                    persistent["rotation_status"] = "SAFETY_PAUSE"
+                    persistent["pause_until"] = pause_until
+                    _bot_state['api_status'] = "SAFETY PAUSE - daily goal reached"
+
                     
 
                     save_stats(persistent)
 
-                    time.sleep(300) # Pause 5 mins before next automated cycle
+                    print("\n=======================================================")
+                    print("  BOT STATUS: SAFETY PAUSE (NOT STUCK)")
+                    print("  Reason    : Daily goal reached")
+                    print("  Action    : No bets for 5 minutes; then resumes")
+                    print("=======================================================")
+                    while time.time() < pause_until:
+                        pause_left = int(max(0, pause_until - time.time()))
+                        print(f"  [PAUSED] {pause_left // 60}m {pause_left % 60:02d}s remaining", flush=True)
+                        time.sleep(min(30, max(1, pause_left)))
+
+                    persistent["rotation_status"] = "RUNNING"
+                    persistent.pop("pause_until", None)
+                    _bot_state['api_status'] = "RUNNING - safety pause complete"
+                    save_stats(persistent)
 
                     continue 
 
@@ -3146,9 +2958,9 @@ class StakeDiceBot:
                     self.log_event(f"AUTO-STOP: Reached duration limit of {_DURATION} minutes.")
                     tg(f" <b>AUTO-STOP: Time Limit Reached</b>\nDuration: <b>{_DURATION} minutes</b>\nNet Profit: <b>{total_profit:.8f} {self.currency.upper()}</b>")
                     sys.exit(0)
-                total_bets += 1
-
-                total_wagered += current_bet
+                if not is_virtual_bet:
+                    total_bets += 1
+                    total_wagered += current_bet
 
                 
 
@@ -3196,119 +3008,87 @@ class StakeDiceBot:
 
                 if is_win:
 
-                    if virtual_state != "NONE":
-
-                        # If virtual mode won, reduce virtual losses (no real profit)
-
-                        pass
-
-                    else:
-
+                    if not is_virtual_bet:
                         wins += 1
-
                         session_wins += 1
+                    current_loss_streak = 0
+                    real_consecutive_wins += 1
+                    isolated_win_count += 1
 
-                        current_loss_streak = 0
-
-                        real_consecutive_wins += 1
-
-                        isolated_win_count += 1
-
-                        
-
-                        fib_step -= 2
-
-                        if fib_step < 0: fib_step = 0
-
-                        
-
-                        # Reset Fibonacci fully on 2 consecutive real wins (W-W)
-
-                        if real_consecutive_wins >= 2:
-
-                            self.log_event(" Real W-W achieved: Resetting Fibonacci step to 0")
-
-                            fib_step = 0
-
-                            real_bets_without_ww = 0
-
-                            isolated_win_count = 0
+                    if active_strategy == "matchmaker":
+                        persistent["current_bet"] = round(base_bet, 8)
+                        current_win_chance = max(0.01, round(current_win_chance - 4.00, 2))
+                        persistent["current_win_chance"] = current_win_chance
+                    elif real_consecutive_wins >= 3:
+                        self.log_event("3 Wins Streak: Resetting Martingale bet")
+                        persistent["current_bet"] = base_bet
+                        real_bets_without_ww = 0
+                        isolated_win_count = 0
 
                 else:
 
-                    if virtual_state != "NONE":
-
-                        pass # Do nothing special for virtual loss
-
-                    else:
-
+                    if not is_virtual_bet:
                         losses += 1
 
-                        current_loss_streak += 1
+                    current_loss_streak += 1
+                    real_consecutive_wins = 0
 
-                        real_consecutive_wins = 0
+                    if active_strategy == "matchmaker":
+                        persistent["current_bet"] = round(planned_bet * 2.90, 8)
+                        current_win_chance = base_win_chance
+                        persistent["current_win_chance"] = current_win_chance
+                    else:
+                        persistent["current_bet"] = round(planned_bet * 1.45, 8)
 
-                        if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
+                    if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
 
-                        if fib_step > max_fib_step:
+                    if planned_bet > max_single_loss: max_single_loss = planned_bet
 
-                            max_fib_step = fib_step
+                    if current_loss_streak > persistent.get("max_loss_streak", 0) and current_loss_streak >= 15:
 
-                            if max_fib_step >= 10:
+                        tg(
 
-                                self.log_event(f" Climber: Reached new high Step {max_fib_step+1}")
+                            f" <b>! (Max Streak)</b>\n"
 
-                        if current_bet > max_single_loss: max_single_loss = current_bet
+                            f"\n"
 
-                        fib_step += 1
+                            f"  : <b>{current_loss_streak} </b>\n"
 
-                        if current_loss_streak > persistent.get("max_loss_streak", 0) and current_loss_streak >= 15:
+                            f" Bet  : <b>{planned_bet:.8f} {self.currency.upper()}</b>\n"
 
-                             tg(
+                            f" Balance      : <b>{new_balance:.8f} {self.currency.upper()}</b>\n"
 
-                                 f" <b>! (Max Streak)</b>\n"
+                            f" P/L          : <b>{total_profit:+.8f} {self.currency.upper()}</b>"
 
-                                 f"\n"
+                        )
 
-                                 f"  : <b>{current_loss_streak} </b>\n"
-
-                                 f"       : <b>{fib_step+1}</b>\n"
-
-                                 f" Bet  : <b>{current_bet:.8f} {self.currency.upper()}</b>\n"
-
-                                 f" Balance      : <b>{new_balance:.8f} {self.currency.upper()}</b>\n"
-
-                                 f" P/L          : <b>{total_profit:+.8f} {self.currency.upper()}</b>"
-
-                             )
-
-                             persistent["max_loss_streak"] = current_loss_streak
+                        persistent["max_loss_streak"] = current_loss_streak
 
 
 
-                        # High Risk Alert
+                    # High Risk Alert
 
-                        bet_mult = int(current_bet / base_bet)
+                    bet_mult = int(planned_bet / base_bet)
 
-                        target_m = 0
+                    target_m = 0
 
-                        for m in sorted(BET_ALERT_MULTIPLIERS, reverse=True):
+                    for m in sorted(BET_ALERT_MULTIPLIERS, reverse=True):
 
-                            if bet_mult >= m: target_m = m; break
+                        if bet_mult >= m: target_m = m; break
 
-                        if target_m > current_highest_alert:
+                    if target_m > current_highest_alert:
 
-                            current_highest_alert = target_m
+                        current_highest_alert = target_m
 
-                            tg(f" <b>Bet  {target_m}x! (High Risk)</b>\nBet: {current_bet:.8f} {self.currency.upper()}\nStep: {fib_step+1}")
+                        tg(f" <b>Bet  {target_m}x! (High Risk)</b>\nBet: {planned_bet:.8f} {self.currency.upper()}")
 
 
 
-                        # Milestone Streak
+                    # Milestone Streak
 
-                        if current_loss_streak in STREAK_MILESTONES:
+                    if current_loss_streak in STREAK_MILESTONES:
 
-                            tg(f" <b> {current_loss_streak} </b>\nStep: {fib_step+1}\nProfit: {total_profit:+.8f} {self.currency.upper()}")
+                        tg(f" <b> {current_loss_streak} </b>\nProfit: {total_profit:+.8f} {self.currency.upper()}")
 
 
 
@@ -3330,13 +3110,25 @@ class StakeDiceBot:
 
                     recent.pop(0)
 
+                if virtual_state == "NONE" and is_sawtooth:
+                    virtual_state = "SAWTOOTH"
+                    virtual_escape_pattern = ['W'] * shadow_escape_wins
+                    virtual_rolls_seen = 0
+                    self.log_event(f"Entering virtual mode: {virtual_state}")
+                elif virtual_state == "SAWTOOTH":
+                    if (virtual_rolls_seen >= shadow_sawtooth_skip_rolls
+                            and recent[-shadow_escape_wins:] == virtual_escape_pattern):
+                        virtual_state = "NONE"
+                        virtual_rolls_seen = 0
+                        self.log_event("Virtual sawtooth skip complete: returning to real betting")
+
                 # Removed fib limit check
 
 
 
-                #  3. TP/SL AUTOMATION 
+                # Automatic take-profit reset is disabled.
 
-                if take_profit > 0 and total_profit >= take_profit:
+                if False:
 
                     tg(f" <b>TAKE PROFIT REACHED!</b>\n"
 
@@ -3352,13 +3144,13 @@ class StakeDiceBot:
 
                     # Reset strategy and profit tracking for the next cycle
 
-                    if fib_step >= 14: # Step 15 or higher
+                    if False:
 
-                        tg(f"  <b>HIGH-RISK RECOVERY DETECTED (Step {fib_step+1})</b>\n"
+                        tg(f"  <b>HIGH-RISK RECOVERY DETECTED (Step 1)</b>\n"
 
                        f"CEO  15    Seed...")
 
-                        self.log_event(f"Safety Pause triggered after Step {fib_step+1} recovery.")
+                        self.log_event(f"Safety Pause triggered after Step 1 recovery.")
 
                         # Rotate seed to be sure
 
@@ -3366,23 +3158,16 @@ class StakeDiceBot:
 
                         time.sleep(900) # 15 minutes pause
 
-                    
-
-                    fib_step -= 2
-
 
 
                     
-
-                    if fib_step < 0: fib_step = 0
-
                     current_loss_streak = 0
 
                     streak = 0
 
                     streak_type = None
 
-                    virtual_state = "TAKE_PROFIT_RESET"
+                    
 
                     virtual_escape_pattern = ['W']
 
@@ -3436,8 +3221,6 @@ class StakeDiceBot:
 
                     "max_single_loss": max_single_loss,
 
-                    "last_fib_step": fib_step,
-
                     "last_condition": current_condition,
 
                     "initial_balance": start_balance,
@@ -3445,8 +3228,6 @@ class StakeDiceBot:
                     "total_withdrawn": total_withdrawn,
 
                     "total_deposited": total_deposited,
-
-                    "max_fib_step": max_fib_step,
 
                     "initial_capital": initial_capital,
 
@@ -3460,9 +3241,17 @@ class StakeDiceBot:
 
                     "total_uptime_seconds": total_uptime_seconds,
 
+                    "rotation_session_start_balance": rotation_session_start_balance,
+
+                    "rotation_session_profit": session_profit,
+
                     "real_bets_without_ww": real_bets_without_ww,
 
-                    "isolated_win_count": isolated_win_count
+                    "isolated_win_count": isolated_win_count,
+
+                    "virtual_state": virtual_state,
+
+                    "virtual_rolls_seen": virtual_rolls_seen
 
                 })
 
@@ -3495,13 +3284,14 @@ class StakeDiceBot:
                     time_left_str = "∞ (No limit)"
 
                 print("  FINANCIALS:")
+                print(f"    Bot Status: {_bot_state.get('api_status', 'RUNNING')}")
                 print(f"    Balance   : {balance:.8f} {self.currency.upper()}")
                 print(f"    Profit    : {total_profit:+.8f} {self.currency.upper()}")
                 print(f"    Uptime    : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
                 print(f"    Time Left : {time_left_str}")
                 print("")
                 print("  STATISTICS:")
-                print(f"    Total Bets : {total_bets}")
+                print(f"    Total Real Bets : {total_bets}")
                 print(f"    Win Rate   : {win_rate:.1f}% ({wins} W / {losses} L)")
                 print(f"    Streak     : {streak} {streak_type}")
                 print(f"    Recent     : {''.join(recent[-6:])}")
@@ -3512,8 +3302,8 @@ class StakeDiceBot:
                     print(f"    Current Step : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
                     print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
                 else:
-                    next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
-                    print(f"    Current Step : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    next_bet_amount = persistent.get("current_bet", base_bet)
+                    if next_bet_amount < min_bet_allowed: next_bet_amount = min_bet_allowed
                     print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
                 
                 if take_profit > 0:
@@ -3581,7 +3371,7 @@ class StakeDiceBot:
 
                         f" Win Rate : <b>{win_rate_now:.1f}%</b>\n"
 
-                        f" Step     : <b>{fib_step+1}</b>\n"
+                        f" Step     : <b>1</b>\n"
 
                         f" Uptime   : <b>{total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m</b>",
 
@@ -3591,7 +3381,7 @@ class StakeDiceBot:
 
 
 
-                mode_str = f"VIRTUAL({virtual_state})" if virtual_state != "NONE" else "REAL"
+                mode_str = "REAL"
 
                 status_str = "WIN" if is_win else "LOSS"
 
@@ -3599,7 +3389,7 @@ class StakeDiceBot:
 
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
 
-                    mode_str, fib_step+1, current_bet, target, current_condition, result, payout, status_str, streak, streak_type
+                    mode_str, 1, current_bet, target, current_condition, result, payout, status_str, streak, streak_type
 
                 ])
 
@@ -3634,7 +3424,7 @@ class StakeDiceBot:
                 print(f"    Time Left : {time_left_str}")
                 print("")
                 print("  STATISTICS:")
-                print(f"    Total Bets : {total_bets}")
+                print(f"    Total Real Bets : {total_bets}")
                 print(f"    Win Rate   : {win_rate:.1f}% ({wins} W / {losses} L)")
                 print(f"    Streak     : {streak} {streak_type}")
                 print(f"    Recent     : {''.join(recent[-6:])}")
@@ -3645,8 +3435,8 @@ class StakeDiceBot:
                     print(f"    Current Step : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
                     print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
                 else:
-                    next_bet_amount = round(base_bet * get_fib_multiplier(fib_step), 8)
-                    print(f"    Current Step : Step {fib_step+1} (x{get_fib_multiplier(fib_step)})")
+                    next_bet_amount = persistent.get("current_bet", base_bet)
+                    if next_bet_amount < min_bet_allowed: next_bet_amount = min_bet_allowed
                     print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
                 
                 if take_profit > 0:
@@ -3722,7 +3512,7 @@ if __name__ == "__main__":
 
     PROXY       = _stake.get("proxy", "")
 
-    SIMULATE    = _bots.get("simulate", False)
+    SIMULATE    = "--simulate" in sys.argv or _bots.get("simulate", False)
 
 
 
@@ -3734,9 +3524,11 @@ if __name__ == "__main__":
 
     DYNAMIC_PERCENT = _bots.get("dynamic_percent", 0.0)
 
-    TARGET    = _bots.get("target", 48.00)
+    TARGET    = _bots.get("target", 65.00)
 
     CONDITION = _bots.get("condition", "below")
+
+    STRATEGY  = _bots.get("strategy", "random")
 
 
 
@@ -3776,9 +3568,10 @@ if __name__ == "__main__":
 
 
 
-    bot = StakeDiceBot(TOKEN, COOKIES, currency=CURRENCY, simulate=SIMULATE,
+    ACCOUNT_NAME = _CFG.get("account_name") or _stake.get("account_name", "Unknown")
 
-                       mirror_host=MIRROR_HOST, proxy=PROXY, skill_manager=skill_manager)
+    bot = StakeDiceBot(TOKEN, COOKIES, currency=CURRENCY, simulate=SIMULATE,
+                       mirror_host=MIRROR_HOST, proxy=PROXY, skill_manager=skill_manager, account_name=ACCOUNT_NAME)
 
 
 
@@ -3834,7 +3627,7 @@ if __name__ == "__main__":
 
         try:
 
-            bot.start_dice_bot(base_bet=BASE_BET, dynamic_percent=DYNAMIC_PERCENT, target=TARGET, condition=CONDITION)
+            bot.start_dice_bot(base_bet=BASE_BET, dynamic_percent=DYNAMIC_PERCENT, target=TARGET, condition=CONDITION, strategy=STRATEGY)
 
         except KeyboardInterrupt:
 

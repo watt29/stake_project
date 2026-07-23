@@ -71,10 +71,9 @@ if "%BOT_CHECK%"=="1" (
     exit /b %errorlevel%
 )
 
-:loop
 echo [%date% %time%] Starting bot...
 "%PYTHON_EXE%" -u dice_bot_utf8.py --config "%PROFILE%"
 echo.
-echo [%date% %time%] Bot stopped. Restarting in 10 seconds... (Ctrl+C to cancel)
-timeout /t 10
-goto loop
+echo [%date% %time%] Bot stopped. Auto-restart is disabled.
+echo Exit code: %errorlevel%
+pause

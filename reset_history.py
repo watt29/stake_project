@@ -2,75 +2,102 @@
 Reset all bot history/stats to start fresh for all config profiles.
 """
 import glob
-import json
 import os
+import shutil
 import sys
+import subprocess
+from pathlib import Path
+
+from _account_paths import ACCOUNT_HISTORY_ROOT
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-stats_reset = {
-    "real_consecutive_wins": 0,
-    "recent_all_bets": [],
-    "total_bets": 0,
-    "last_condition": None,
-    "last_fib_step": 0,
-    "reserve_fund": 0.0,
-    "max_single_loss": 0.0,
-    "locked_profit": 0.0,
-    "stop_loss": 0.0,
-    "wins": 0,
-    "real_bets_without_ww": 0,
-    "total_profit": 0.0,
-    "total_wagered": 0.0,
-    "losses": 0,
-    "total_deposited": 0.0,
-    "initial_capital": 0.0,
-    "peak_equity": 0.0,
-    "max_drawdown": 0.0,
-    "initial_balance": 0.0,
-    "total_withdrawn": 0.0,
-    "total_uptime_seconds": 0,
-    "max_fib_step": 0,
-    "max_loss_streak": 0,
-    "first_run_time": None,
-}
+BASE_DIR = Path(__file__).resolve().parent
+ACCOUNT_ROOT = Path(ACCOUNT_HISTORY_ROOT).resolve()
 
-# 1. Reset all stats files (*.json)
+
+def _is_safe_child(path_obj):
+    resolved = path_obj.resolve()
+    try:
+        return resolved == BASE_DIR or resolved.is_relative_to(BASE_DIR)
+    except AttributeError:
+        base = str(BASE_DIR)
+        target = str(resolved)
+        return target == base or target.startswith(base + os.sep)
+
+
+def _delete_file(filepath):
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        print(f"[OK] {filepath} deleted", flush=True)
+
+
+def _delete_tree(path_obj):
+    if not path_obj.exists():
+        return
+    if not _is_safe_child(path_obj):
+        print(f"[SKIP] Unsafe path: {path_obj}", flush=True)
+        return
+    shutil.rmtree(path_obj, ignore_errors=True)
+    print(f"[OK] {path_obj} deleted (or partially deleted if locked)", flush=True)
+
+
+def _stop_bot_processes():
+    script = (
+        "$target='stake_project_3'; "
+        "Get-CimInstance Win32_Process | Where-Object { "
+        "$_.CommandLine -match $target -and "
+        "($_.CommandLine -match 'dice_bot_utf8\\.py|hermes_brain\\.py|accounting_bot\\.py') -and "
+        "$_.CommandLine -notmatch 'reset_history\\.py' "
+        "} | ForEach-Object { "
+        "Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue "
+        "}"
+    )
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            cwd=str(BASE_DIR),
+            check=False,
+        )
+    except Exception:
+        pass
+
+
+# 0. Remove per-account history folders first
+_stop_bot_processes()
+try:
+    shutil.rmtree(ACCOUNT_ROOT, ignore_errors=True)
+    print(f"[OK] {ACCOUNT_ROOT} deleted", flush=True)
+except Exception:
+    pass
+
+# 1. Remove legacy root-level stats/history files if any remain
 for filepath in glob.glob("dice_stats*.json"):
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(stats_reset, f, indent=4)
-    print(f"[OK] {filepath} reset", flush=True)
+    _delete_file(filepath)
 
-# 2. Reset hermes model state
-if os.path.exists("hermes_model_state.json"):
-    with open("hermes_model_state.json", "w", encoding="utf-8") as f:
-        json.dump({}, f, indent=2)
-    print("[OK] hermes_model_state.json reset", flush=True)
-
-# 3. Clear audit and debug logs
-for path in glob.glob("*.log"):
-    # Avoid clearing important system files if any, but clear audit/events
-    if "audit" in path or "events" in path or "live_start" in path or "startup_probe" in path or "hermes_brain" in path:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("")
-        print(f"[OK] {path} cleared", flush=True)
-
-# 4. Reset history CSV files
 for filepath in glob.glob("dice_history*.csv"):
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("timestamp,mode,step,bet,target,condition,result,payout,status,streak,streak_type\n")
-    print(f"[OK] {filepath} reset (header only)", flush=True)
+    _delete_file(filepath)
 
-# 5. Reset accounting reports
 for filepath in glob.glob("daily_accounting_report*.csv"):
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("date,initial_capital,deposits,withdrawals,gross_profit,net_profit,bets,wins,losses,win_rate\n")
-    print(f"[OK] {filepath} reset (header only)", flush=True)
+    _delete_file(filepath)
 
-# 6. Reset deposit history
 for filepath in glob.glob("deposit_history*.csv"):
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write("Timestamp,DepositAmount,BalanceAfter\n")
-    print(f"[OK] {filepath} reset (header only)", flush=True)
+    _delete_file(filepath)
 
-print("\n[DONE] Bot history for all profiles fully reset. Ready to start fresh!", flush=True)
+for filepath in glob.glob("dice_events*.log"):
+    _delete_file(filepath)
+
+for filepath in glob.glob("hot_reload_audit*.log"):
+    _delete_file(filepath)
+
+for filepath in glob.glob("hermes_brain*.log"):
+    _delete_file(filepath)
+
+_delete_file("hermes_model_state.json")
+_delete_file("MARKET_MEMORY.md")
+
+# 2. Reset portfolio stop/state files
+for filepath in ["portfolio_stop.flag", "portfolio_state.json"]:
+    _delete_file(filepath)
+
+print("\n[DONE] Bot history for all profiles deleted and reset. Ready to start fresh!", flush=True)

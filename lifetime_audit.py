@@ -5,14 +5,18 @@ import sys
 import json
 from datetime import datetime
 
+from _account_paths import account_file, normalize_config_name
+
 # Force UTF-8 for Windows console
 try:
     sys.stdout.reconfigure(encoding='utf-8')
 except AttributeError:
     pass
 
-HISTORY_FILE = "dice_history.csv"
-STATS_FILE = "dice_stats.json"
+_CONFIG_REF = normalize_config_name(sys.argv[1]) if len(sys.argv) > 1 else "config.json"
+
+HISTORY_FILE = account_file("dice_history.csv", _CONFIG_REF)
+STATS_FILE = account_file("dice_stats.json", _CONFIG_REF)
 DEPOSITS_FILE = "company_deposits_report.csv"
 WITHDRAWALS_FILE = "company_withdrawals_report.csv"
 
@@ -75,6 +79,7 @@ def run_master_audit():
     print("==================================================================")
     print("   MASTER FINANCIAL AUDIT & PERFORMANCE REPORT (TWRR)")
     print("==================================================================")
+    print(f" Account scope: {_CONFIG_REF}")
     
     history = parse_history_file(HISTORY_FILE)
     deposits = parse_financial_file(DEPOSITS_FILE)

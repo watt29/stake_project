@@ -5,11 +5,16 @@ hermes_model_state.json
 api.txt
 run_auto_switch.txt
 scratch/
-
+browser_profiles/
+dice_stats*.json
+rotation_controller_state.json
 
 # Logs and History
 *.log
 *.csv
+*.txt
+*.err
+*.out
 
 # Python Cache
 __pycache__/
@@ -35,3 +40,4 @@ temp_extract/
 extract_*.py
 strings*.txt
 dis.txt
+

@@ -7,23 +7,28 @@ import numpy as np
 import pandas as pd
 import requests
 
+from _account_paths import account_file, normalize_config_name
+
 # Force UTF-8
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except AttributeError:
     pass
 
-HISTORY_FILE = "dice_history.csv"
-SKILLS_FILE = "ai_skills.json"
-MEMORY_FILE = "MARKET_MEMORY.md"
-MODEL_STATE_FILE = "hermes_model_state.json"
+_CONFIG_REF = normalize_config_name(sys.argv[1]) if len(sys.argv) > 1 else "config.json"
+
+HISTORY_FILE = account_file("dice_history.csv", _CONFIG_REF)
+STATS_FILE = account_file("dice_stats.json", _CONFIG_REF)
+SKILLS_FILE = account_file("ai_skills.json", _CONFIG_REF)
+MEMORY_FILE = account_file("MARKET_MEMORY.md", _CONFIG_REF)
+MODEL_STATE_FILE = account_file("hermes_model_state.json", _CONFIG_REF)
 API_FILE = "api.txt"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_GROQ_MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-20b"]
 
 DEFAULT_SKILLS = {
     "isolated_wins_threshold": 18,
-    "loss_streak_threshold": 5,
+    "loss_streak_threshold": 3,
     "sawtooth_length": 6,
     "loss_streak_escape_wins": 2,
     "loss_streak_mid_step": 8,
@@ -295,7 +300,7 @@ def build_skills(real_df, all_df):
     skills["isolated_wins_threshold"] = isolated_wins
 
     # Low steps stay close to the user's rule. In a crisis, enter virtual mode one loss earlier.
-    skills["loss_streak_threshold"] = 4 if risk_mode == "CRISIS" else 5
+    skills["loss_streak_threshold"] = 3
 
     if risk_mode == "NORMAL":
         skills["hard_virtual_step"] = 0
