@@ -12,8 +12,9 @@ AI ทุกตัวต้องอ่านเอกสารนี้ก่�
 2. ห้ามเขียนทับหรือปรับโครงสร้าง `dice_bot_utf8.py` ทั้งไฟล์ หากผู้ใช้ไม่ได้สั่งชัดเจน
 3. แก้เฉพาะจุดที่ตรวจพบในโค้ดและเกี่ยวข้องกับคำขอเท่านั้น
 4. ก่อนแก้ logic ต้องอ่านครบ 5 จุด: โหลด state, คำนวณก่อนเดิมพัน, รับผล, บันทึก state, และ dashboard/log
-5. ห้ามเปลี่ยนสูตรเดินเงิน, เป้าหมาย win chance, จำนวนบัญชี, หรือเงื่อนไขแทงลม เพียงเพราะกำลังแก้เรื่องอื่น
+5. ห้ามเปลี่ยนสูตรเดินเงิน, หรือจำนวนบัญชี เพียงเพราะกำลังแก้เรื่องอื่น
 6. เมื่อมีข้อมูลไม่พอ ให้รายงานสิ่งที่พบและขอคำสั่งเพิ่ม ห้ามสร้างเงื่อนไขใหม่เอง
+7. AI ทุกตัวต้องฟังคำสั่งและทำตามคำสั่งอย่างเคร่งครัด ห้ามแก้ไขโค้ดนอกเหนือจากที่ได้รับการสั่งการ ห้ามมโน ห้ามคิดเอง หากสงสัยหรือไม่เข้าใจให้ถามกลับผู้ใช้ทันที
 
 ## ไฟล์หลักและหน้าที่
 
@@ -28,16 +29,6 @@ AI ทุกตัวต้องอ่านเอกสารนี้ก่�
 | ล้างข้อมูลทุกบัญชี | `reset_history.py` | ห้ามรันเองเด็ดขาด ต้องมีคำสั่งผู้ใช้ชัดเจน |
 
 ## พฤติกรรมที่ตกลงไว้ในปัจจุบัน
-
-### การเดิมพันจริงและแทงลม
-
-- `real_escape_turn = (virtual_state == "NONE")` เป็นประตูตัดสินก่อนวางเดิมพัน
-- ถ้าเป็นจริง: `current_bet = planned_bet` และส่งเดิมพันจริง
-- ถ้าเป็นแทงลม: `current_bet = 0.0` และยังอัปเดตผล, `recent`, และ money state ต่อ
-- ห้ามใช้หรือเพิ่ม `virtual_exit_pending`, `WARMUP`, `WAIT_WW`, หรือ `LOSS_STREAK` เป็นเงื่อนไขเข้าแทงลม
-- เข้าแทงลมเฉพาะเมื่อพบผลสลับ W/L ต่อเนื่องตาม `sawtooth_length` (ค่าปัจจุบัน 6)
-- ระหว่าง `SAWTOOTH` ต้องแทงลมอย่างน้อย `shadow_sawtooth_skip_rolls` (ค่าปัจจุบัน 10) และต้องชนะติดกัน `shadow_escape_wins` (ค่าปัจจุบัน 2) จึงกลับแทงจริง
-- ห้ามให้โหมดแทงลมรีเซ็ตหรือแก้ money state / ลำดับเดินเงิน
 
 ### เงินไม่พอ
 
@@ -69,3 +60,16 @@ AI ทุกตัวต้องอ่านเอกสารนี้ก่�
 - ห้ามแก้ `dice_stats*.json` ระหว่างบอททำงาน ยกเว้นกลไกใน `switch_controller.py` ที่ตั้ง `rotation_status = "STARTING"`
 - หากเอกสารอื่นขัดกับเอกสารนี้หรือโค้ดปัจจุบัน: ถือว่าโค้ดปัจจุบันเป็นข้อเท็จจริง และแจ้งผู้ใช้ก่อนแก้
 
+
+
+## undetected_chromedriver Initialization Rules
+
+> [!CAUTION]
+> NEVER revert the uc.Chrome initialization back to standard options.add_argument("--user-data-dir=...") or rely on version_main=xxx.
+
+When initializing undetected_chromedriver, you MUST use the manual pre-patching workflow to prevent deadlocks and max() iterable errors:
+1. Use ChromeDriverManager().install() to fetch the base executable.
+2. Use shutil.copy to place it in the %APPDATA%\undetected_chromedriver directory.
+3. Manually patch it using undetected_chromedriver.patcher.Patcher.
+4. Pass the patched path directly via driver_executable_path=... in uc.Chrome().
+5. Pass the profile directory directly via user_data_dir=... (Do NOT use options.add_argument).

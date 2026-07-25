@@ -126,28 +126,46 @@ def start_group(configs, duration, simulate=False):
     return procs
 
 
-def stop_group(procs):
-    """Terminate all processes in the group and wait for them to exit."""
-    for p in procs:
-        try:
-            if os.name == 'nt':
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(p.pid)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            else:
-                p.terminate()
-        except Exception:
-            pass
+def stop_group(configs, procs):
+    """Terminate all processes in the group gracefully, then force kill if needed."""
+    # 1. Send graceful stop signal to all bots in the group
+    for cfg in configs:
+        with open(f"stop_{cfg}.flag", "w") as f:
+            f.write("stop")
+            
+    print("  [STOP ] Sent graceful stop signal to bots. Waiting for Chrome to close...")
+    
+    # 2. Wait up to 10 seconds for them to exit naturally
     for p in procs:
         try:
             p.wait(timeout=10)
         except Exception:
+            pass
+            
+    # 3. Clean up any leftover stop flags
+    for cfg in configs:
+        flag_file = f"stop_{cfg}.flag"
+        if os.path.exists(flag_file):
             try:
-                p.kill()
+                os.remove(flag_file)
+            except:
+                pass
+                
+    # 4. Force kill any bots that refused to exit
+    for p in procs:
+        if p.poll() is None:
+            try:
+                if os.name == 'nt':
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                else:
+                    p.terminate()
             except Exception:
                 pass
+    
     print(f"  [STOP ] {len(procs)} bot(s) terminated.")
 
     # Chrome children are terminated with their owning bot process only.
@@ -181,6 +199,27 @@ def read_account_summary(config_name):
         return "WAITING FOR STATUS", 0
 
 
+def print_balance_summary():
+    print("  --------------------------------------------------")
+    print("        STAKE ACCOUNTS - REAL-TIME BALANCE")
+    print("  --------------------------------------------------")
+    total_balance = 0.0
+    for i in range(1, 9):
+        filename = "dice_stats.json" if i == 1 else f"dice_stats_account{i}.json"
+        if os.path.exists(filename):
+            try:
+                with open(filename, 'r', encoding='utf-8-sig') as f:
+                    data = json.load(f)
+                    acc_name = data.get("account_name", f"account{i}")
+                    balance = data.get("total_profit", 0.0)
+                    total_balance += balance
+                    print(f"    - {acc_name:<15} : {balance:12.6f} TRX")
+            except:
+                pass
+    print("  --------------------------------------------------")
+    print(f"    TOTAL BALANCE (ยอดรวม) : {total_balance:12.6f} TRX")
+    print("  --------------------------------------------------\n")
+
 def wait_with_countdown(duration_min, label, configs):
     """Wait for a group, or end early when an account has no usable funds."""
     total_sec = duration_min * 60
@@ -201,6 +240,7 @@ def wait_with_countdown(duration_min, label, configs):
                 for status, bets in [read_account_summary(cfg)]
             )
             print(f"  [{label}] {mins}m {secs:02d}s remaining | {health}", flush=True)
+            print_balance_summary()
         sleep_for = min(interval, remaining)
         time.sleep(sleep_for)
         elapsed += sleep_for
@@ -263,7 +303,7 @@ def main():
                     print(f"[CYCLE {cycle}] Insufficient-funds account detected - stopping {g_name}...")
                 else:
                     print(f"[CYCLE {cycle}] Time limit reached - stopping {g_name}...")
-                stop_group(active_procs)
+                stop_group(g_configs, active_procs)
                 active_procs = []
                 print("  [PAUSE] Waiting 3 seconds before next group...")
                 time.sleep(3)
@@ -271,7 +311,7 @@ def main():
     except KeyboardInterrupt:
         print("\n[CTRL+C] Stopping all active bots...")
         if active_procs:
-            stop_group(active_procs)
+            stop_group(g_configs, active_procs)
         print("[DONE] All bots stopped.")
 
     print("[DONE] Switch controller finished.")

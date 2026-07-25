@@ -4,7 +4,7 @@ title COMMANDER BRIAN - Dice Bot
 chcp 65001 >nul
 cd /d %~dp0
 
-set "PYTHON_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python312\python.exe"
 if not exist "%PYTHON_EXE%" (
     set "PYTHON_EXE=python"
     where python >nul 2>&1
@@ -68,7 +68,7 @@ echo.
 
 if "%BOT_CHECK%"=="1" (
     "%PYTHON_EXE%" -u dice_bot_utf8.py --config "%PROFILE%" --check
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
 echo [%date% %time%] Starting bot...

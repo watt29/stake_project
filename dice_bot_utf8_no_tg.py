@@ -307,7 +307,9 @@ print(f"[CONFIG] Profile: {_config_arg}")
 
 
 
+TELEGRAM_TOKEN   = _CFG["telegram"]["token"]
 
+TELEGRAM_CHAT_ID = _CFG["telegram"]["chat_id"]
 
 _PROFILE_NAMES = {
 
@@ -564,7 +566,117 @@ _tg_offset   = 0      # last update_id processed
 
 
 
+def _send_main_menu():
 
+
+
+
+def _tg_listener():
+
+    """Background thread: poll Telegram every 2s for commands."""
+
+    global _tg_offset
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+
+    # Flush old messages on startup  skip anything already queued
+
+    try:
+
+        r = requests.get(url, params={"timeout": 0, "offset": -1}, timeout=5)
+
+        updates = r.json().get("result", [])
+
+        if updates:
+
+            _tg_offset = updates[-1]["update_id"] + 1
+
+    except Exception:
+
+        pass
+
+    while not _stop_event.is_set():
+
+        try:
+
+            r = requests.get(url, params={"timeout": 1, "offset": _tg_offset}, timeout=5)
+
+            updates = r.json().get("result", [])
+
+            for upd in updates:
+
+                _tg_offset = upd["update_id"] + 1
+
+
+
+                #   (text command) 
+
+                msg = upd.get("message", {})
+
+                if msg:
+
+                    chat_id = str(msg.get("chat", {}).get("id", ""))
+
+                    text = msg.get("text", "").strip().lower() if msg.get("text") else ""
+
+                    if chat_id == TELEGRAM_CHAT_ID:
+
+                        if text in ("/start", "/menu"):
+
+                            _send_main_menu()
+
+                        elif text.startswith("/"):
+
+                            _handle_command(text)
+
+
+
+                #  Callback query ( inline keyboard) 
+
+                cb = upd.get("callback_query", {})
+
+                if cb:
+
+                    cb_id   = cb["id"]
+
+                    cb_chat = str(cb["message"]["chat"]["id"])
+
+                    cb_mid  = cb["message"]["message_id"]
+
+                    data    = cb.get("data", "").strip().lower()
+
+
+
+
+                    if cb_chat != TELEGRAM_CHAT_ID:
+
+                        continue
+
+
+
+                    if data == "main_menu":
+
+
+                    elif data == "tp_menu":
+
+
+                    elif data == "tip_menu":
+
+
+                    elif data == "sl_menu":
+
+
+                    elif data.startswith("/"):
+
+                        _handle_command(data)
+
+
+
+        except Exception:
+
+            pass
+
+        time.sleep(1)
 
 
 
@@ -646,18 +758,6 @@ class ZScoreSeedRotator:
 
 
 
-
-
-class InsufficientFundsError(Exception):
-    """Raised when the account balance is too low to place a bet. Bot should stop, not restart."""
-    pass
-
-
-class TakeProfitReachedError(Exception):
-    """Raised when take profit is hit. Bot should stop, not restart."""
-    pass
-
-
 class StakeDiceBot:
 
     def __init__(self, token, cookies, currency="btc", simulate=False, mirror_host="stake.games", proxy="", skill_manager=None, account_name=None):
@@ -681,6 +781,7 @@ class StakeDiceBot:
         browser_profile_name = _profile_suffix.lstrip("_") or "default"
         browser_profile_dir = os.path.join(_BASE_DIR, "browser_profiles", browser_profile_name)
         os.makedirs(browser_profile_dir, exist_ok=True)
+        options.add_argument(f"--user-data-dir={browser_profile_dir}")
 
         if proxy:
 
@@ -690,37 +791,7 @@ class StakeDiceBot:
 
         print(" [SYSTEM] Starting Browser for Cloudflare bypass...")
 
-        import undetected_chromedriver.patcher
-        from webdriver_manager.chrome import ChromeDriverManager
-        import shutil
-        
-        # 1. Download base chromedriver
-        base_exe = ChromeDriverManager().install()
-        
-        # 2. Setup undetected_chromedriver cache dir
-        uc_dir = os.path.join(os.getenv('APPDATA', ''), 'undetected_chromedriver')
-        os.makedirs(uc_dir, exist_ok=True)
-        
-        # 3. Create a unique/patched exe path so multi_procs can find it
-        patched_exe = os.path.join(uc_dir, 'undetected_chromedriver.exe')
-        
-        # 4. If not already patched, copy and patch it
-        patcher = undetected_chromedriver.patcher.Patcher(executable_path=patched_exe)
-        if not os.path.exists(patched_exe) or not patcher.is_binary_patched(patched_exe):
-            try:
-                if os.path.exists(patched_exe):
-                    os.unlink(patched_exe)
-                shutil.copy(base_exe, patched_exe)
-                patcher.patch_exe()
-            except Exception as e:
-                print(f" [SYSTEM] Patcher Warning: {e}")
-                
-        self.driver = uc.Chrome(
-            options=options,
-            user_data_dir=browser_profile_dir,
-            driver_executable_path=patched_exe,
-            user_multi_procs=True,
-        )
+        self.driver = uc.Chrome(options=options, version_main=150)
 
         self.driver.set_script_timeout(10)
         self.driver.set_page_load_timeout(30)
@@ -824,7 +895,6 @@ class StakeDiceBot:
 
 
 
-            pass
     def change_client_seed(self, new_seed):
 
         mutation = """
@@ -871,21 +941,15 @@ class StakeDiceBot:
 
 
 
-    def force_kill_browser(self):
-        try:
-            if hasattr(self, 'driver') and hasattr(self.driver, 'browser_pid') and self.driver.browser_pid:
-                pid = self.driver.browser_pid
-                print(f" [SYSTEM] Force killing bot's Chrome process (PID: {pid})...")
-                os.system(f"taskkill /F /PID {pid} /T >nul 2>&1")
-        except Exception:
-            pass
-
     def __del__(self):
+
         try:
+
             self.driver.quit()
+
         except:
+
             pass
-        self.force_kill_browser()
 
         if not os.path.exists(self.history_file):
 
@@ -1423,7 +1487,7 @@ class StakeDiceBot:
 
 
 
-    def start_dice_bot(self, base_bet, dynamic_percent=0.0, target=49.5, condition="below", strategy="labouchere"):
+    def start_dice_bot(self, base_bet, dynamic_percent=0.0, target=65.00, condition="below", strategy="default"):
 
         session_wins = 0
 
@@ -1433,7 +1497,7 @@ class StakeDiceBot:
 
         persistent = load_stats()
 
-        total_profit = 0.0
+        total_profit = persistent.get("total_profit", 0.0)
 
         total_bets = persistent.get("total_bets", 0)
 
@@ -1449,12 +1513,15 @@ class StakeDiceBot:
 
         max_single_loss = persistent.get("max_single_loss", 0.0)
 
-        active_strategy = "labouchere"
+        if strategy in [None, "", "random", "default"]:
+            active_strategy = random.choice(["default", "matchmaker"]) if strategy == "random" else (strategy or "default")
+        else:
+            active_strategy = strategy
 
         current_win_chance = persistent.get("current_win_chance", 66.00)
         base_win_chance = 66.00
 
-        print(f" [STRATEGY] Active Strategy Mode: LABOUCHERE")
+        print(f" [STRATEGY] Active Strategy Mode: {active_strategy.upper()}")
 
         current_condition = condition
 
@@ -1522,8 +1589,6 @@ class StakeDiceBot:
         virtual_entry_step = 0
 
         virtual_rolls_seen = persistent.get("virtual_rolls_seen", 0)
-        
-        labouchere_list = persistent.get("labouchere_list", [])
 
         
 
@@ -1560,6 +1625,10 @@ class StakeDiceBot:
         _active_bot = self
 
 
+
+        listener = threading.Thread(target=_tg_listener, daemon=True)
+
+        listener.start()
 
         threading.Thread(target=corporate_heartbeat, daemon=True).start()
 
@@ -1614,7 +1683,7 @@ class StakeDiceBot:
 
             balance = self.get_wallet_balance()
 
-        # A zero balance is not a betting condition. End this account cleanly
+        # A zero balance is not a betting condition.  End this account cleanly
         # so the rotation controller can move on without sending any bet.
         if balance <= 0:
             persistent["rotation_status"] = "INSUFFICIENT_FUNDS"
@@ -1625,8 +1694,7 @@ class StakeDiceBot:
             _bot_state['api_status'] = "Insufficient funds - account paused"
             self.log_event("INSUFFICIENT FUNDS: account paused; no bet was sent.")
             print(" [SYSTEM] Insufficient balance. Account paused; no bet was sent.")
-            raise InsufficientFundsError("INSUFFICIENT_FUNDS")
-
+            return
 
         rotation_session_start_balance = balance
         persistent["rotation_session_start_balance"] = rotation_session_start_balance
@@ -1737,7 +1805,10 @@ class StakeDiceBot:
 
                 current_condition = random.choice(["above", "below"])
 
-                target = 49.5
+                if active_strategy == "matchmaker":
+                    target = (100.0 - current_win_chance) if current_condition == "above" else current_win_chance
+                else:
+                    target = 35.00 if current_condition == "above" else 65.00
 
 
 
@@ -1785,14 +1856,7 @@ class StakeDiceBot:
                     if base_bet < min_bet_allowed:
                         base_bet = min_bet_allowed
 
-                if not labouchere_list:
-                    labouchere_list = [round(i * base_bet, 8) for i in [1, 2, 3, 4, 5]]
-                    
-                if len(labouchere_list) >= 2:
-                    current_bet = labouchere_list[0] + labouchere_list[-1]
-                else:
-                    current_bet = labouchere_list[0]
-
+                current_bet = persistent.get("current_bet", base_bet)
                 if current_bet < min_bet_allowed:
                     current_bet = min_bet_allowed
                 planned_bet = current_bet
@@ -1827,7 +1891,7 @@ class StakeDiceBot:
                     save_stats(persistent)
                     self.log_event("INSUFFICIENT FUNDS: account paused before a bet was sent.")
                     print(" [SYSTEM] Insufficient balance. Account paused before placing a bet.")
-                    raise InsufficientFundsError("INSUFFICIENT_FUNDS")
+                    return
 
                 
 
@@ -2146,15 +2210,15 @@ class StakeDiceBot:
                     real_consecutive_wins += 1
                     isolated_win_count += 1
 
-                    if len(labouchere_list) >= 2:
-                        labouchere_list.pop(0)
-                        labouchere_list.pop(-1)
-                    elif len(labouchere_list) == 1:
-                        labouchere_list.pop(0)
-                    
-                    if not labouchere_list:
-                        self.log_event("Labouchere Target Achieved: Restarting line")
-                        labouchere_list = [round(i * base_bet, 8) for i in [1, 2, 3, 4, 5]]
+                    if active_strategy == "matchmaker":
+                        persistent["current_bet"] = round(base_bet, 8)
+                        current_win_chance = max(0.01, round(current_win_chance - 4.00, 2))
+                        persistent["current_win_chance"] = current_win_chance
+                    elif real_consecutive_wins >= 3:
+                        self.log_event("3 Wins Streak: Resetting Martingale bet")
+                        persistent["current_bet"] = base_bet
+                        real_bets_without_ww = 0
+                        isolated_win_count = 0
 
                 else:
 
@@ -2164,19 +2228,12 @@ class StakeDiceBot:
                     current_loss_streak += 1
                     real_consecutive_wins = 0
 
-                    labouchere_list.append(planned_bet)
-                    
-                    # LABOUCHERE SPLITTING: Avoid hitting table limits
-                    max_safe_number = base_bet * 100
-                    new_list = []
-                    for item in labouchere_list:
-                        if item > max_safe_number:
-                            self.log_event(f"Labouchere Guard: Splitting high number {item:.8f}")
-                            half = round(item / 2, 8)
-                            new_list.extend([half, half])
-                        else:
-                            new_list.append(item)
-                    labouchere_list = new_list
+                    if active_strategy == "matchmaker":
+                        persistent["current_bet"] = round(planned_bet * 2.90, 8)
+                        current_win_chance = base_win_chance
+                        persistent["current_win_chance"] = current_win_chance
+                    else:
+                        persistent["current_bet"] = round(planned_bet * 1.45, 8)
 
                     if current_loss_streak > max_loss_streak: max_loss_streak = current_loss_streak
 
@@ -2209,7 +2266,6 @@ class StakeDiceBot:
                     # Milestone Streak
 
                     if current_loss_streak in STREAK_MILESTONES:
-                        pass
 
 
 
@@ -2268,7 +2324,7 @@ class StakeDiceBot:
 
                 save_stats({
 
-                    "total_profit": 0.0,
+                    "total_profit": total_profit,
 
                     "total_bets": total_bets,
 
@@ -2314,7 +2370,7 @@ class StakeDiceBot:
 
                     "virtual_rolls_seen": virtual_rolls_seen,
 
-                    "current_strategy": "labouchere",
+                    "current_strategy": persistent.get("current_strategy", active_strategy),
 
                     "labouchere_base_bet": persistent.get("labouchere_base_bet", base_bet),
 
@@ -2328,17 +2384,16 @@ class StakeDiceBot:
 
                 })
 
-                if take_profit > 0 and total_profit >= take_profit:
+                if total_profit >= take_profit:
                     persistent.update({
-                        "total_profit": 0.0,
+                        "total_profit": total_profit,
                         "total_bets": total_bets,
                         "total_wagered": total_wagered,
                         "wins": wins,
                         "losses": losses,
                         "initial_balance": start_balance,
                         "initial_capital": initial_capital,
-                        "take_profit": 0.0,
-                        "labouchere_list": [],
+                        "take_profit": take_profit,
                         "rotation_status": "TAKE_PROFIT_REACHED",
                     })
                     save_stats(persistent)
@@ -2352,7 +2407,7 @@ class StakeDiceBot:
                         f" [SYSTEM] Take profit reached: {total_profit:.8f} "
                         f"{self.currency.upper()}. Bot stopped."
                     )
-                    raise TakeProfitReachedError(f"{total_profit:.8f} {self.currency.upper()}")
+                    return
 
 
 
@@ -2398,29 +2453,15 @@ class StakeDiceBot:
                 print(f"    Recent     : {''.join(recent[-6:])}")
                 print("")
                 print("  STRATEGY & GUARD:")
-                print("    Mode         : LABOUCHERE")
-                l_str = "-".join([f"{x:.5f}" for x in labouchere_list]) if labouchere_list else "DONE"
-                if len(l_str) > 60: l_str = l_str[:57] + "..."
-                print(f"    Line         : [{l_str}]")
-                if labouchere_list:
-                    target_profit_l = sum(labouchere_list)
-                    print(f"    Line Target  : {target_profit_l:.8f} {self.currency.upper()}")
-
-                if virtual_state != "NONE":
-                    print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
-                else:
-                    if len(labouchere_list) >= 2: next_bet_amount = labouchere_list[0] + labouchere_list[-1]
-                    elif len(labouchere_list) == 1: next_bet_amount = labouchere_list[0]
-                    else: next_bet_amount = base_bet
-                    if next_bet_amount < min_bet_allowed: next_bet_amount = min_bet_allowed
-                    print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {'ABOVE' if current_condition == 'above' else 'BELOW'} {target:.2f}")
+                next_bet_amount = persistent.get("current_bet", base_bet)
+                if next_bet_amount < min_bet_allowed: next_bet_amount = min_bet_allowed
+                print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {'ABOVE' if current_condition == 'above' else 'BELOW'} {target:.2f}")
 
                 print("")
                 print("  LAST ROLL:")
                 last_result_str = 'WIN' if last_result == 'WIN' else 'LOSS'
                 print(f"    Result : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
                 print("======================================================================")
-
 
                 # Smart Speed: Max speed enabled
 
@@ -2454,6 +2495,87 @@ class StakeDiceBot:
 
 
 
+                # Health Check ( 100 bets)
+
+                if total_bets % BALANCE_REPORT_EVERY == 0:
+
+                    win_rate_now = (wins / total_bets * 100)
+
+                    p_icon = "" if total_profit >= 0 else ""
+
+
+
+
+                mode_str = "REAL"
+
+                status_str = "WIN" if is_win else "LOSS"
+
+                self.log_to_csv([
+
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+
+                    mode_str, 1, current_bet, target, current_condition, result, payout, status_str, streak, streak_type
+
+                ])
+
+
+
+                # ========== COMMANDER BRIAN | FULL DISCLOSURE DASHBOARD ==========
+
+                clear()
+
+                win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
+
+                mode = "SIMULATION" if self.simulate else "LIVE"
+
+                p_sign = "+" if total_profit >= 0 else ""
+
+                
+
+                print("======================================================================")
+                print(f"                  COMMANDER BRIAN | MISSION CONTROL - {self.account_name} | {mode}")
+                print("======================================================================")
+                if _DURATION > 0:
+                    elapsed_session = time.time() - _SESSION_START_TIME
+                    left_sec = int(max(0, _DURATION * 60 - elapsed_session))
+                    time_left_str = f"{left_sec // 60}m {left_sec % 60}s"
+                else:
+                    time_left_str = "∞ (No limit)"
+
+                print("  FINANCIALS:")
+                print(f"    Balance   : {balance:.8f} {self.currency.upper()}")
+                print(f"    Profit    : {total_profit:+.8f} {self.currency.upper()}")
+                print(f"    Uptime    : {total_uptime_seconds//3600}h {(total_uptime_seconds%3600)//60}m")
+                print(f"    Time Left : {time_left_str}")
+                print("")
+                print("  STATISTICS:")
+                print(f"    Total Real Bets : {total_bets}")
+                print(f"    Win Rate   : {win_rate:.1f}% ({wins} W / {losses} L)")
+                print(f"    Streak     : {streak} {streak_type}")
+                print(f"    Recent     : {''.join(recent[-6:])}")
+                print("")
+                print("  STRATEGY & GUARD:")
+                if virtual_state != "NONE":
+                    pattern_str = " - ".join(virtual_escape_pattern)
+                    print(f"    Current Step : [SCANNING] Waiting for {pattern_str} ({virtual_rolls_seen} rolls)")
+                    print(f"    Bet Amount   : 0.00000000 {self.currency.upper()} | Virtual Roll")
+                else:
+                    next_bet_amount = persistent.get("current_bet", base_bet)
+                    if next_bet_amount < min_bet_allowed: next_bet_amount = min_bet_allowed
+                    print(f"    Bet Amount   : {next_bet_amount:.8f} {self.currency.upper()} | Roll {current_condition.upper()} {target}")
+                
+                if take_profit > 0:
+                    progress = min(100, max(0, (total_profit / take_profit * 100)))
+                    bar_len = 20
+                    filled = int(bar_len * progress / 100)
+                    bar = "=" * filled + "-" * (bar_len - filled)
+                    print(f"    Goal Progress: [{bar}] {progress:.1f}%")
+
+                print("")
+                print("  LAST ROLL:")
+                last_result_str = 'WIN' if last_result == 'WIN' else 'LOSS'
+                print(f"    Result : {last_roll:.2f} -> {last_result_str} ({last_net:+.8f} {self.currency.upper()})")
+                print("======================================================================")
 
                 # Smart Speed: Max speed enabled
 
@@ -2525,14 +2647,15 @@ if __name__ == "__main__":
 
     DYNAMIC_PERCENT = _bots.get("dynamic_percent", 0.0)
 
-    TARGET    = _bots.get("target", 49.5)
+    TARGET    = _bots.get("target", 65.00)
 
     CONDITION = _bots.get("condition", "below")
 
+    STRATEGY  = _bots.get("strategy", "random")
 
 
 
-
+    print(f"[CONFIG] Telegram Chat: {TELEGRAM_CHAT_ID}")
 
     print(f"[CONFIG] Currency: {CURRENCY} | Base Bet: {BASE_BET} | Mode: {'SIMULATE' if SIMULATE else 'LIVE'}")
 
@@ -2627,42 +2750,22 @@ if __name__ == "__main__":
 
         try:
 
-            bot.start_dice_bot(base_bet=BASE_BET, dynamic_percent=DYNAMIC_PERCENT, target=TARGET, condition=CONDITION)
-
-        except TakeProfitReachedError as e:
-
-            print(f"[SYSTEM] Take Profit reached ({e}). Bot has stopped permanently.")
-            print("[SYSTEM] Run 'python reset_history.py' then restart to begin a new session.")
-            if 'bot' in locals():
-                bot.force_kill_browser()
-            break
-
-        except InsufficientFundsError:
-
-            print("[SYSTEM] Account has insufficient funds. Bot will NOT restart.")
-            print("[SYSTEM] Top up your account and run the bot again manually.")
-            if 'bot' in locals():
-                bot.force_kill_browser()
-            break
+            bot.start_dice_bot(base_bet=BASE_BET, dynamic_percent=DYNAMIC_PERCENT, target=TARGET, condition=CONDITION, strategy=STRATEGY)
 
         except KeyboardInterrupt:
 
             print("Bot stopped by user.")
-            if 'bot' in locals():
-                bot.force_kill_browser()
+
             break
 
         except Exception as e:
 
 
             print(f"[RESURRECTION] Crashed: {e}")
-            if 'bot' in locals():
-                bot.force_kill_browser()
+
             print("[RESURRECTION] Restarting in 15 seconds...")
 
             time.sleep(15)
-
-
 
 
 

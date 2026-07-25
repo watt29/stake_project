@@ -28,8 +28,11 @@ def _is_safe_child(path_obj):
 
 def _delete_file(filepath):
     if os.path.exists(filepath):
-        os.remove(filepath)
-        print(f"[OK] {filepath} deleted", flush=True)
+        try:
+            os.remove(filepath)
+            print(f"[OK] {filepath} deleted", flush=True)
+        except Exception as e:
+            print(f"[SKIP] Cannot delete {filepath}: {e}", flush=True)
 
 
 def _delete_tree(path_obj):
