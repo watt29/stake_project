@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "🎯 Stake Auto-Bet Autopilot (Simple)",
+  "version": "3.7.0",
+  "description": "กดแท็บ Advanced → ใส่ยอดเริ่มต้น → กดปุ่ม Auto Bet ของเว็บให้เอง แล้วหยุดเมื่อถึงเป้ากำไร",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.stake.com/*",
+        "*://*.stake.bet/*",
+        "*://*.stake.games/*",
+        "*://*.stake.bz/*",
+        "*://*.stake.ceo/*",
+        "*://*.stake.mba/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false,
+      "world": "ISOLATED"
+    }
+  ]
+}
