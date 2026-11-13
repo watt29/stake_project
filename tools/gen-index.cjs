@@ -14,12 +14,8 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const CODE = path.join(ROOT, "stake_extension", "content.js");
-const FILES = [
-  path.join(ROOT, "stake_extension", "content.js"),
-  path.join(ROOT, "stake_dice_ghost_sniper.user.js"),
-  path.join(ROOT, "stake_dice_fibonacci_stealth.user.js"),
-];
+const CODE = path.join(ROOT, "stake_simple_ext", "content.js");
+const FILES = [CODE];
 const DOC = path.join(ROOT, "PROJECT_GUIDE.md");
 
 const START = "<!-- AUTO-INDEX:START -->";
@@ -89,7 +85,7 @@ const block = START + "\n" +
   "\n" + END;
 
 const autoSection = "## 21. AUTO-INDEX (สร้างโดย `tools/gen-index.cjs` — ห้ามแก้ด้วยมือ)\n\n" +
-  "ตารางนี้สร้างจาก `stake_extension/content.js` โดยตรง · รัน `node tools/gen-index.cjs` หลังแพตช์ทุกครั้ง\n" +
+  "ตารางนี้สร้างจาก `stake_simple_ext/content.js` โดยตรง · รัน `node tools/gen-index.cjs` หลังแพตช์ทุกครั้ง\n" +
   "จะอัปเดตเลขบรรทัดทุกจุดในคู่มือ + ตารางนี้ + ตรวจว่า 3 สำเนามีฟังก์ชันตรงกัน\n\n";
 
 if (doc.indexOf(START) >= 0 && doc.indexOf(END) > doc.indexOf(START)) {
