@@ -7,19 +7,19 @@
 
 ## 🎯 Ground Truth Rules & Core Architecture (v2.7.0 - Pure 68% Safe Base & 3-Win Recovery)
 
-1. **Win Chance 68% & Single Win Recovery (+219.35%):**
+1. **Win Chance 68% & Single Win Recovery (+73.12%):**
    - **Win Chance:** 72% constant (Payout = 1.3750x, Net Profit = +37.50%).
    - **Single Invariant Base Bet:** Strictly `0.00015$` (USDT) at all times.
    - ❌ **Recovery Boost Purged 100%:** No base bet inflation or jumping after 20 minutes.
    - **Exact Single-Win Martingale Multiplier Formula:**
      $$\text{profitRate} = \frac{99}{72} - 1 = 0.3750$$
-     $$\text{multPct} = \frac{1}{1 \times 0.3750} \times 100\% = \mathbf{+266.67\%} \quad (\approx 3.1935\text{x})$$
+     $$\text{multPct} = \frac{1}{1 \times 0.3750} \times 100\% = \mathbf{+266.67\%} \quad (\approx 1.7312\text{x})$$
      - Win 1 roll (`isWin`) recovers 100% of previous losses and immediately resets to step 1!
 
-2. **Quarantine Bankrupt Accounts:**
-   - Profile 4 (`master`) ran out of funds ($0 balance). It is **PERMANENTLY DISABLED**.
-   - Active rotation is ONLY Profile 1 (`Anda`) $\leftrightarrow$ Profile 3 (`nattawat`).
-   - Do NOT run Profile 4 until user explicitly recharges funds.
+2. **Single Account Mode (user directive 2026-11-13):**
+   - ONLY Profile 4 (`watt29`) runs. All other profiles are cancelled.
+   - No account rotation; the fleet loop repeats on watt29 only.
+   - Do NOT add or run other profiles unless the user asks explicitly.
 
 3. **Strict No Cut-Loss / No Forced Stop-Loss Directive:**
    - The user strictly commands: **"ไม่เอา ตัดขาดทุน"** (No Stop-Loss).

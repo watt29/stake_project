@@ -103,7 +103,7 @@ def load_analytics_data():
     conn.close()
 
     # 4. Martingale Ladder Simulation & Risk Matrix
-    martingale_matrix = calculate_martingale_matrix(base_bet=0.0005, mult=1.53, win_chance=0.67)
+    martingale_matrix = calculate_martingale_matrix()
 
     return {
         "summary": {
@@ -125,32 +125,43 @@ def load_analytics_data():
         "martingale_matrix": martingale_matrix
     }
 
-def calculate_martingale_matrix(base_bet=0.0005, mult=1.53, win_chance=0.67):
-    """Calculates cumulative bet and theoretical risk for each step."""
-    loss_chance = 1.0 - win_chance
+def calculate_martingale_matrix(base_bet=0.00015, win_chance=0.68,
+                                 boost_chance=0.70, boost_from_step=7, max_steps=15):
+    """บันได Martingale ตามพารามิเตอร์จริงของบอท (v2.4.25)
+
+    ตัวคูณทบคิดจาก payout ของโอกาสชนะที่ใช้จริงของไม้นั้น:
+        k = 1 + 1 / (99/chance - 1)
+        68% → 3.1935x (+219.35%)   ·   70% → 3.4138x (+241.38%)
+    จึงกู้คืนยอดที่เสียสะสมได้ 100% ทุกความลึก
+    """
     steps = []
     cumulative = 0.0
     current_bet = base_bet
+    loss_prob = 1.0
 
-    for s in range(1, 16):
+    for s in range(1, max_steps + 1):
+        ch = boost_chance if s >= boost_from_step else win_chance
         cumulative += current_bet
-        prob_reaching = (loss_chance ** (s - 1)) * 100
-        prob_losing_all = (loss_chance ** s) * 100
-
         steps.append({
             "step": s,
+            "chance": ch,
             "bet": round(current_bet, 5),
             "cumulative_cost": round(cumulative, 5),
-            "prob_reach_pct": round(prob_reaching, 4),
-            "prob_lose_streak_pct": round(prob_losing_all, 6)
+            "prob_reach_pct": round(loss_prob * 100, 4),
+            "prob_lose_streak_pct": round(loss_prob * (1.0 - ch) * 100, 6),
         })
-        current_bet = current_bet * mult
+        loss_prob *= (1.0 - ch)
+        # k = 1 + 1/(3p) → ชนะติด 3 ไม้ (เดิมพันเท่าเดิม) คืนทุนทั้งก้อน
+        nxt_ch = boost_chance if (s + 1) >= boost_from_step else win_chance
+        p_next = 99.0 / (nxt_ch * 100.0) - 1.0
+        current_bet = current_bet * (1.0 + 1.0 / (3.0 * p_next))
 
-    # Safety thresholds
     return {
         "base_bet": base_bet,
-        "multiplier": mult,
         "win_chance": win_chance,
+        "boost_chance": boost_chance,
+        "boost_from_step": boost_from_step,
+        "multiplier": round(1.0 + 1.0 / (3.0 * (99.0 / (win_chance * 100.0) - 1.0)), 5),
         "steps": steps,
         "safe_capital_10_steps": round(steps[9]["cumulative_cost"], 3),
         "safe_capital_12_steps": round(steps[11]["cumulative_cost"], 3),

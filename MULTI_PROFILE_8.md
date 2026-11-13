@@ -89,5 +89,5 @@ flowchart TD
 
 * **รัน 2 บัญชี:** [start-bot.bat](file:///d:/script%20stake/start-bot.bat) $\rightarrow$ เรียก [rotate-accounts.ps1](file:///d:/script%20stake/tools/rotate-accounts.ps1)
 * **ลำดับ:** `Profile 1 (Anda)` $\xrightarrow{\text{20 นาที}}$ พัก 3 นาที $\xrightarrow{}$ `Profile 4 (master)` $\xrightarrow{\text{20 นาที}}$ พัก 3 นาที
-* **กลยุทธ์:** โอกาสชนะฐาน 68% (ไม้ 7+ = 70%) · ยอดฐาน 0.0002$ · Martingale +73.11% · ชนะติด 3 ตาดีดกลับไม้ 1
+* **กลยุทธ์:** โอกาสชนะฐาน 68% (ไม้ 7+ = 70%) · ยอดฐาน 0.00015$ · Martingale +73.12% · ชนะติด 3 ตาดีดกลับไม้ 1
 * **ระบบตัดรอบ:** **Instant Profit Lock 0ms** เมื่อครบ 20 นาที และกำไรเฉพาะในรอบนั้น $P/L \ge 0$ ล็อกกำไรเข้ากระเป๋าทันที

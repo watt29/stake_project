@@ -206,7 +206,7 @@ def generate_html_report(analytics_data, chart_path, output_html_path):
                 <div class="timestamp">Audit Run: {now_str} | Target: Profile 4 (Master)</div>
             </div>
             <div style="text-align: right;">
-                <span class="badge" style="border-color:var(--accent-cyan); color:var(--accent-cyan);">67% Win Rate / +53% Martingale</span>
+                <span class="badge" style="border-color:var(--accent-cyan); color:var(--accent-cyan);">68% / 70% · +73.12% / +80.46% Martingale · 3 wins = recover</span>
             </div>
         </div>
 
@@ -246,9 +246,9 @@ def generate_html_report(analytics_data, chart_path, output_html_path):
             
             <div class="strat-box">
                 <strong>🎯 ข้อเสนอแนะการบริหารเงินทุน (Capital Sizing Recommendation):</strong><br>
-                • <strong>พอร์ตปลอดภัยสูงสุดสำหรับไม้ 1 = 0.0005$:</strong> ทุนสำรองขั้นต่ำที่แนะนำสำหรับทนการแพ้ติดกัน 12 ไม้ คือ <strong>{matrix['safe_capital_12_steps']} USDT</strong> (โอกาสเกิดต่ำกว่า 0.00017%)<br>
-                • <strong>ความเสี่ยงต่อพอร์ต:</strong> การทนการแพ้ติดกัน 15 ไม้ใช้ทุนสะสมเพียง <strong>{matrix['safe_capital_15_steps']} USDT</strong> (ปลอดภัยขั้นสูงสุด)<br>
-                • <strong>ระบบเร่งกู้คืน 0.005$ (10x):</strong> เมื่อครบ 20 นาทีแล้วติดลบ ระบบจะใช้ฐาน 0.005$ จนกว่ากำไรจะพลิกเป็นบวกและจบไม้ 1 ปลอดภัย
+                • <strong>ยอดฐานไม้ 1 = {matrix['base_bet']}$</strong> · โอกาสชนะ {matrix['win_chance']*100:.0f}% (ไม้ {matrix['boost_from_step']}+ = {matrix['boost_chance']*100:.0f}%) · ตัวคูณทบ {matrix['multiplier']}x · ชนะติด 3 ไม้ = คืนทุน<br>
+                • <strong>ทุนสำรองสำหรับแพ้ติด 12 ไม้:</strong> <strong>{matrix['safe_capital_12_steps']} USDT</strong> · แพ้ติด 15 ไม้: <strong>{matrix['safe_capital_15_steps']} USDT</strong><br>
+                • <strong>ไม่มีระบบเร่งกู้คืน (Recovery Boost ถูกถอดออกแล้ว):</strong> เมื่อครบเวลารอบแล้วยังติดลบ บอทจะพยุงต่อด้วยยอดฐานเดิม {matrix['base_bet']}$ เท่านั้น
             </div>
 
             <table style="margin-top: 15px;">

@@ -6,3 +6,10 @@ backups/
 
 # Python cache
 __pycache__/
+
+# ข้อมูล ledger จากการรันจริง (ข้อมูลสถิติ/ประวัติเดิมพัน ไม่ควรอยู่ใน git)
+tools/rotate-ledger.csv
+tools/rotate-log.txt
+tools/stake_ledger.db
+tools/_ledger_backup/
+*.db

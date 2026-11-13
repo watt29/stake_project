@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name Stake Dice Martingale 68% (แพ้ +73.11% · ชนะติด 3 รีเซ็ต)
+// @name Stake Dice Martingale 68% (แพ้ +73.12% · ชนะติด 3 รีเซ็ต)
 // @namespace http://tampermonkey.net/
-// @version 2.4.12
-// @description Stake Dice Martingale 68% • Pure 68% Locked • แพ้ 1 ไม้ ยอด +73.11% · ชนะติด 3 รีเซ็ตกลับฐาน • Auto-Minimized HUD • Human Jitter & Watchdog
+// @version 2.4.30
+// @description Stake Dice Martingale 68% • Pure 68% Locked • แพ้ 1 ไม้ ยอด +73.12% · ชนะติด 3 รีเซ็ตกลับฐาน • Auto-Minimized HUD • Human Jitter & Watchdog
 // @match https://stake.com/*
 // @match https://www.stake.com/*
 // @match https://stake.com/th/casino/games/dice*
@@ -23,7 +23,7 @@
 
     // 🔖 BUILD STAMP — ใช้ยืนยันว่าโหลด build ไหน (แสดงที่หัวแผง + รายงาน self-test + console)
     //    ตั้งใจให้ตรงกับ @version ด้านบน: 2026.11.18 คือรอบที่ลงจริง, +N คือจำนวนรอบแพตช์หลังจากนั้น
-    const BUILD_STAMP = "2026.11.13+v2.4.12-step7-70-step9-72";
+    const BUILD_STAMP = "2026.11.13+v2.4.30-no-desync-stop";
 
     // ==================================================
     // 0. HIGH-SPEED NETWORK INTERCEPTOR (FETCH & XHR)
@@ -147,7 +147,7 @@
         const now = Date.now();
         if (now - forceSideLoggedAt > 30000) {
             forceSideLoggedAt = now;
-            try { log(`🎲 บังคับด้านในคำขอเดิมพัน: ${wantCond.toUpperCase()} target ${wantTarget.toFixed(2)}`, true); } catch (e) {}
+            try { log(`🎲 Forced in bet request: ${wantCond.toUpperCase()} target ${wantTarget.toFixed(2)}`, true); } catch (e) {}
         }
         return JSON.stringify(Array.isArray(json) ? list : list[0]);
     }
@@ -197,7 +197,7 @@
 
     function setAccountNameManually() {
         try {
-            const v = window.prompt("ตั้งชื่อ/ป้ายบัญชีของหน้าต่างนี้ (เช่น P3 หรือชื่อบัญชี)", accountName || "");
+            const v = window.prompt("Set the label/account name for this window (e.g. P3 or account name)", accountName || "");
             if (v === null) return;
             accountName = String(v).trim().slice(0, 24);
             syncAccountBadge();
@@ -209,8 +209,8 @@
         const el = hudEls.acctBadge;
         setSafeText(el, accountName ? "👤 " + accountName : "👤 ?");
         el.title = accountName
-            ? "บัญชี: " + accountName + " (จับจาก API ของหน้าเว็บ) — กดเพื่อแก้ชื่อ"
-            : "ยังจับชื่อบัญชีไม่ได้ — กดเพื่อตั้งชื่อเอง";
+            ? "Account: " + accountName + " (read from the site API) — click to rename"
+            : "Account name not detected yet — click to set it manually";
         setSafeStyle(el, "color", accountName ? "#55e7ff" : "#ffea00");
         setSafeStyle(el, "borderColor", accountName ? "#55e7ff" : "#ffea00");
     }
@@ -357,34 +357,23 @@
     let configChance = NORMAL_CHANCE;
     let recentOutcomes = [];         // ประวัติผล [true/false]
 
-    let activeBoostChance = NORMAL_CHANCE; // "68" -> "70" (ไม้ >= 7) -> "72" (ไม้ >= 9) · คงอัตราทบ +73.11%/ไม้
+    // 🛡️ ชั้นโอกาสชนะ 2 ระดับ (v2.4.13): ฐาน "68" → ไม้ >= 7 เป็น "70" · กลับ "68" ทันทีเมื่อ mStep < 7
+    //    เหตุผล: 72% (v2.4.12) ถูกถอดออก — payout 1.375x ทำให้กู้คืนได้เพียง 64.9% ต่อไม้ที่เสีย (ต้องทบ 2.667x)
+    //    บักที่แก้: เดิมต้องรอ mStep < 7 *และ* P/L >= 0 พร้อมกัน ทำให้โอกาสชนะค้างที่ 70/72% หลังรีเซ็ตกลับไม้ 1 ทั้งที่เดิมพันฐานปกติ
+    let activeBoostChance = NORMAL_CHANCE; // "68" หรือ "70" เท่านั้น · คงอัตราทบ +73.12%/ไม้
     function getEffectiveChance() {
         return activeBoostChance;
     }
     function syncChanceBoostState() {
-        const curPnl = (currentBalance !== null && startBalance !== null)
-            ? Math.max(profit, currentBalance - startBalance)
-            : profit;
-        if (mStep >= 9) {
-            if (activeBoostChance !== "72") {
-                activeBoostChance = "72";
-                syncHUDInputs();
-                log("🛡️ [CHANCE BOOST 72%] ติดไม้ที่ " + mStep + " (P/L " + formatNumber(curPnl, 4) + "$) → เพิ่มโอกาสชนะเป็น 72% (คงอัตราทบ +73.11%)", true);
-            }
-            return;
-        }
-        if (mStep >= 7) {
-            if (activeBoostChance !== "70" && activeBoostChance !== "72") {
-                activeBoostChance = "70";
-                syncHUDInputs();
-                log("🛡️ [CHANCE BOOST 70%] ติดไม้ที่ " + mStep + " (P/L " + formatNumber(curPnl, 4) + "$) → เพิ่มโอกาสชนะเป็น 70% (คงอัตราทบ +73.11%)", true);
-            }
-            return;
-        }
-        if (curPnl >= 0 && activeBoostChance !== NORMAL_CHANCE) {
-            activeBoostChance = NORMAL_CHANCE;
-            syncHUDInputs();
-            log("🎯 [CHANCE REVERT 68%] ออกจากไม้ลึก (ไม้ " + mStep + ") และกำไรกลับมาเป็นบวก (" + formatNumber(curPnl, 4) + "$) → กลับสู่โอกาสชนะ 68% ตามเดิม", true);
+        const wantChance = (mStep >= 7) ? "70" : NORMAL_CHANCE;
+        if (activeBoostChance === wantChance) return;
+        const prevChance = activeBoostChance;
+        activeBoostChance = wantChance;
+        syncHUDInputs();
+        if (wantChance === "70") {
+            log("🛡️ [CHANCE BOOST 70%] Stuck at step " + mStep + " → raising win chance to 70% (martingale stays +73.12%)", true);
+        } else {
+            log("🎯 [CHANCE REVERT 68%] Step " + mStep + " (mStep < 7) → back to 68% win chance immediately (from " + prevChance + "%)", true);
         }
     }
     let configAlternateRoll = true; // สลับ Under/Over ทุกตา: true (เปิด) / false (ปิด = แทง Under ฝั่งเดียว)
@@ -398,11 +387,13 @@
     // (เดิมไม่เคยถูกประกาศ การเขียนใน onDiceRollCallback จึงโยน ReferenceError ใน strict mode)
     let lastServerCondition = null;
     // 🔒 เดิมพันคงที่: ยอดฐานเดียวนิ่ง 100% ไม่เร่งยอด ไม่เสี่ยงพอร์ตแตก
-    const FIXED_BASE_BET = "0.0002";
+    const FIXED_BASE_BET = "0.00015";
     let configRealBaseBet = FIXED_BASE_BET; // ยอดฐาน (ไม้แรก) — แก้ได้จากช่องบน HUD
     const AUTO_MIN_BET = 0.00010; // ขั้นต่ำที่เว็บยอมรับ (USDT) — ถ้าตั้งต่ำกว่านี้ ระบบจะปรับขึ้นให้เอง
-    // 📈 MARTINGALE ตามที่ตั้งในหน้าเว็บ: แพ้ 1 ไม้ → ยอด ×1.7311 (+73.11%) · ชนะติด 3 → รีเซ็ตกลับฐาน
-    const MARTINGALE_PCT = 73.11;     // % ที่เพิ่มขึ้นทุกครั้งที่แพ้ (คำนวณจากสูตร 1 / (3 * 0.4559) = 73.11% สำหรับโอกาสชนะ 68%)
+    // 📈 MARTINGALE ตามที่ตั้งในหน้าเว็บ: แพ้ 1 ไม้ → ยอด ×1.7312 (+73.12%) · ชนะติด 3 → รีเซ็ตกลับฐาน
+    const MARTINGALE_PCT = 73.12;     // % ทบต่อไม้ที่ 68% = (1/(3p)) × 100 = 1/(3×0.45588) → +73.12%  (ชนะติด 3 ไม้ = คืนทุน)
+                                      // ไม้ >= 7 (70%) = +80.46% · สูตร: k = 1 + 1/(N × (99/chance - 1))
+                                      // 73.12% ⇒ ยอดไม้ถัดไป = ยอดไม้ก่อน × 1.7312 ... ดูหมายเหตุการกู้คืนด้านล่าง
     const MARTINGALE_RESET_WINS = 3;  // ชนะติดกี่ไม้แล้วรีเซ็ต
     let mStep = 1;                    // ลำดับไม้ปัจจุบัน (1 = ยอดฐาน)
     // 🛡️ DESYNC GUARD: เทียบยอดเงินจริงบนหน้าจอกับยอดที่ระบบคำนวณเอง
@@ -412,6 +403,7 @@
     const RESYNC_LIMIT = 5; // ซิงก์ได้ไม่เกินกี่ครั้งต่อเซสชัน ก่อนหยุดจริง
     let resyncCount = 0;
     let desyncStrikes = 0;
+    let domResyncs = 0; // 🖥️ จำนวนครั้งที่ยอมรับยอดบนหน้าจอเป็นความจริง (v2.4.21)
     let lastBetAmount = 0; // ไม้จริงล่าสุด ใช้เป็นเกณฑ์ตรวจ desync
     // ⏱️ ตัวแปรฝั่ง API เท่านั้น (ค่าคงที่ของฝั่ง DOM ถูกถอดออกแล้ว)
     let cleanSyncStreak = 0;        // เทียบตรงติดกันกี่ไม้ → คืนเครดิต resync
@@ -457,6 +449,9 @@
     let isBetInProgress = false;
 
     let startBalance = null;
+    // 🧮 baseline ของ P/L ที่มาจาก API (ต้องใช้คู่กับ currentBalance ที่มาจาก API เสมอ)
+    // เหตุผล: startBalance มาจาก DOM แต่ currentBalance อัปเดตจาก API → ยอดสองแหล่งต่างกันนิดเดียว จะกลายเป็น drift คงที่ทั้งเซสชัน
+    let apiSessionBaseline = null;
     let currentBalance = null;
     let profit = 0;
 
@@ -474,7 +469,7 @@
 
     // สถานะการไล่ไม้แบบ Martingale (ตามหน้าตั้งค่าเว็บ)
     function getSurvivalProbabilityText() {
-        return `📈 แพ้ต่อไม้ +${MARTINGALE_PCT}% · รีเซ็ตเมื่อชนะติด ${MARTINGALE_RESET_WINS} · ไม่จำกัดจำนวนไม้`;
+        return `📈 Loss step +${MARTINGALE_PCT}% · reset after ${MARTINGALE_RESET_WINS} wins · unlimited steps`;
     }
 
     let totalBets = 0;
@@ -485,7 +480,7 @@
         if (n < 10) return "";
         const span = (betTimestamps[n - 1] - betTimestamps[0]) / 1000;
         if (span <= 0 || span > 20) return "";
-        return ` | ⚡ ${((n - 1) / span).toFixed(1)} ตา/วิ`;
+        return ` | ⚡ ${((n - 1) / span).toFixed(1)} rolls/s`;
     }
     let totalWagered = 0;
     let winsCount = 0;
@@ -568,7 +563,7 @@
 
                 // 🛑 กรณีที่ 1: เซสชันเดิมจบสมบูรณ์ไปแล้ว (COMPLETED / STOPPED) -> ล้างทิ้ง ไม่นำมานับต่อ
                 if (saved.status === "COMPLETED" || saved.status === "STOPPED") {
-                    log("🛡️ [SESSION GUARD] เซสชันเดิมจบสมบูรณ์แล้ว — เริ่มต้นเซสชันใหม่ที่ไม้ 1 (P/L 0.00$)", true);
+                    log("🛡️ [SESSION GUARD] Previous session already finished cleanly — starting a new session at step 1 (P/L 0.00$)", true);
                     BotMemory.clearState();
                     return;
                 }
@@ -579,17 +574,18 @@
                     if (saved.sessionId) currentSessionId = saved.sessionId;
                     if (typeof saved.mStep === "number" && saved.mStep > 1) {
                         mStep = saved.mStep;
-                        log("💾 [SESSION GUARD RESTORE] กู้คืนสเต็ปเดิมในเซสชัน (" + currentSessionId + "): ไม้ " + mStep, true);
+                        log("💾 [SESSION GUARD RESTORE] Restored the previous step in this session (" + currentSessionId + "): step " + mStep, true);
                     }
                     if (typeof saved.sessionProfit === "number" && !isNaN(saved.sessionProfit)) {
                         profit = saved.sessionProfit;
                     }
                     if (typeof saved.startBalance === "number" && saved.startBalance > 0) {
                         startBalance = saved.startBalance;
+                        apiSessionBaseline = (typeof saved.apiSessionBaseline === "number" && isFinite(saved.apiSessionBaseline)) ? saved.apiSessionBaseline : null;
                     }
                     if (typeof saved.sessionStartedAt === "number" && saved.sessionStartedAt > 0) {
                         sessionStartedAt = saved.sessionStartedAt;
-                        log("⏱️ [SESSION GUARD RESTORE] กู้คืนเวลาเริ่มเซสชันเดิม (" + new Date(sessionStartedAt).toLocaleTimeString() + ") ไม่เริ่มนับ 20 นาทีใหม่", true);
+                        log("⏱️ [SESSION GUARD RESTORE] Restored the previous session start time (" + new Date(sessionStartedAt).toLocaleTimeString() + ") — the 20-minute timer is not restarted", true);
                     }
 
                     if (typeof saved.currentStreak === "number") currentStreak = saved.currentStreak;
@@ -645,7 +641,7 @@
                 const saved = JSON.parse(raw);
                 if (saved && saved.date) {
                     dailyCumulative = Object.assign({}, dailyCumulative, saved);
-                    log("📊 [DAILY STATS] โหลดสถิติวันนี้: " + saved.totalSessions + " เซสชัน | W:" + saved.totalWinsDay + " L:" + saved.totalLossesDay + " | กำไรรวม: " + (Number(saved.totalProfitDay || 0) >= 0 ? "+" : "") + Number(saved.totalProfitDay || 0).toFixed(4) + "$", true);
+                    log("📊 [DAILY STATS] Today's stats loaded: " + saved.totalSessions + " sessions | W:" + saved.totalWinsDay + " L:" + saved.totalLossesDay + " | total P/L: " + (Number(saved.totalProfitDay || 0) >= 0 ? "+" : "") + Number(saved.totalProfitDay || 0).toFixed(4) + "$", true);
                     updateUI();
                 }
             } catch (e) {}
@@ -701,7 +697,7 @@
             } catch (e) {}
             if (showToast) {
                 flashHudAlert("#00e676");
-                log("🧹 [HISTORY CLEARED] ล้างประวัติเดิมและสถิติทั้งหมดเรียบร้อยแล้ว (เริ่มต้นระบบใหม่ 100%)", true);
+                log("🧹 [HISTORY CLEARED] All previous history and stats cleared (system reset 100%)", true);
             }
             updateUI();
         } catch (e) {}
@@ -725,6 +721,7 @@
     let hostContainer = null;
     let cachedBetBtn = null;
     let cachedBalanceEl = null;
+    let lastBalanceSelector = "?"; // 🔎 ใช้ตรวจว่า getBalance() อ่านยอดจาก element ไหน (สำหรับ debug DESYNC)
     let cachedAmountInput = null;
     let cachedChanceInput = null;
     let isUiUpdatePending = false;
@@ -750,7 +747,7 @@
             if (isBetInProgress && lastBetSentAt) {
                 const elapsed = now - lastBetSentAt;
                 if (elapsed >= NETWORK_WATCHDOG_TIMEOUT_MS) {
-                    log(`🚨 [INTELLIGENT WATCHDOG] เซิร์ฟเวอร์ไม่ตอบสนองเกิน ${(elapsed / 1000).toFixed(0)}s (ไม้ ${mStep})! บันทึกสเต็ปและรีเฟรชกู้คืนอัตโนมัติ...`, true);
+                    log(`🚨 [INTELLIGENT WATCHDOG] Server silent for over ${(elapsed / 1000).toFixed(0)}s (step ${mStep})! Saving step and auto-refreshing to recover...`, true);
                     BotMemory.saveState();
                     teardownSessionResources();
                     location.reload();
@@ -759,7 +756,7 @@
             }
             if (!isWaitingNextRound && lastBetActivityAt && (now - lastBetActivityAt) >= GLOBAL_STALL_TIMEOUT_MS) {
                 const stalledSec = ((now - lastBetActivityAt) / 1000).toFixed(0);
-                log(`🚨 [STALL WATCHDOG] บอทค้างไม่ขยับเกิน ${stalledSec}s (ไม้ ${mStep})! บันทึกสเต็ปและรีเฟรชกู้คืนอัตโนมัติ...`, true);
+                log(`🚨 [STALL WATCHDOG] Bot stalled for over ${stalledSec}s (step ${mStep})! Saving step and auto-refreshing to recover...`, true);
                 BotMemory.saveState();
                 teardownSessionResources();
                 location.reload();
@@ -778,12 +775,12 @@
 
     // 🌐 ตรวจจับสถานะการเชื่อมต่ออินเทอร์เน็ต (Online / Offline)
     window.addEventListener("offline", () => {
-        log("🚨 [NETWORK] ตรวจพบอินเทอร์เน็ตตัดการเชื่อมต่อ — หยุดรออัตโนมัติ...", true);
-        updateStatusText("🚨 เน็ตหลุดชั่วคราว — บอทหยุดรอเชื่อมต่อ...", "#ff5252");
+        log("🚨 [NETWORK] Internet disconnected — pausing automatically...", true);
+        updateStatusText("🚨 Network dropped temporarily — bot paused, waiting for connection...", "#ff5252");
     });
     window.addEventListener("online", () => {
-        log("🌐 [NETWORK] อินเทอร์เน็ตเชื่อมต่อกลับมาแล้ว — พร้อมทำงานต่อ", true);
-        updateStatusText("🌐 เน็ตกลับมาแล้ว — ลุยต่อ", "#00e676");
+        log("🌐 [NETWORK] Internet is back — ready to continue", true);
+        updateStatusText("🌐 Network is back — continuing", "#00e676");
         if (sessionRunning && !betTimeoutId) betTimeoutId = setTimeout(executeNextBet, 600);
     });
 
@@ -858,9 +855,9 @@
         if (e.key === "Escape") {
             cancelAutoStart();
             if (sessionRunning) {
-                stopSession("🚨 หยุดฉุกเฉินด้วยปุ่ม ESC", "#ff3344");
+                stopSession("🚨 Emergency stop via ESC key", "#ff3344");
             } else {
-                updateStatusText("🚨 ยกเลิก Auto-Start ด้วยปุ่ม ESC", "#ff3344");
+                updateStatusText("🚨 Auto-Start cancelled via ESC key", "#ff3344");
             }
         }
     }, true);
@@ -993,6 +990,11 @@
 
             // ลำดับ Selector ตามความเจาะจงสูงสุดของระบบกระเป๋าเงิน Stake (สากล)
             const selectors = [
+                // 🎯 P1: กระเป๋าหลักของ Stake มาก่อนเสมอ (แม่นสุด) — กันอ่านยอดโปรโมชัน/toast ผิด
+                'button[data-testid="wallet-balance-button"] span',
+                'button[data-testid="wallet-balance-button"]',
+                '[data-testid="wallet-balance"] span',
+                '[data-testid="wallet-balance"]',
                 // 🎯 1. เจาะจงโครงสร้าง Stake Design System ตรงตามที่ผู้ใช้ตรวจสอบพบจริง (style="max-width: 16ch")
                 'span[data-ds-text="true"][style*="16ch"]',
                 'span.edge-typography-body-md-strong[style*="16ch"]',
@@ -1020,6 +1022,7 @@
                     if (val !== null) {
                         if (val > 0) {
                             cachedBalanceEl = els[j];
+                            lastBalanceSelector = selectors[i];
                             return val;
                         }
                         if (!zeroEl) zeroEl = els[j];
@@ -1028,6 +1031,7 @@
             }
             if (zeroEl) {
                 cachedBalanceEl = zeroEl;
+                lastBalanceSelector = "zero-el";
                 return 0;
             }
             return null;
@@ -1307,13 +1311,13 @@
         const chance = (cachedChanceInput && document.body.contains(cachedChanceInput)) ? cachedChanceInput : resolveChanceInput();
         const button = (cachedBetBtn && document.body.contains(cachedBetBtn)) ? cachedBetBtn : resolveBetButton();
         const missing = [];
-        if (!amount) missing.push("ช่องยอดเดิมพัน");
-        if (!chance) missing.push("ช่องโอกาส");
-        if (!button && !getBetButton()) missing.push("ปุ่มเดิมพัน");
+        if (!amount) missing.push("bet amount input");
+        if (!chance) missing.push("chance input");
+        if (!button && !getBetButton()) missing.push("bet button");
         if (missing.length === 0) return { ok: true, msg: "" };
         return {
             ok: false,
-            msg: "หาไม่เจอ: " + missing.join(", ") + " — เว็บอาจเปลี่ยนหน้าแล้ว (F5 หรือ STOP ก่อน)"
+            msg: "not found: " + missing.join(", ") + " — the page layout may have changed (F5 or STOP first)"
         };
     }
 
@@ -1334,38 +1338,38 @@
         selfTestRunning = true;
         const results = [];
         try {
-            if (typeof updateStatusText === "function") updateStatusText("🧪 กำลังทดสอบระบบ (ไม่เดิมพัน)...", "#55e7ff");
+            if (typeof updateStatusText === "function") updateStatusText("🧪 Testing system (no bets placed)...", "#55e7ff");
 
             const panel = getGamePanel();
-            stAdd(results, "แผงเกม", !!panel,
-                panel ? (panel.getAttribute("data-testid") || panel.tagName.toLowerCase()) : "หาไม่เจอ");
+            stAdd(results, "game panel", !!panel,
+                panel ? (panel.getAttribute("data-testid") || panel.tagName.toLowerCase()) : "not found");
 
             const amountEl = cachedAmountInput || resolveAmountInput();
-            stAdd(results, "ช่องยอดเดิมพัน", !!amountEl,
-                amountEl ? "value=" + amountEl.value + " step=" + (amountEl.getAttribute("step") || "-") : "หาไม่เจอ");
+            stAdd(results, "bet amount input", !!amountEl,
+                amountEl ? "value=" + amountEl.value + " step=" + (amountEl.getAttribute("step") || "-") : "not found");
 
             const chanceEl = cachedChanceInput || resolveChanceInput();
             const chanceVal = chanceEl ? parseFloat(chanceEl.value) : NaN;
-            stAdd(results, "ช่องโอกาส (%)", !!chanceEl && Number.isFinite(chanceVal) && chanceVal > 0 && chanceVal <= 100,
-                chanceEl ? "value=" + chanceEl.value : "หาไม่เจอ");
+            stAdd(results, "chance input (%)", !!chanceEl && Number.isFinite(chanceVal) && chanceVal > 0 && chanceVal <= 100,
+                chanceEl ? "value=" + chanceEl.value : "not found");
 
             const btn = getBetButton();
-            stAdd(results, "ปุ่มเดิมพัน", !!btn,
-                btn ? "'" + (btn.textContent || "").trim().slice(0, 14) + "'" + (btn.disabled ? " (disabled = ปกติเมื่อช่องว่าง)" : " พร้อมกด") : "หาไม่เจอ");
+            stAdd(results, "bet button", !!btn,
+                btn ? "'" + (btn.textContent || "").trim().slice(0, 14) + "'" + (btn.disabled ? " (disabled = normal when empty)" : " ready to click") : "not found");
 
             const bal = getBalance();
-            stAdd(results, "ยอดเงิน (Balance)", bal !== null && bal > 0,
-                bal === null ? "อ่านไม่ได้" : formatNumber(bal, 4) + " USDT");
+            stAdd(results, "Balance", bal !== null && bal > 0,
+                bal === null ? "unreadable" : formatNumber(bal, 4) + " USDT");
 
             const badge = getLatestBadgeInfo();
-            stAdd(results, "ผลทอยล่าสุด (badge)", !!badge && badge.roll !== null && Number.isFinite(badge.roll),
-                badge ? "roll=" + badge.roll : "หาไม่เจอ (ยังใช้ผลจาก API ได้)");
+            stAdd(results, "last roll result (badge)", !!badge && badge.roll !== null && Number.isFinite(badge.roll),
+                badge ? "roll=" + badge.roll : "not found (API result can still be used)");
 
             const amountWrote = amountEl ? writeVerified(amountEl, amountEl.value) : false;
-            stAdd(results, "เขียนค่าช่องยอดได้", amountWrote, amountWrote ? "อ่านกลับตรง (React setter ทำงาน)" : "เขียนแล้วอ่านกลับไม่ตรง");
+            stAdd(results, "can write bet amount", amountWrote, amountWrote ? "read-back matches (React setter works)" : "written value did not read back");
 
             const chanceWrote = chanceEl ? writeVerified(chanceEl, chanceEl.value) : false;
-            stAdd(results, "เขียนค่าช่องโอกาสได้", chanceWrote, chanceWrote ? "อ่านกลับตรง" : "เขียนแล้วอ่านกลับไม่ตรง");
+            stAdd(results, "can write chance value", chanceWrote, chanceWrote ? "read-back matches" : "written value did not read back");
 
             const passed = results.filter(function (r) { return r.ok; }).length;
             const total = results.length;
@@ -1379,7 +1383,7 @@
                 passed: passed + "/" + total,
                 results: results,
                 adapt: {
-                    strategy: learnedStrategy || "(ยังไม่ต้องปรับ)",
+                    strategy: learnedStrategy || "(no adjustment needed)",
                     amountLearned: !!learnedAmountEl,
                     chanceLearned: !!learnedChanceEl
                 },
@@ -1387,22 +1391,22 @@
             };
 
             try { if (typeof console !== "undefined" && console.table) console.table(results); } catch (e) {}
-            log("🧪 SELF-TEST " + passed + "/" + total + (allOk ? " PASS — พร้อมเดิมพัน" : " — ไม่ผ่าน: " + failed.join(", ")), true);
+            log("🧪 SELF-TEST " + passed + "/" + total + (allOk ? " PASS — ready to bet" : " — failed: " + failed.join(", ")), true);
 
             if (typeof updateStatusText === "function") {
                 updateStatusText(allOk
-                    ? "🧪 SELF-TEST ผ่านครบ " + total + "/" + total + " — พร้อมเดิมพัน"
-                    : "🧪 SELF-TEST " + passed + "/" + total + " — ไม่ผ่าน: " + failed.join(", "),
+                    ? "🧪 SELF-TEST passed all " + total + "/" + total + " — ready to bet"
+                    : "🧪 SELF-TEST " + passed + "/" + total + " — failed: " + failed.join(", "),
                     allOk ? "#00e676" : "#ffa726");
             }
 
             if (!allOk) {
                 try { if (typeof copy === "function") copy(JSON.stringify(report, null, 2)); } catch (e) {}
-                log("📋 คัดลอกรายงาน SELF-TEST ลงคลิปบอร์ดแล้ว (ส่งกลับมาเพื่อแก้ selector ได้)", true);
+                log("📋 SELF-TEST report copied to clipboard (send it back so selectors can be fixed)", true);
             }
             return report;
         } catch (e) {
-            log("🧪 SELF-TEST ผิดพลาด: " + (e && e.message ? e.message : e), true);
+            log("🧪 SELF-TEST error: " + (e && e.message ? e.message : e), true);
             return null;
         } finally {
             selfTestRunning = false;
@@ -1460,9 +1464,9 @@
         domBaseline = now;
         domDriftCount++;
         const parts = [];
-        if (removed.length) parts.push("หาย " + removed.length + ": " + removed.slice(0, 5).join(", "));
-        if (added.length) parts.push("เพิ่ม " + added.length + ": " + added.slice(0, 5).join(", "));
-        const msg = "🧬 DOM เปลี่ยน (" + parts.join(" · ") + ")";
+        if (removed.length) parts.push("missing " + removed.length + ": " + removed.slice(0, 5).join(", "));
+        if (added.length) parts.push("added " + added.length + ": " + added.slice(0, 5).join(", "));
+        const msg = "🧬 DOM changed (" + parts.join(" · ") + ")";
         try { log(msg, true); } catch (e) {}
         try {
             if (typeof updateStatusText === "function") updateStatusText(msg, "#ffea00");
@@ -1484,7 +1488,7 @@
     function domStrategyNote(text) {
         learnedStrategy = text || "";
         try {
-            if (typeof updateStatusText === "function") updateStatusText("🧩 ปรับ selector อัตโนมัติ: " + learnedStrategy, "#ffea00");
+            if (typeof updateStatusText === "function") updateStatusText("🧩 Auto-adjusted selector: " + learnedStrategy, "#ffea00");
         } catch (e) {}
         log("🧩 AUTO-ADAPT: " + learnedStrategy, true);
     }
@@ -1539,7 +1543,7 @@
             if (writeVerified(cands[i].el, value)) {
                 learnedAmountEl = cands[i].el;
                 cachedAmountInput = cands[i].el;
-                return { el: cands[i].el, strategy: "ช่องยอดเดิมพัน (คะแนน " + cands[i].score + ")" };
+                return { el: cands[i].el, strategy: "bet amount input (score " + cands[i].score + ")" };
             }
         }
         return null;
@@ -1558,7 +1562,7 @@
             if (writeVerified(el, value)) {
                 learnedChanceEl = el;
                 cachedChanceInput = el;
-                return { el: el, strategy: "ช่องโอกาส (label)" };
+                return { el: el, strategy: "chance input (label)" };
             }
         }
         return null;
@@ -1583,16 +1587,16 @@
         }
 
         if (form) {
-            push(form.querySelector('button[type="submit"]'), "submit ในฟอร์มเดียวกับช่องยอด");
+            push(form.querySelector('button[type="submit"]'), "submit inside the amount field's form");
             const fb = form.querySelectorAll("button");
-            for (let i = 0; i < fb.length; i++) push(fb[i], "ปุ่มในฟอร์มเดียวกับช่องยอด");
+            for (let i = 0; i < fb.length; i++) push(fb[i], "button inside the amount field's form");
         }
         const all = panel.querySelectorAll("button");
         for (let i = 0; i < all.length; i++) {
             const t = (all[i].textContent || "").trim();
-            if (/^(bet|เดิมพัน|play|ทอย|roll|place)/i.test(t)) push(all[i], "ข้อความปุ่ม '" + t + "'");
+            if (/^(bet|เดิมพัน|play|ทอย|roll|place)/i.test(t)) push(all[i], "button text '" + t + "'");
         }
-        if (out.length === 0 && all.length) push(all[all.length - 1], "ปุ่มที่กดได้ตัวสุดท้ายของแผง");
+        if (out.length === 0 && all.length) push(all[all.length - 1], "last clickable button in panel");
 
         const seen = [];
         return out.filter(function (o) {
@@ -1607,7 +1611,7 @@
         const cands = betButtonCandidates();
         if (!cands.length) return null;
         cachedBetBtn = cands[0].el;
-        return { el: cands[0].el, strategy: "ปุ่มเดิมพัน ← " + cands[0].why };
+        return { el: cands[0].el, strategy: "bet button ← " + cands[0].why };
     }
 
     // หมุนไปปุ่มตัวถัดไป (ใช้เมื่อกดแล้วไม่มีผลติดกัน 2 ครั้ง)
@@ -1635,7 +1639,7 @@
     }
 
     // ==================================================
-    // 6. MARTINGALE ENGINE — แพ้ 1 ไม้ ยอด ×1.7311 (+73.11%) · ฐาน 68% (ไม้ 7+ = 70%) · ชนะติด 3 รีเซ็ต
+    // 6. MARTINGALE ENGINE — แพ้ 1 ไม้ ยอด ×1.7312 (+73.12%) · ฐาน 68% (ไม้ 7+ = 70%) · ชนะติด 3 รีเซ็ต
     // (ระบบบันได Fibonacci และการทบต้นเดิมถูกถอดออกทั้งหมด)
     // ==================================================
 
@@ -1655,15 +1659,34 @@
     // ยอดไม้ปัจจุบัน = ยอดฐาน × ตัวคูณตาม Payout จริง แล้วปัดขึ้น 8 ตำแหน่ง และไม่ต่ำกว่าขั้นต่ำของเว็บ
     function calculateCurrentBetAmount() {
         const base = Math.max(getBaseBet(), effectiveMinBet());
-        // คงอัตราทบฐาน 68% (+73.11%/ไม้) เสมอ เพื่อไม่ให้ยอดแทงกระโดดเมื่อเพิ่มโอกาสชนะเป็น 70% ที่ไม้ >= 7
-        const baseChance = parseFloat(NORMAL_CHANCE) || 68;
-        const payout = 99 / baseChance;
-        const profitRate = payout - 1; // 0.45588 at 68%
+        // ⚠️ ต้องคำนวณจาก "โอกาสชนะที่ใช้จริงของไม้นี้" ไม่ใช่ 68% ตายตัว
+        // (เดิมใช้ 68% ตายตัว ทำให้ไม้ >= 7 (70%) ได้ payout 1.41429x แต่ทบด้วยตัวคูณของ 68%
+        //  → กู้คืนได้เพียง 90.9% ของยอดที่เสีย = รั่ว 9% ทุกไม้ลึก ⇒ นี่คือต้นเหตุเงินหาย)
+        const stepChance = parseFloat(getEffectiveChance()) || 68;
+        const payout = 99 / stepChance;
+        const profitRate = payout - 1; // 68% → 0.45588 · 70% → 0.41429
         // คำนวณตัวคูณทบให้ถูกต้องตามหลักคณิตศาสตร์:
-        // เมื่อชนะติด 3 ตา (MARTINGALE_RESET_WINS = 3) ต้องดึงทุนที่เสียไปทั้งหมดคืนมา 100% + กำไร
-        const multPct = (1 / (MARTINGALE_RESET_WINS * profitRate)) * 100;
-        const mult = Math.pow(1 + multPct / 100, Math.max(0, mStep - 1));
-        const amt = Math.ceil(base * mult * 1e8) / 1e8;
+        // ต้องดึงทุนที่เสียสะสมทั้งหมดคืนมา 100% + กำไร → ตัวคูณต่อไม้ = 1 / (payout - 1)
+        // ที่ 68%: 1 / 0.45588 = 2.1935x = +119.35%/ไม้ ... แต่เนื่องจากโค้ดใช้ตัวคูณทบแบบทบต้นต่อไม้
+        // (1 + multPct/100) จึงต้องใช้ multPct = 100 / profitRate = 73.12% เพื่อให้แต่ละไม้กู้คืนยอดที่เสียก่อนหน้าทั้งหมด
+        // 🎯 "ชนะติดกัน N ไม้ = คืนทุนทั้งก้อน" — และ mStep เพิ่มเฉพาะตอน "แพ้"
+        // ⇒ ไม้ที่ชนะติดกัน N ไม้ใช้ยอดเดิมพัน "เท่ากัน" ทั้ง N ไม้
+        // ⇒ เงื่อนไข: N × b × p ≥ ยอดเสียสะสม  ⇒  k = 1 + 1/(N × p)
+        //   68% → 1.73118x (+73.12%/ไม้) · 70% → 1.80460x (+80.46%/ไม้)
+        const resetWins = Math.max(1, Number(MARTINGALE_RESET_WINS) || 3);
+        const k = (profitRate > 0) ? (1 + 1 / (resetWins * profitRate)) : (1 + MARTINGALE_PCT / 100);
+        const geoAmt = base * Math.pow(k, Math.max(0, mStep - 1));
+        // กันขอบกรณีสลับ 68% → 70% (payout เปลี่ยนกลางบันได): ถ้ายอดติดลบจริงสูงกว่าที่บันไดคาด
+        // ให้จัดไม้เพิ่มเพื่อให้ "3 ไม้ชนะติด" คืนยอดที่เสียจริงได้ครบ
+        // ใช้ยอดบนหน้าจอเป็นหลัก (ถ้าอ่านได้) เพื่อไม่ให้คำนวณไม้จาก profit ที่อาจค้างอยู่
+        const domBalNow = getBalance();
+        const plBaseNow = (apiSessionBaseline !== null) ? apiSessionBaseline : startBalance;
+        const deficit = (domBalNow !== null && plBaseNow !== null && plBaseNow > 0)
+            ? Math.max(0, parseFloat((plBaseNow - domBalNow).toFixed(8)))
+            : Math.max(0, -(typeof profit === "number" && isFinite(profit) ? profit : 0));
+        const threeWinProfit = profitRate * resetWins;   // ชนะติด N ไม้ ด้วยยอดเดิม
+        const needAmt = (threeWinProfit > 0) ? ((deficit * 1.01) / threeWinProfit) : 0;
+        const amt = Math.ceil(Math.max(geoAmt, needAmt, base) * 1e8) / 1e8;
         return formatBetAmount(amt);
     }
 
@@ -1677,6 +1700,7 @@
 
     function registerBalanceSync() {
         desyncStrikes = 0;
+        domResyncs = 0;
         cleanSyncStreak++;
         // คืนเครดิต RESYNC ให้ทีละครั้งทุก 10 ไม้ที่ยอดตรงกัน (สูงสุดไม่เกินเพดาน)
         if (cleanSyncStreak >= 10) {
@@ -1691,19 +1715,26 @@
         cleanSyncStreak = 0;
         lastDesync = { dom: actualBal, model: currentBalance, diff: diff, tol: tol, source: source };
         const signed = (diff >= 0 ? "+" : "−") + formatNumber(Math.abs(diff), 8);
-        log(`⚠️ [DESYNC/${source}] ยอดจริง ${formatNumber(actualBal, 8)} ≠ ที่คำนวณ ${formatNumber(currentBalance, 8)} | ต่าง ${signed} (เกณฑ์ ${formatNumber(tol, 8)}, ไม้ล่าสุด ${formatNumber(lastBetAmount, 8)}) (ครั้งที่ ${desyncStrikes}/${DESYNC_STRIKE_LIMIT})`, true);
-        updateStatusText(`⚠️ ยอดต่าง ${signed} [${source}] (${desyncStrikes}/${DESYNC_STRIKE_LIMIT})`, "#ffa726");
+        log(`⚠️ [DESYNC/${source}] real balance ${formatNumber(actualBal, 8)} ≠ expected ${formatNumber(currentBalance, 8)} | diff ${signed} (tolerance ${formatNumber(tol, 8)}, last bet ${formatNumber(lastBetAmount, 8)}) (strike ${desyncStrikes}/${DESYNC_STRIKE_LIMIT})`, true);
+        updateStatusText(`⚠️ Balance diff ${signed} [${source}] (${desyncStrikes}/${DESYNC_STRIKE_LIMIT})`, "#ffa726");
         if (desyncStrikes < DESYNC_STRIKE_LIMIT) return;
         if (configAutoResync && resyncCount < RESYNC_LIMIT) {
             resyncCount++;
             currentBalance = parseFloat(actualBal.toFixed(8)); // ยอมรับยอดจริงเป็นความจริงใหม่
             desyncStrikes = 0;
+        domResyncs = 0;
             lastBetAmount = 0;
-            log(`↔️ [RESYNC ${resyncCount}/${RESYNC_LIMIT}] ปรับยอดในระบบเป็น ${formatNumber(actualBal, 8)} (เดิม ${formatNumber(lastDesync.model, 8)}, ต่าง ${signed}) — เดาว่าจะเกิดจากผลหลุด/มีตัวอื่นแทงซ้อน`, true);
-            updateStatusText(`↔️ ซิงก์ยอดใหม่ (ต่าง ${signed}) — เล่นต่อ ${resyncCount}/${RESYNC_LIMIT}`, "#ffa726");
+            log(`↔️ [RESYNC ${resyncCount}/${RESYNC_LIMIT}] model balance set to ${formatNumber(actualBal, 8)} (was ${formatNumber(lastDesync.model, 8)}, diff ${signed}) — likely a missed result or a bet placed elsewhere`, true);
+            updateStatusText(`↔️ Re-synced balance (diff ${signed}) — continuing ${resyncCount}/${RESYNC_LIMIT}`, "#ffa726");
             return;
         }
-        stopSession(`🚨 DESYNC: ยอดจริงต่าง ${signed} จากที่คำนวณ ${desyncStrikes} ครั้งติด — หยุดเพื่อกันคำนวณไม้ผิด`, "#ff3344");
+        // ✳️ v2.4.30: ผู้ใช้สั่งลบการปิดตัวเอง — DESYNC ไม่หยุดเซสชันอีก
+        // ยอมรับยอดจริงเป็นความจริงใหม่แล้วเล่นต่อ (ขนาดไม้คิดจาก deficit ของหน้าจออยู่แล้ว)
+        log(`🖥️ [DESYNC] balance differs ${signed} — accepting the real balance and continuing (auto-stop removed)`, true);
+        currentBalance = parseFloat(actualBal.toFixed(8));
+        desyncStrikes = 0;
+        resyncCount = 0;
+        lastBetAmount = 0;
     }
 
     // 🗑️ verifyBalanceSync() เดิมถูกลบออกทั้งฟังก์ชัน: มันอ่านยอดจาก DOM เพื่อเทียบ ซึ่งพึ่ง
@@ -2383,7 +2414,7 @@
                 const tol = Math.max(1e-8, Math.abs(entry.delta) * 1e-3);
                 if (Math.abs(gap) > tol) {
                     ledgerGaps++;
-                    log("🧾 LEDGER: ไม้ " + entry.n + " ยอดเดินไม่ตรง — คาด " + formatNumber(entry.delta, 8) + " แต่จริง " + formatNumber(walked, 8) + " (ต่าง " + formatNumber(gap, 8) + ")", true);
+                    log("🧾 LEDGER: step " + entry.n + " amount mismatch — expected " + formatNumber(entry.delta, 8) + " actual " + formatNumber(walked, 8) + " (diff " + formatNumber(gap, 8) + ")", true);
                 }
             }
             return entry;
@@ -2425,7 +2456,7 @@
         const payload = JSON.stringify({ version: "2026.11.18", time: new Date().toISOString(), summary: summary, bets: sessionLedger }, null, 2);
         let copied = false;
         try { if (typeof copy === "function") { copy(payload); copied = true; } } catch (e) {}
-        log("🧾 LEDGER " + summary.bets + " ไม้ · ชนะ " + summary.wins + " / แพ้ " + summary.losses + " · P/L " + formatNumber(summary.net, 6) + " · กระทบยอดคลาด " + summary.gaps + " ครั้ง" + (copied ? " — คัดลอก JSON แล้ว" : " — ดู JSON ใน console"), true);
+        log("🧾 LEDGER " + summary.bets + " steps · wins " + summary.wins + " / losses " + summary.losses + " · P/L " + formatNumber(summary.net, 6) + " · balance mismatches " + summary.gaps + " times" + (copied ? " — JSON copied" : " — see JSON in console"), true);
         try { if (typeof console !== "undefined") console.log(payload); } catch (e) {}
         return summary;
     }
@@ -2451,10 +2482,10 @@
                 if (msg.type === "running") {
                     peerRunning = { id: msg.id, at: Date.now() };
                     if (sessionRunning && String(msg.id) < TAB_ID) {
-                        log("🔒 MULTI-TAB: แท็บ " + msg.id + " กำลังเดิมพัน — แท็บนี้หยุดเพื่อกันเดิมพันซ้ำ", true);
-                        stopSession("🔒 พบอีกแท็บกำลังเดิมพัน (แท็บนี้หยุดให้เองเพื่อกันกดซ้อน)", "#ffa726");
+                        log("🔒 MULTI-TAB: tab " + msg.id + " is betting — this tab stops to prevent double bets", true);
+                        stopSession("🔒 Another tab is betting (this tab backs off to avoid duplicate clicks)", "#ffa726");
                     } else if (sessionRunning) {
-                        updateStatusText("⚠️ ตรวจพบอีกแท็บกำลังเดิมพัน — ควรปิดแท็บหนึ่ง", "#ffa726");
+                        updateStatusText("⚠️ Another betting tab detected — close one of them", "#ffa726");
                     }
                 } else if (msg.type === "idle") {
                     if (peerRunning && peerRunning.id === msg.id) peerRunning = null;
@@ -2514,8 +2545,8 @@
             if (best === null) return null;
             if (detectedMaxBet === null || best < detectedMaxBet) {
                 detectedMaxBet = best;
-                log("📏 LIMIT SNIFFER: เว็บแจ้งเพดานเดิมพันสูงสุด " + formatBetAmount(best) + " (จากข้อความ: " + texts[0].slice(0, 80) + ")", true);
-                updateStatusText("📏 เรียนเพดานเว็บ: สูงสุด " + formatBetAmount(best) + "$", "#55e7ff");
+                log("📏 LIMIT SNIFFER: site reported max bet " + formatBetAmount(best) + " (from text: " + texts[0].slice(0, 80) + ")", true);
+                updateStatusText("📏 Learned the site cap: max " + formatBetAmount(best) + "$", "#55e7ff");
             }
             return detectedMaxBet;
         } catch (e) {
@@ -2545,12 +2576,13 @@
                     clearInterval(autoStartPolling);
                     autoStartPolling = null;
                     flashHudAlert("#ff3344");
-                    updateStatusText("🚨 ยอดเงินเป็น 0 USDT — ข้ามไปบัญชีถัดไปทันที...", "#ff3344");
-                    log("🚨 [FAST ZERO-FUNDS SKIP] ตรวจพบยอดเงินคงเหลือ 0 USDT (ไม่พอยอดฐาน) — ส่งสัญญาณข้ามไปบัญชีถัดไปทันที", true);
+                    updateStatusText("🚨 Balance is 0 USDT — skipping to the next account now...", "#ff3344");
+                    log("🚨 [FAST ZERO-FUNDS SKIP] Balance is 0 USDT (below base bet) — signalling to skip to the next account now", true);
                     startBalance = 0;
+                    apiSessionBaseline = null;
                     currentBalance = 0;
                     profit = 0;
-                    stopSession("🚨 เงินในกระเป๋าไม่พอไม้ถัดไป!", "#ff3344");
+                    stopSession("🚨 Insufficient balance for the next step!", "#ff3344");
                     return;
                 }
             } else {
@@ -2562,6 +2594,7 @@
                 autoStartPolling = null;
 
                 startBalance = bal;
+                apiSessionBaseline = null;
                 currentBalance = bal;
                 peakBalance = bal;
                 if (configDynamicTarget) {
@@ -2574,12 +2607,12 @@
                 applyBetSettings();
 
                 autoStartCountdown = 2;
-                updateStatusText(`🚀 Auto-Start เริ่มใน ${autoStartCountdown}s (กด ESC ยกเลิก)`, "#ffea00");
+                updateStatusText(`🚀 Auto-Start in ${autoStartCountdown}s (press ESC to cancel)`, "#ffea00");
 
                 autoStartCountdownTimer = setInterval(() => {
                     autoStartCountdown--;
                     if (autoStartCountdown > 0) {
-                        updateStatusText(`🚀 Auto-Start เริ่มใน ${autoStartCountdown}s (กด ESC ยกเลิก)`, "#ffea00");
+                        updateStatusText(`🚀 Auto-Start in ${autoStartCountdown}s (press ESC to cancel)`, "#ffea00");
                     } else {
                         cancelAutoStart();
                         startSession();
@@ -2591,13 +2624,13 @@
             // แสดงสถานะรอหน้าเว็บโหลดอย่างต่อเนื่อง ไม่ตัดทิ้งไวเกินไป (รอสูงสุด 10 นาที)
             if (attempts % 10 === 0) {
                 const sec = Math.floor(attempts / 2);
-                updateStatusText(`⏳ รอหน้าเว็บ Stake โหลดความพร้อม (${sec}s)...`, "#ffea00");
+                updateStatusText(`⏳ Waiting for the Stake page to be ready (${sec}s)...`, "#ffea00");
             }
 
             if (attempts > 1200) {
                 clearInterval(autoStartPolling);
                 autoStartPolling = null;
-                updateStatusText("⚠️ รอเปิดหน้าเกม Dice หรือเข้าสู่ระบบ", "#ff9800");
+                updateStatusText("⚠️ Waiting for the Dice page or login", "#ff9800");
             }
         }, 500);
     }
@@ -2617,7 +2650,7 @@
         configAutoStart = !configAutoStart;
         if (!configAutoStart) {
             cancelAutoStart();
-            updateStatusText("⏸️ ปิดโหมด Auto-Start", "#b1bad3");
+            updateStatusText("⏸️ Auto-Start off", "#b1bad3");
         } else {
             if (!sessionRunning) initAutoStartSequence();
         }
@@ -2652,7 +2685,7 @@
             betsSinceLastHumanBreak = 0;
             nextHumanBreakThreshold = Math.floor(Math.random() * 20) + 60; // สุ่มรอบถัดไป 60 - 80 ตา
             const breakMs = 800; // 0.8 วินาทีตามคำสั่ง
-            updateStatusText(`☕ พักสายตา 0.8s (พรางพฤติกรรมมนุษย์)`, "#80cbc4");
+            updateStatusText(`☕ Micro-break 0.8s (human-like behaviour)`, "#80cbc4");
             betTimeoutId = setTimeout(executeNextBet, breakMs);
             return;
         }
@@ -2662,14 +2695,105 @@
         betTimeoutId = setTimeout(executeNextBet, totalDelay);
     }
 
+    // ==================================================
+    // 🧮 TRUSTED PROFIT (P0) — ความจริงเรื่องเงิน: เทียบกำไรจาก API (mem) กับกำไรจริงบนจอ (DOM)
+    // เหตุผล: รอบ 09:00:46 เจอ mem=+0.63 แต่ DOM=+0.09318 (ต่าง 0.54) → บอทคิดว่าถึงเป้าทั้งที่กำไรจริงยังไม่ถึง
+    // หลักการ: ใช้ค่าที่น้อยกว่าเป็นความจริง (conservative) และถ้าสองฝั่งต่างกันเกิน BALANCE_DRIFT_LIMIT → หยุดแบบ DESYNC
+    // ==================================================
+    const BALANCE_DRIFT_LIMIT = 0.05;
+    // 📡 HEARTBEAT (P2) — เขียนสถานะลง title ทุก ~20 ไม้ ให้ตรวจจากภายนอกได้ว่ากำลังเดิมพันจริง
+    function publishRunHeartbeat() {
+        if (!sessionRunning) return;
+        try {
+            const snap = computeSessionProfitSnapshot();
+            const pnlStr = Number(snap.trusted || 0).toFixed(5);
+            const d = new Date();
+            const p2 = function (n) { return String(n).padStart(2, "0"); };
+            const day = d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+            document.title = "STAKE_RUN|P=" + pnlStr + "|S=" + mStep + "|B=" + totalBets + "|D=" + day +
+                " :: " + (accountName || "Account") + " betting (step " + mStep + ", streak " + currentStreak + ")";
+        } catch (e) {}
+    }
+
+    function computeSessionProfitSnapshot() {
+        const memProfit = (typeof profit === "number" && !isNaN(profit)) ? profit : 0;
+        const domBal = getBalance();
+        const domProfit = (domBal !== null && startBalance !== null && startBalance > 0)
+            ? parseFloat((domBal - startBalance).toFixed(8))
+            : null;
+        const trusted = (domProfit === null) ? memProfit : Math.min(memProfit, domProfit);
+        const drift = (domProfit === null) ? 0 : Math.abs(memProfit - domProfit);
+        return { mem: memProfit, dom: domProfit, trusted: trusted, drift: drift };
+    }
+
+    // 🎯 ถึงเป้ากำไรจริงหรือยัง — ต้องผ่านทั้ง trusted profit และ DOM ถึงเป้า (ใช้ใน 2 เส้นทางวิกฤต)
+    // 🎯 เพดาน drift ที่ยอมรับได้ — ต้องไม่ต่ำกว่ายอดเดิมพันที่กำลังค้างอยู่
+    // เหตุผล: ตอนวางไม้แล้วแต่ผลยังไม่กลับ กระเป๋าถูกหักแล้วแต่ profit ยังไม่บวก → drift = ยอดไม้ (ไม่ใช่ desync จริง)
+    function driftLimitNow() {
+        // หน้าจอจะ "หักเงินทันทีที่กดเดิมพัน" แต่ profit จะอัปเดตตอนผลกลับ
+        // → ต่างกันได้เท่ายอดไม้ที่ค้าง/เพิ่งกด แม้ isBetInProgress จะกลับเป็น false แล้ว
+        const stake = Math.max(Number(lastBetAmount) || 0, Number(currentBetAmount) || 0);
+        return Math.max(BALANCE_DRIFT_LIMIT, stake * 1.5);
+    }
+
+    // 🖥️ ปรับยอดในระบบให้ตรงกับหน้าจอก่อนตัดสิน DESYNC (คืนค่า true ถ้าปรับแล้วตรง)
+    function reconcileWithScreen() {
+        try {
+            const domNow = getBalance();
+            if (domNow === null || !(domNow > 0)) return false;
+            const base = (apiSessionBaseline !== null) ? apiSessionBaseline : startBalance;
+            if (base === null || !(base > 0)) return false;
+            currentBalance = parseFloat(domNow.toFixed(8));
+            profit = parseFloat((currentBalance - base).toFixed(8));
+            domResyncs++;
+            log("🖥️ Reconciled with on-screen balance: " + formatNumber(currentBalance, 5) + "$ (profit " + formatNumber(profit, 5) + "$)", false);
+            return true;
+        } catch (e) { return false; }
+    }
+
+    function takeProfitReached() {
+        if (isBetInProgress) return false; // รอผลไม้ปัจจุบันก่อน
+        if (totalBets <= 0) return false;
+        const target = effectiveProfitTarget();
+        if (!(target > 0)) return false;
+        const snap = computeSessionProfitSnapshot();
+        // ตัวเลขสองฝั่งขัดกัน → ให้ handleTakeProfitHit() เป็นคนสั่งหยุดแบบ DESYNC
+        if (snap.drift > driftLimitNow()) return true;
+        const domOk = (snap.dom === null) ? true : (snap.dom >= (target - 0.000000001));
+        return (snap.trusted >= (target - 0.000000001)) && domOk;
+    }
+
     function handleTakeProfitHit() {
-        if (totalBets === 0) return; // 🛡️ GUARD: ห้ามจบ Take Profit หากยังไม่มีการแทงจริง (ป้องกัน False Exit)
+        if (totalBets === 0) return; // GUARD: ห้ามจบ Take Profit หากยังไม่มีการแทงจริง (ป้องกัน False Exit)
+
+        let snap = computeSessionProfitSnapshot();
+        const targetUsd = effectiveProfitTarget();
+
+        // 🛡️ BALANCE DRIFT GUARD: ตัวเลขสองฝั่งขัดกันเกินเกณฑ์
+        //    → ลองปรับยอดให้ตรงหน้าจอก่อน (DESYNC ปลอมจากการหักเงินล่วงหน้า/อ่านค่าค้าง)
+        //    → ถ้ายังไม่ตรงจริง ๆ จึงหยุดแบบ DESYNC (ไม่นับเป็น WIN)
+        if (snap.drift > driftLimitNow() && reconcileWithScreen()) {
+            snap = computeSessionProfitSnapshot();
+        }
+        // ✳️ v2.4.30: ไม่หยุดจาก DESYNC อีก — ปรับยอดให้ตรงหน้าจอแล้วเล่นต่อ
+        if (snap.drift > driftLimitNow()) {
+            reconcileWithScreen();
+            snap = computeSessionProfitSnapshot();
+            log(`🖥️ [DRIFT] model/screen gap ${formatNumber(snap.drift, 5)}$ — reconciled with on-screen balance, continuing (auto-stop removed)`, true);
+            // ถ้ายอดจริงยังไม่ถึงเป้า (drift เพิ่งถูกแก้) ให้เล่นต่อ ไม่ใช่บันทึกเป็น WIN
+            const tCheck = effectiveProfitTarget();
+            if (snap.trusted < (tCheck - 0.000000001) || (snap.dom !== null && snap.dom < (tCheck - 0.000000001))) {
+                return;
+            }
+        }
+
         completedRounds++;
-        lifetimeProfit += profit;
+        const bankedProfit = snap.trusted; // 🧮 ใช้กำไรจริงบนจอ (ไม่ใช่ยอดใน memory ที่อาจพอง)
+        lifetimeProfit += bankedProfit;
         flashHudAlert("#00e676");
 
-        const bankedProfit = profit;
-        log(`🎯 จบรอบที่ ${completedRounds}! กำไรในรอบนี้: +${formatNumber(bankedProfit)} USDT | สะสมรวมทุกรอบ: +${formatNumber(lifetimeProfit)} USDT`);
+        log(`🎯 Round ${completedRounds} done! Real profit this round: +${formatNumber(bankedProfit, 5)} USDT (target +${formatNumber(targetUsd, 5)}) | lifetime total: +${formatNumber(lifetimeProfit, 5)} USDT`);
+
 
         if (autoCycleRounds) {
             clearTimers();
@@ -2677,6 +2801,7 @@
 
             const freshBal = getBalance() || currentBalance;
             startBalance = freshBal;
+            apiSessionBaseline = null;
             currentBalance = freshBal;
             peakBalance = freshBal;
             profit = 0;
@@ -2685,11 +2810,11 @@
 
             applyBetSettings();
 
-            updateStatusText(`🚀 ชนะรอบ ${completedRounds}! ลุยต่อรอบที่ ${completedRounds + 1} ทันที`, "#00e676");
+            updateStatusText(`🚀 Round ${completedRounds} won! Starting round ${completedRounds + 1} now`, "#00e676");
             updateUI();
             betTimeoutId = setTimeout(executeNextBet, 0);
         } else {
-            stopSession(`🎯 ถึงเป้ากำไร: +${formatNumber(bankedProfit)} USDT (Hit & Run สำเร็จ!)`, "#00e676");
+            stopSession(`🎯 Take profit hit: real profit +${formatNumber(bankedProfit, 5)} USDT (target +${formatNumber(targetUsd, 5)} USDT) (Hit & Run complete!)`, "#00e676");
         }
     }
 
@@ -2714,7 +2839,7 @@
         setSafeStyle(el, "color", isPct ? "#55e7ff" : "#ffea00");
         setSafeStyle(el, "borderColor", isPct ? "#55e7ff" : "#ffea00");
         if (hudEls.targetLabel) {
-            setSafeText(hudEls.targetLabel, isPct ? "เป้ากำไร (%):" : "เป้ากำไร ($):");
+            setSafeText(hudEls.targetLabel, isPct ? "Profit target (%):" : "Profit target ($):");
         }
     }
 
@@ -2724,9 +2849,9 @@
         updateUI();
         if (configTargetMode === "pct") {
             const t = effectiveProfitTarget();
-            updateStatusText("🎯 เป้ากำไร = " + configProfitTarget + "% ของทุน" + (t > 0 ? " (≈ " + formatNumber(t, 4) + " USDT)" : " (รอ START เพื่อคิดจากทุนจริง)"), "#55e7ff");
+            updateStatusText("🎯 Target = " + configProfitTarget + "% of bankroll" + (t > 0 ? " (≈ " + formatNumber(t, 4) + " USDT)" : " (waiting for START to compute it from the real bankroll)"), "#55e7ff");
         } else {
-            updateStatusText("🎯 เป้ากำไร = " + configProfitTarget + " USDT (ยอดคงที่)", "#7f8b9b");
+            updateStatusText("🎯 Target = " + configProfitTarget + " USDT (fixed amount)", "#7f8b9b");
         }
     }
 
@@ -2734,8 +2859,7 @@
         if (!sessionRunning || isWaitingNextRound || isBetInProgress) return;
 
         // ตรวจสอบ Take Profit รวม (ต้องมีไม้เดิมพันจริงอย่างน้อย 1 ไม้ totalBets > 0)
-        const profitTargetLimit = effectiveProfitTarget();
-        if (totalBets > 0 && profitTargetLimit > 0 && profit >= (profitTargetLimit - 0.000000001)) {
+        if (takeProfitReached()) {
             handleTakeProfitHit();
             return;
         }
@@ -2771,11 +2895,11 @@
             // หาไม่ได้นานผิดปกติ → แจ้งตรง ๆ (ไม่หยุดเอง กันหยุดผิดตอนหน้าเว็บกำลังโหลด)
             if (domResolveFails >= 12) {
                 const health = probeDomHealth();
-                updateStatusText("⚠️ หาปุ่มเดิมพันไม่เจอ — " + (health.msg || "selector อาจเปลี่ยน (F5 หรือ STOP)"), "#ffa726");
+                updateStatusText("⚠️ Bet button not found — " + (health.msg || "selector may have changed (F5 or STOP)"), "#ffa726");
                 betTimeoutId = setTimeout(executeNextBet, 400);
                 return;
             }
-            updateStatusText("⚠️ รอเปิดปุ่มเดิมพัน...", "#ffa726");
+            updateStatusText("⚠️ Waiting for the bet button...", "#ffa726");
             betTimeoutId = setTimeout(executeNextBet, 150);
             return;
         }
@@ -2787,7 +2911,7 @@
                 openManualTab();
                 betRetryCount = 0;
             }
-            updateStatusText("⏳ รอเปิดปุ่มเดิมพัน...", "#ff9800");
+            updateStatusText("⏳ Waiting for the bet button...", "#ff9800");
             betTimeoutId = setTimeout(executeNextBet, 200);
             return;
         }
@@ -2798,7 +2922,7 @@
 
         // 🚦 กันยอดเกินเพดานสูงสุดที่เว็บประกาศไว้ (ถ้าอ่านได้)
         if (detectedMaxBet && currentBetAmount > detectedMaxBet) {
-            stopSession(`🛑 ยอดไม้ ${formatBetAmount(currentBetAmount)}$ เกินเพดานเว็บ ${formatBetAmount(detectedMaxBet)}$ — หยุดก่อนถูกปฏิเสธ`, "#ff5252");
+            stopSession(`🛑 Step amount ${formatBetAmount(currentBetAmount)}$ exceeds the site cap ${formatBetAmount(detectedMaxBet)}$ — stopping before rejection`, "#ff5252");
             return;
         }
 
@@ -2816,7 +2940,7 @@
                     return;
                 }
                 flashHudAlert("#ff3344");
-                stopSession("🚨 เงินในกระเป๋าไม่พอไม้ถัดไป!", "#ff3344");
+                stopSession("🚨 Insufficient balance for the next step!", "#ff3344");
                 return;
             }
         }
@@ -2827,10 +2951,10 @@
             if (amountRetryCount > 100) {
                 amountRetryCount = 0;
                 flashHudAlert("#ff3344");
-                stopSession("🚨 ตั้งยอดเดิมพันในช่องไม่สำเร็จ (ยืนยันค่าไม่ได้) หยุดเพื่อความปลอดภัย", "#ff3344");
+                stopSession("🚨 Failed to set bet amount (could not verify the value) — stopping for safety", "#ff3344");
                 return;
             }
-            updateStatusText("⏳ กำลังยืนยันยอดเดิมพันในช่อง...", "#ff9800");
+            updateStatusText("⏳ Verifying bet amount in the input...", "#ff9800");
             betTimeoutId = setTimeout(executeNextBet, 50);
             return;
         }
@@ -2920,7 +3044,7 @@
             // ⏱️ LATENCY WATCHDOG: ตรวจวัดความหน่วงของเซิร์ฟเวอร์ Stake
             const latency = Date.now() - startTime;
             if (latency > 3500) {
-                log(`⚠️ [LATENCY WATCHDOG] เซิร์ฟเวอร์หน่วง (${latency}ms) — ปรับจังหวะผ่อนปรนไม้ถัดไป`, true);
+                log(`⚠️ [LATENCY WATCHDOG] Server slow (${latency}ms) — easing the timing of the next step`, true);
                 adaptiveCalmingDelay = Math.min(800, Math.floor(latency * 0.15));
             } else {
                 adaptiveCalmingDelay = 0;
@@ -3059,7 +3183,7 @@
                     if (betBtnStalls >= 2) {
                         const rotated = rotateBetButton();
                         if (rotated) {
-                            domStrategyNote("ปุ่มเดิมพัน ← " + rotated);
+                            domStrategyNote("bet button ← " + rotated);
                             betBtnStalls = 0;
                         }
                     }
@@ -3101,6 +3225,11 @@
             }
             if (currentBalance === null && startBalance === null) {
                 startBalance = parseFloat((server - delta).toFixed(8));
+                apiSessionBaseline = startBalance;
+            }
+            // 🧮 API baseline: ตั้งครั้งแรกที่มี serverBal → profit ใช้ฐานเดียวกับ currentBalance (API)
+            if (apiSessionBaseline === null) {
+                apiSessionBaseline = parseFloat((server - delta).toFixed(8));
             }
             currentBalance = server;
             return;
@@ -3127,17 +3256,38 @@
 
         totalBets++;
         betTimestamps.push(Date.now());
+        if (totalBets % 20 === 0) publishRunHeartbeat();
         if (betTimestamps.length > 50) betTimestamps.shift();
         totalWagered = parseFloat((totalWagered + betAmount).toFixed(8));
         if (totalBets % 40 === 0) runPerformanceSelfHealing();
 
         applyBetBalance(delta, newBalance, serverBal);
+
+        // 🖥️ DOM TRUTH (v2.4.21) — ถ้า API ไม่ส่งยอดมา (serverBal ว่าง) ให้ยึดยอดบนหน้าจอเป็นความจริง
+        // หลักฐาน 2026-11-13 10:57: ab=NA, mem=-0.07939 vs dom=-0.00317 และ EV ทางคณิตศาสตร์ (-0.0057) ใกล้ dom
+        // → โมเดลสะสม delta คลาดเคลื่อน ~13.4% ของยอดที่ชนะ ทำให้ P/L ในระบบเพี้ยนจน DESYNC
+        if ((typeof serverBal !== "number" || !isFinite(serverBal)) && sessionRunning) {
+            try {
+                const domNow = getBalance();
+                if (domNow !== null && domNow > 0 && currentBalance !== null && Math.abs(domNow - currentBalance) > 1e-8) {
+                    const gap = Math.abs(domNow - currentBalance);
+                    const cap = Math.max(1, currentBalance * 0.2); // กันการอ่านค่าขยะ
+                    if (gap <= cap) {
+                        currentBalance = parseFloat(domNow.toFixed(8));
+                        domResyncs++;
+                        if (startBalance === null) startBalance = currentBalance;
+                    }
+                }
+            } catch (e) {}
+        }
+
         ledgerRecord({ step: ledgerStep, amount: betAmount, win: !!isWin, delta: delta, balance: currentBalance, source: (typeof serverBal === "number" ? "API" : "DOM") });
         // DESYNC สั่งหยุดไปแล้ว — ห้ามเอาข้อความ "ชนะ/แพ้" มาทับข้อความหยุด
         if (!sessionRunning) return;
 
         if (currentBalance !== null && startBalance !== null) {
-            profit = parseFloat((currentBalance - startBalance).toFixed(8));
+            const plBase = (apiSessionBaseline !== null) ? apiSessionBaseline : startBalance;
+            profit = parseFloat((currentBalance - plBase).toFixed(8));
         } else {
             profit = parseFloat((profit + delta).toFixed(8));
         }
@@ -3174,23 +3324,23 @@
                 mStep = 1;
 
                 BotMemory.saveState();
-                log(`🎯 [WIN ×${currentStreak}] ชนะติด ${currentStreak} → รีเซ็ตยอดกลับฐาน (จากไม้ ${wasStep} ➔ ไม้ 1) | +$${delta.toFixed(8)}`, true);
-                updateStatusText(`🎯 ชนะติด ${currentStreak}! รีเซ็ตกลับยอดฐาน (+${delta.toFixed(5)}$)`, "#00e676");
+                log(`🎯 [WIN ×${currentStreak}] ${currentStreak} wins in a row → amount reset to base (step ${wasStep} ➔ step 1) | +$${delta.toFixed(8)}`, true);
+                updateStatusText(`🎯 ${currentStreak} wins in a row! Reset to base amount (+${delta.toFixed(5)}$)`, "#00e676");
             } else {
                 BotMemory.saveState();
-                log(`🎯 [WIN] ชนะ +$${delta.toFixed(8)} | ชนะติด ${currentStreak}/${MARTINGALE_RESET_WINS} | อยู่ไม้ ${mStep}`, currentStreak >= 2 || totalBets % 50 === 0);
-                updateStatusText(`🎯 [WIN] +${delta.toFixed(5)}$ | ชนะติด ${currentStreak}/${MARTINGALE_RESET_WINS} | ไม้ ${mStep}`, "#00e676");
+                log(`🎯 [WIN] won +$${delta.toFixed(8)} | streak ${currentStreak}/${MARTINGALE_RESET_WINS} | at step ${mStep}`, currentStreak >= 2 || totalBets % 50 === 0);
+                updateStatusText(`🎯 [WIN] +${delta.toFixed(5)}$ | streak ${currentStreak}/${MARTINGALE_RESET_WINS} | step ${mStep}`, "#00e676");
             }
         } else {
             mStep++;
             if (configMaxMartingaleSteps > 0 && mStep > configMaxMartingaleSteps) {
-                log(`🛑 [GUARDRAIL CAP] ชนเพดานจำกัดไม้สูงสุด (${configMaxMartingaleSteps} ไม้) → รีเซ็ตกลับไม้ 1 เพื่อความปลอดภัย`, true);
+                log(`🛑 [GUARDRAIL CAP] Hit the max step cap (${configMaxMartingaleSteps} steps) → resetting to step 1 for safety`, true);
                 mStep = 1;
             }
             BotMemory.saveState();
             const nextAmt = calculateCurrentBetAmount();
-            log(`⚠️ [LOSS] แพ้ -$${Math.abs(delta).toFixed(8)} → ขยับเป็นไม้ ${mStep} (${nextAmt}$)`, true);
-            updateStatusText(`⚠️ [LOSS] -${formatNumber(Math.abs(delta), 5)}$ → ไม้ ${mStep} (${nextAmt}$)`, "#ffa726");
+            log(`⚠️ [LOSS] lost -$${Math.abs(delta).toFixed(8)} → moving to step ${mStep} (${nextAmt}$)`, true);
+            updateStatusText(`⚠️ [LOSS] -${formatNumber(Math.abs(delta), 5)}$ → step ${mStep} (${nextAmt}$)`, "#ffa726");
         }
 
         // 🔄 สลับฝั่งอัตโนมัติทุกตา (ถ้าเปิดใช้งาน)
@@ -3226,13 +3376,14 @@
             const domProfit = (domBal !== null && startBalance !== null)
                 ? parseFloat((domBal - startBalance).toFixed(8))
                 : memProfit;
-            const effectiveProfit = Math.max(memProfit, domProfit);
+            // 🧮 ใช้ค่าที่น้อยกว่า (conservative): ถ้า API พองขึ้น บอทจะไม่เข้าใจผิดว่ากำไรแล้วตัดจบ
+            const effectiveProfit = Math.min(memProfit, domProfit);
 
             // เงื่อนไขปิดล็อกกำไร & ความปลอดภัยทันที (Instant Exit):
             // ก) ยอดรวมเซสชันพลิกเป็นบวก (effectiveProfit >= 0)
             // ข) บอทกู้คืนสำเร็จ อยู่ที่ไม้ 1 และแทงชนะได้บวก (isWin && mStep === 1)
             // ค) ชนะติดกันครบ 3 ตา (currentStreak >= MARTINGALE_RESET_WINS) ซึ่งรีเซ็ตกลับไม้ 1 เรียบร้อย
-            const isProfitPositive = (effectiveProfit >= 0 || memProfit >= 0 || domProfit >= 0);
+            const isProfitPositive = (effectiveProfit >= 0);
             const isRecoveredSafe = (mStep === 1 && (isWin || currentStreak >= MARTINGALE_RESET_WINS));
 
             if (isProfitPositive || isRecoveredSafe) {
@@ -3240,24 +3391,23 @@
 
                 let exitReason = "";
                 if (isProfitPositive) {
-                    exitReason = `🎯 ครบเวลา เซสชันนี้บวก (+${formatNumber(effectiveProfit, 4)}$) — ล็อกกำไรทันที`;
-                    log(`🎯 [INSTANT PROFIT LOCK] ${exitReason} → สั่งหยุดทันที 0ms ไม่รอไม้ 1 และไม่รอชนะติด 3 ตา!`, true);
+                    exitReason = `🎯 Time limit hit and this session is positive (+${formatNumber(effectiveProfit, 4)}$) — locking profit now`;
+                    log(`🎯 [INSTANT PROFIT LOCK] ${exitReason} → stopping immediately, 0ms, no waiting for step 1 or a 3-win streak!`, true);
                 } else {
-                    exitReason = `🛡️ พยุงจบไม้ ชนะกลับไม้ 1 ปลอดภัย (P/L ${formatNumber(effectiveProfit, 4)}$) — ปิดล็อกความปลอดภัยทันที`;
-                    log(`🛡️ [SAFE RECOVERY EXIT] ${exitReason} (ไม้ ${mStep}, ชนะติด ${currentStreak}) ไม่เสี่ยงแทงต่อ!`, true);
+                    exitReason = `🛡️ Recovery finished with a win back at step 1 (P/L ${formatNumber(effectiveProfit, 4)}$) — safe exit locked immediately`;
+                    log(`🛡️ [SAFE RECOVERY EXIT] ${exitReason} (step ${mStep}, streak ${currentStreak}) — not risking more bets!`, true);
                 }
                 stopSession(exitReason, "#00e676");
                 return;
             } else {
                 publishRecoveryHold();
-                updateStatusText(`⏳ กำลังพยุงรอพลิกบวก (ฐาน ${FIXED_BASE_BET}$, P/L: ${formatNumber(effectiveProfit, 4)}$) — พลิกบวก/กลับไม้ 1 หยุดทันที! (ไม้ ${mStep})`, "#ffea00");
+                updateStatusText(`⏳ Holding for recovery (base ${FIXED_BASE_BET}$, P/L: ${formatNumber(effectiveProfit, 4)}$) — stops the moment it turns positive or returns to step 1! (step ${mStep})`, "#ffea00");
             }
         }
 
         // 🎯 INSTANT TAKE PROFIT CHECK (0ms):
         // ตรวจสอบเป้าหมายกำไรทันทีที่ผลเดิมพันเข้ามา โดยไม่ต้องรอ scheduleNextBet หรือติดค้างใน Humanizer delay!
-        const profitTargetLimit = effectiveProfitTarget();
-        if (totalBets > 0 && profitTargetLimit > 0 && profit >= (profitTargetLimit - 0.000000001)) {
+        if (takeProfitReached()) {
             handleTakeProfitHit();
             return;
         }
@@ -3334,15 +3484,15 @@
 
     function goToDicePage() {
         if (isOnDicePage()) {
-            updateStatusText("🎯 อยู่หน้า Stake Dice แล้ว", "#00e676");
+            updateStatusText("🎯 Already on the Stake Dice page", "#00e676");
             return;
         }
         const url = dicePageUrl();
-        updateStatusText("🎯 กำลังไปหน้า Dice... " + url, "#55e7ff");
+        updateStatusText("🎯 Navigating to the Dice page... " + url, "#55e7ff");
         try {
             window.location.href = url;
         } catch (e) {
-            updateStatusText("⚠️ เปลี่ยนหน้าไม่ได้: " + (e && e.message ? e.message : e), "#ff5252");
+            updateStatusText("⚠️ Cannot change page: " + (e && e.message ? e.message : e), "#ff5252");
         }
     }
 
@@ -3410,19 +3560,19 @@
                     else gears[i].click(); // ไม่ใช่เมนูที่ต้องการ ปิดกลับ
                 }
             }
-            if (!label) return "ไม่พบเมนู Instant Bet (สามารถกดเปิดที่เฟือง ⚙️ หน้าเว็บเองได้)";
+            if (!label) return "Instant Bet menu not found (you can enable it yourself with ⚙️ on the site)";
             const state = readToggleState(label);
             let result;
             if (!state) {
                 label.click();
-                result = "กดเปิด Instant Bet แล้ว ⚡";
+                result = "Instant Bet enabled ⚡";
             } else if (state.on) {
-                result = "Instant Bet เปิดอยู่แล้ว ⚡ (เร็วสูงสุด)";
+                result = "Instant Bet already on ⚡ (fastest)";
             } else {
                 state.el.click();
                 await sleep(150);
                 const after = readToggleState(label);
-                result = after && after.on ? "เปิด Instant Bet สำเร็จ ⚡" : "กดเปิด Instant Bet แล้ว ⚡";
+                result = after && after.on ? "Instant Bet enabled ⚡" : "Instant Bet enabled ⚡";
             }
             if (openedGear) {
                 openedGear.click(); // ปิดเมนูเฟือง
@@ -3430,7 +3580,7 @@
             }
             return result;
         } catch (e) {
-            return "ตรวจ Instant Bet ผิดพลาด";
+            return "Instant Bet check failed";
         }
     }
 
@@ -3440,7 +3590,7 @@
     const SESSION_TIME_OPTIONS = [20, 30, 15, 0]; // นาที · 0 = ปิด
     // 🩹 RECOVERY HOLD — ครบเวลาแล้วถ้ายัง "ขาดทุน" ห้ามปิดบัญชี ให้พยุงต่อจนกว่าจะชนะติด N ไม้
     // เหตุผล: การตัดจบตอนขาดทุน = ล็อกขาดทุนทิ้ง และทิ้งบันไดค้างไว้กลางทาง
-    const SESSION_RECOVERY_WINS = 3;            // สอดคล้องกับ Martingale +73.11% / ฐาน 68% (ต้องชนะติด 3 ไม้เพื่อรีเซ็ตกลับฐาน)
+    const SESSION_RECOVERY_WINS = 3;            // สอดคล้องกับ Martingale +73.12% / ฐาน 68% (ต้องชนะติด 3 ไม้เพื่อรีเซ็ตกลับฐาน)
     const SESSION_RECOVERY_MAX_EXTRA_MIN = 60;  // เพดานพยุงสูงสุด (นาที) กันเซสชันค้างข้ามวัน
     const SESSION_HOLD_REFRESH_MS = 5000;       // รีเฟรช title STAKE_HOLD ทุก 5 วิ (เว็บอาจเขียนทับ)
     let configSessionMaxMinutes = 20; // ค่าเริ่มต้น 20 นาที (ครบเวลาแล้วไม่ตัดทันที แต่รอให้แก้ไม้จบก่อน)
@@ -3493,19 +3643,19 @@
             // 🛑 ถ้าครบ 20 นาทีแล้ว ยอดเป็นบวก (ตรวจทั้ง Memory และ DOM) -> ปิดเซสชันพักทันที 0ms ล็อกกำไรเข้ากระเป๋า!
             if (curProfit >= 0 || memProfit >= 0 || domProfit >= 0) {
                 stopRecoveryHold();
-                log("🎯 [INSTANT PROFIT LOCK] ครบ " + configSessionMaxMinutes + " นาทีแล้ว ยอดเป็นบวก (+" + formatNumber(curProfit, 4) + "$) → สั่งหยุดทันที 0ms ล็อกกำไรเข้ากระเป๋า!", true);
-                stopSession("⏰ ครบเวลา " + configSessionMaxMinutes + " นาที ยอดบวก (+" + formatNumber(curProfit, 4) + "$) — ล็อกกำไรทันที", "#00e676");
+                log("🎯 [INSTANT PROFIT LOCK] reached " + configSessionMaxMinutes + " minutes and the balance is positive (+" + formatNumber(curProfit, 4) + "$) → stopping immediately, 0ms, profit locked in!", true);
+                stopSession("⏰ Time limit of " + configSessionMaxMinutes + " minutes reached, balance positive (+" + formatNumber(curProfit, 4) + "$) — locking profit now", "#00e676");
                 return;
             }
 
             if (curProfit < 0) {
-                log("⏳ [HOLD FOR PROFIT] ครบ " + configSessionMaxMinutes + " นาทีแต่ยังขาดทุน (" + formatNumber(curProfit, 4) + "$) → พยุงเล่นต่อด้วยยอดฐานคงที่ " + FIXED_BASE_BET + "$ ไม่เร่งยอด เมื่อยอดพลิกบวกหยุดทันที 0ms!", true);
+                log("⏳ [HOLD FOR PROFIT] reached " + configSessionMaxMinutes + " minutes but still negative (" + formatNumber(curProfit, 4) + "$) → holding with the fixed base " + FIXED_BASE_BET + "$ (no raise); stops instantly once it turns positive, 0ms!", true);
             }
             enterRecoveryHold(configSessionMaxMinutes);
         }, remainMs);
     }
 
-    // 🩹 RECOVERY HOLD — ครบเวลาแล้วถ้ายังขาดทุน: พยุงเล่นต่อด้วยฐาน 0.0002$ คงที่ เมื่อยอดพลิกบวกหยุดทันที 0ms
+    // 🩹 RECOVERY HOLD — ครบเวลาแล้วถ้ายังขาดทุน: พยุงเล่นต่อด้วยฐาน 0.00015$ คงที่ เมื่อยอดพลิกบวกหยุดทันที 0ms
     function enterRecoveryHold(minutes) {
         sessionRecoveryActive = true;
         sessionRecoveryStreak = 0;
@@ -3533,8 +3683,8 @@
             const pnl = (endBal !== null && startBalance !== null) ? (endBal - startBalance) : profit;
             let pnlStr = "0.00000";
             try { pnlStr = Number(pnl || 0).toFixed(5); } catch (e) { pnlStr = "0.00000"; }
-            const holdTag = " [⏳พยุง " + FIXED_BASE_BET + "$ · " + getEffectiveChance() + "%]";
-            const human = (accountName || "Account") + holdTag + " (P/L " + formatNumber(pnl, 4) + "$, ไม้ " + mStep + ", ชนะติด " + currentStreak + "/" + MARTINGALE_RESET_WINS + ")";
+            const holdTag = " [⏳ hold " + FIXED_BASE_BET + "$ · " + getEffectiveChance() + "%]";
+            const human = (accountName || "Account") + holdTag + " (P/L " + formatNumber(pnl, 4) + "$, step " + mStep + ", streak " + currentStreak + "/" + MARTINGALE_RESET_WINS + ")";
             document.title = "STAKE_HOLD|P=" + pnlStr + "|W=" + currentStreak + "|S=" + mStep + " :: " + human;
         } catch (e) {}
     }
@@ -3550,7 +3700,7 @@
         const i = SESSION_TIME_OPTIONS.indexOf(configSessionMaxMinutes);
         configSessionMaxMinutes = SESSION_TIME_OPTIONS[(i + 1) % SESSION_TIME_OPTIONS.length];
         syncSessionTimeBadge();
-        updateStatusText(configSessionMaxMinutes ? "⏱️ จบเซสชันอัตโนมัติเมื่อครบ " + configSessionMaxMinutes + " นาที" : "⏱️ ปิดการจบตามเวลา", configSessionMaxMinutes ? "#ffea00" : "#7f8b9b");
+        updateStatusText(configSessionMaxMinutes ? "⏱️ Session auto-ended after " + configSessionMaxMinutes + " minutes" : "⏱️ Time-based exit off", configSessionMaxMinutes ? "#ffea00" : "#7f8b9b");
     }
 
     function buildSessionSummary(durMs, reason) {
@@ -3575,10 +3725,10 @@
     }
 
     function copySummaryToClipboard() {
-        const row = lastSessionSummary || buildSessionSummary(sessionStartedAt ? (Date.now() - sessionStartedAt) : 0, "กำลังเล่น");
+        const row = lastSessionSummary || buildSessionSummary(sessionStartedAt ? (Date.now() - sessionStartedAt) : 0, "Running");
         const payload = LEDGER_HEADER + "\n" + row;
-        const done = function () { updateStatusText("📋 คัดลอกสรุปแล้ว — วางใน Google Sheets ได้เลย", "#00e676"); };
-        const fail = function (e) { updateStatusText("⚠️ คัดลอกไม่ได้: " + (e && e.message ? e.message : e), "#ff5252"); };
+        const done = function () { updateStatusText("📋 Summary copied — paste it into Google Sheets", "#00e676"); };
+        const fail = function (e) { updateStatusText("⚠️ Copy failed: " + (e && e.message ? e.message : e), "#ff5252"); };
         try {
             const r = navigator.clipboard && navigator.clipboard.writeText(payload);
             if (r && typeof r.then === "function") r.then(done).catch(fail);
@@ -3593,7 +3743,7 @@
             if (isWaitingNextRound) {
                 clearTimers();
                 isWaitingNextRound = false;
-                updateStatusText("🚀 ข้ามช่วงพัก ลุยต่อทันที!", "#00e676");
+                updateStatusText("🚀 Break skipped, continuing now!", "#00e676");
                 updateUI();
                 executeNextBet();
             }
@@ -3604,17 +3754,18 @@
 
         const bal = getBalance();
         if (bal === null) {
-            updateStatusText("รอโหลด Balance ก่อนเริ่ม", "#ff5252");
+            updateStatusText("Waiting for Balance to load before starting", "#ff5252");
             return;
         }
 
         if (peerIsRunning()) {
-            updateStatusText("🔒 อีกแท็บกำลังเดิมพันอยู่ — ปิดแท็บนั้นก่อน", "#ff5252");
-            log("🔒 MULTI-TAB: พบแท็บอื่นกำลังเดิมพัน (id " + (peerRunning ? peerRunning.id : "?") + ") — ไม่เริ่มซ้ำ", true);
+            updateStatusText("🔒 Another tab is betting — close it first", "#ff5252");
+            log("🔒 MULTI-TAB: another tab is betting (id " + (peerRunning ? peerRunning.id : "?") + ") — not starting again", true);
             return;
         }
 
         startBalance = bal;
+        apiSessionBaseline = null; // จะถูกตั้งใหม่เมื่อได้ serverBal ตัวแรก
         currentBalance = bal;
         peakBalance = bal;
         DailyStats.load(); // โหลดสถิติสะสมของวันนี้จาก storage
@@ -3631,6 +3782,7 @@
         successfulSnipes = 0;
         cutLossSnipes = 0;
         desyncStrikes = 0;
+        domResyncs = 0;
         lastBetAmount = 0;
         lastDesync = { dom: null, model: null, diff: 0, tol: 0, source: "" };
         resyncCount = 0;
@@ -3666,11 +3818,11 @@
 
         if (configDynamicTarget) {
             configProfitTarget = generateDynamicTarget(bal);
-            log(`🎯 [DYNAMIC TARGET] สุ่มเป้าหมายกำไรในรอบนี้: +${configProfitTarget} USDT (พรางพฤติกรรม & เซฟพอร์ต)`, true);
+            log(`🎯 [DYNAMIC TARGET] Random profit target for this round: +${configProfitTarget} USDT (behaviour masking & bankroll safety)`, true);
         }
         const baseAmt = getBaseBet();
-        log(`🚀 เริ่มต้นเซสชัน (Martingale +${MARTINGALE_PCT}%): ทุน ${formatNumber(bal, 4)} USDT | ยอดฐาน ${baseAmt}$ | รีเซ็ตเมื่อชนะติด ${MARTINGALE_RESET_WINS}`, true);
-        updateStatusText(`🚀 สตาร์ทแล้ว! ยอดฐาน ${baseAmt}$ (เป้า +${configProfitTarget}$)`, "#00e676");
+        log(`🚀 Session start (Martingale +${MARTINGALE_PCT}%): bankroll ${formatNumber(bal, 4)} USDT | base ${baseAmt}$ | reset after ${MARTINGALE_RESET_WINS} wins`, true);
+        updateStatusText(`🚀 Started! Base ${baseAmt}$ (target +${configProfitTarget}$)`, "#00e676");
         updateUI();
 
         // 🔽 AUTO-MINIMIZE: ยุบหน้าจอ HUD เป็น Compact Mini Bar อัตโนมัติเมื่อเริ่มเล่น
@@ -3686,19 +3838,25 @@
     // 🧾 STOP CODE — รหัสสาเหตุแบบเครื่องอ่านได้ (ส่งต่อให้ rotate-accounts.ps1)
     // ทำไมต้องมี: title เดิมเป็นข้อความไทยล้วน -> PowerShell แยก "จบเพราะอะไร" ไม่ได้
     // หลักการ: อ่านจากข้อความ reason ที่มีอยู่แล้ว (ไม่ต้องแก้ call site ทั้ง 15 จุด)
+    // Map a stop message -> machine code. Case-insensitive, English first, Thai legacy words kept as fallback.
     function deriveStopCode(rStr) {
-        const s = String(rStr || "");
-        if (s.indexOf("เป้ากำไร") >= 0) return "WIN";
-        if (s.indexOf("เพดานเว็บ") >= 0) return "BET_CAP";
-        if (s.indexOf("แพ้ครบ") >= 0) return "LADDER_EXHAUSTED";
-        if (s.indexOf("เพดานไม้") >= 0) return "MAX_STEPS";
-        if (s.indexOf("DESYNC") >= 0) return "DESYNC";
-        if (s.indexOf("อีกแท็บ") >= 0) return "TAB_CONFLICT";
-        if (s.indexOf("ครบเวลา") >= 0) return "TIME";
-        if (s.indexOf("กู้คืน") >= 0) return "TIME";
-        if (s.indexOf("เงินในกระเป๋าไม่พอ") >= 0) return "NO_FUNDS";
-        if (s.indexOf("ตั้งยอดเดิมพัน") >= 0) return "BET_FAIL";
-        if (s.indexOf("ปุ่ม ESC") >= 0 || s.indexOf("ผู้ใช้สั่งหยุด") >= 0) return "MANUAL";
+        const low = String(rStr || "").toLowerCase();
+        const has = function () {
+            for (let i = 0; i < arguments.length; i++) {
+                if (low.indexOf(String(arguments[i]).toLowerCase()) >= 0) return true;
+            }
+            return false;
+        };
+        if (has("desync")) return "DESYNC";
+        if (has("take profit", "target reached")) return "WIN";
+        if (has("site cap", "web max bet")) return "BET_CAP";
+        if (has("ladder")) return "LADDER_EXHAUSTED";
+        if (has("max step")) return "MAX_STEPS";
+        if (has("another tab", "multi-tab")) return "TAB_CONFLICT";
+        if (has("time limit", "recovery")) return "TIME";
+        if (has("insufficient", "no funds")) return "NO_FUNDS";
+        if (has("failed to set bet")) return "BET_FAIL";
+        if (has("user stop", "esc")) return "MANUAL";
         return "OTHER";
     }
 
@@ -3723,7 +3881,14 @@
         const human = (accountName || "Account") + " (" + String(rStr || "").split("|").join("/").slice(0, 35) + ")";
         let pnlStr = "0.00000";
         try { pnlStr = Number(pnl || 0).toFixed(5); } catch (e) { pnlStr = "0.00000"; }
-        return "STAKE_DONE|R=" + code + "|P=" + pnlStr + "|S=" + step + "|D=" + day + " :: " + human;
+        const memStr = (typeof memProfit === "number" && !isNaN(memProfit)) ? Number(memProfit).toFixed(5) : "0.00000";
+        const domStr = (domProfit !== null) ? Number(domProfit).toFixed(5) : "NA";
+        const startStr = (startBalance !== null && !isNaN(startBalance)) ? Number(startBalance).toFixed(5) : "NA";
+        const srcTag = String(lastBalanceSelector || "?").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 26);
+        const abStr = (typeof apiSessionBaseline === "number" && isFinite(apiSessionBaseline)) ? Number(apiSessionBaseline).toFixed(5) : "NA";
+        const dbg = " [mem=" + memStr + " dom=" + domStr + " s=" + startStr + " ab=" + abStr + " src=" + srcTag +
+            " W=" + winsCount + " L=" + lossesCount + " wag=" + Number(totalWagered || 0).toFixed(4) + " dr=" + domResyncs + "]";
+        return "STAKE_DONE|R=" + code + "|P=" + pnlStr + "|S=" + step + "|D=" + day + " :: " + human + dbg;
     }
 
     function stopSession(reason, statusColor = "#b1bad3") {
@@ -3760,18 +3925,18 @@
 
         // 🧹 สั่งรวบยอด Teardown คืนทรัพยากรทั้งหมด (Timers, Audio, WakeLock, Listeners)
         teardownSessionResources();
-        log("🛑 หยุดการทำงาน: " + (reason || "คำสั่งผู้ใช้"));
-        updateStatusText(reason || "หยุดเซสชันแล้ว", statusColor);
+        log("🛑 Stopped: " + (reason || "user command"));
+        updateStatusText(reason || "session stopped", statusColor);
         updateUI();
 
         // 🔄 AUTO-CLOSE TAB & ROTATE ACCOUNT:
         // เมื่อจบรอบสำเร็จ (ถึงเป้ากำไร, ตัดขาดทุนตามแผน, ครบเวลา, หรือเงื่อนไขหยุดใดๆ) ให้ส่งสัญญาณและสั่งปิดแท็บอัตโนมัติ
         const rStr = String(reason || "");
-        const isManualUserStop = rStr.includes("ผู้ใช้สั่งหยุด") || rStr.includes("ปุ่ม ESC");
+        const isManualUserStop = /(user stop|esc)/i.test(rStr);
         const shouldAutoClose = !isManualUserStop;
 
         if (shouldAutoClose) {
-            log("🚀 [AUTO-ROTATE] จบเซสชันแล้ว (" + rStr + ") — สั่งปิดหน้าต่างและสลับบัญชีอัตโนมัติ...", true);
+            log("🚀 [AUTO-ROTATE] Session finished (" + rStr + ") — closing the window and rotating to the next account automatically...", true);
             try {
                 document.title = buildDoneTitle(rStr);
             } catch (e) {}
@@ -3929,16 +4094,16 @@
                 "🩺 DD " + formatNumber(maxDrawdown, 4) + "$ · Waged " + formatNumber(totalWagered, 2) + "$ · Peak " + formatNumber(peakBalance === null ? 0 : peakBalance, 2) +
                 " · Gaps " + ledgerGaps + " · Drift " + domDriftCount + " · Resync " + resyncCount + " · Sync " + cleanSyncStreak + " · Cut " + cutLossSnipes);
         }
-        if (paramStep) setSafeText(paramStep, `⚙️ พารามิเตอร์ Martingale:`);
-        if (safetyStep) setSafeText(safetyStep, `ไม้ ${mStep} = ${formatBetAmount(calculateCurrentBetAmount())}$`);
-        if (safetyStop) setSafeText(safetyStop, `ไม่จำกัดไม้`);
+        if (paramStep) setSafeText(paramStep, `⚙️ Martingale parameters:`);
+        if (safetyStep) setSafeText(safetyStep, `step ${mStep} = ${formatBetAmount(calculateCurrentBetAmount())}$`);
+        if (safetyStop) setSafeText(safetyStop, `unlimited steps`);
         if (hudEls.toggleAltBtn) {
             if (configAlternateRoll) {
-                setSafeText(hudEls.toggleAltBtn, `เปิด (ON) · ${currentRollSide.toUpperCase()}`);
+                setSafeText(hudEls.toggleAltBtn, `ON · ${currentRollSide.toUpperCase()}`);
                 hudEls.toggleAltBtn.style.color = "#00e676";
                 hudEls.toggleAltBtn.style.borderColor = "#00e676";
             } else {
-                setSafeText(hudEls.toggleAltBtn, "ปิด (OFF)");
+                setSafeText(hudEls.toggleAltBtn, "OFF");
                 hudEls.toggleAltBtn.style.color = "#8596a5";
                 hudEls.toggleAltBtn.style.borderColor = "#2f4553";
             }
@@ -3947,19 +4112,19 @@
         if (resyncBtn) {
             setSafeText(resyncBtn, configAutoResync
                 ? `↔️ AUTO-RESYNC: ON (${resyncCount}/${RESYNC_LIMIT})`
-                : "↔️ AUTO-RESYNC: OFF (หยุดเมื่อยอดเพี้ยน)");
+                : "↔️ AUTO-RESYNC: OFF (stop when the balance drifts)");
             setSafeStyle(resyncBtn, "color", configAutoResync ? "#00e676" : "#ffa726");
             setSafeStyle(resyncBtn, "borderColor", configAutoResync ? "#00e676" : "#ffa726");
         }
 
         if (cycleBadge) {
-            setSafeText(cycleBadge, autoCycleRounds ? "🔁 วน: ON" : "⏹️ วน: OFF");
+            setSafeText(cycleBadge, autoCycleRounds ? "🔁 Loop: ON" : "⏹️ Loop: OFF");
             setSafeStyle(cycleBadge, "color", autoCycleRounds ? "#ffea00" : "#7f8b9b");
             setSafeStyle(cycleBadge, "borderColor", autoCycleRounds ? "#ffea00" : "#2f4553");
         }
 
         if (cycleBtn) {
-            setSafeText(cycleBtn, autoCycleRounds ? "🔁 ลูปรอบ: ON" : "⏹️ ลูป: OFF");
+            setSafeText(cycleBtn, autoCycleRounds ? "🔁 Auto rounds: ON" : "⏹️ Rounds: OFF");
             setSafeStyle(cycleBtn, "color", autoCycleRounds ? "#ffea00" : "#7f8b9b");
             setSafeStyle(cycleBtn, "borderColor", autoCycleRounds ? "#ffea00" : "#2f4553");
         }
@@ -3969,12 +4134,12 @@
 
         if (modeBadge) {
             if (sessionTimeExpired || sessionRecoveryActive) {
-                setSafeText(modeBadge, `⏳ ไม้ ${mStep}: ${amt}$ (พยุงจนบวก ${getEffectiveChance()}%)`);
+                setSafeText(modeBadge, `⏳ Step ${mStep}: ${amt}$ (holding until positive, ${getEffectiveChance()}%)`);
                 setSafeStyle(modeBadge, "background", "#3d2200");
                 setSafeStyle(modeBadge, "color", "#ffea00");
 
             } else {
-                setSafeText(modeBadge, `🎯 ไม้ ${mStep}: ${amt}$ (${getEffectiveChance()}%)`);
+                setSafeText(modeBadge, `🎯 Step ${mStep}: ${amt}$ (${getEffectiveChance()}%)`);
                 setSafeStyle(modeBadge, "background", "#013e00");
                 setSafeStyle(modeBadge, "color", "#00e676");
             }
@@ -3986,7 +4151,7 @@
         }
 
         if (miniStep) {
-            setSafeText(miniStep, `ไม้ ${mStep} (${amt}$)`);
+            setSafeText(miniStep, `step ${mStep} (${amt}$)`);
         }
 
         // อัปเดตข้อมูลเรดาร์สถิติและความน่าจะเป็น
@@ -3995,9 +4160,9 @@
             if (totalRollsSample > 0) {
                 const uPct = Math.round((statsUnderCount / totalRollsSample) * 100);
                 const oPct = 100 - uPct;
-                setSafeText(hudEls.radarRatioEl, `ต่ำ ${uPct}% | สูง ${oPct}% (${totalRollsSample} ตา)`);
+                setSafeText(hudEls.radarRatioEl, `Low ${uPct}% | High ${oPct}% (${totalRollsSample} rolls)`);
             } else {
-                setSafeText(hudEls.radarRatioEl, `ต่ำ 50% | สูง 50%`);
+                setSafeText(hudEls.radarRatioEl, `Low 50% | High 50%`);
             }
         }
 
@@ -4012,20 +4177,20 @@
             if (totalRollsSample >= 20) {
                 const uPct = Math.round((statsUnderCount / totalRollsSample) * 100);
                 if (uPct >= 72 || uPct <= 28) {
-                    setSafeText(hudEls.radarAnomalyEl, `⚠️ กราฟเอียงหนัก (${uPct >= 72 ? 'ต่ำรัว' : 'สูงรัว'})`);
+                    setSafeText(hudEls.radarAnomalyEl, `⚠️ Strong skew (${uPct >= 72 ? 'low streak' : 'high streak'})`);
                     setSafeStyle(hudEls.radarAnomalyEl, "color", "#ff5252");
                     setSafeStyle(hudEls.radarAnomalyEl, "background", "#3a1010");
                 } else if (uPct >= 62 || uPct <= 38) {
-                    setSafeText(hudEls.radarAnomalyEl, `⚡ กราฟเริ่มเบี่ยง`);
+                    setSafeText(hudEls.radarAnomalyEl, `⚡ Chart starting to drift`);
                     setSafeStyle(hudEls.radarAnomalyEl, "color", "#ffa726");
                     setSafeStyle(hudEls.radarAnomalyEl, "background", "#2a2010");
                 } else {
-                    setSafeText(hudEls.radarAnomalyEl, `กราฟปกติ`);
+                    setSafeText(hudEls.radarAnomalyEl, `Chart normal`);
                     setSafeStyle(hudEls.radarAnomalyEl, "color", "#7f8b9b");
                     setSafeStyle(hudEls.radarAnomalyEl, "background", "#1a242d");
                 }
             } else {
-                setSafeText(hudEls.radarAnomalyEl, `กำลังเก็บสถิติ`);
+                setSafeText(hudEls.radarAnomalyEl, `Collecting stats`);
                 setSafeStyle(hudEls.radarAnomalyEl, "color", "#7f8b9b");
                 setSafeStyle(hudEls.radarAnomalyEl, "background", "#1a242d");
             }
@@ -4045,12 +4210,12 @@
         }
 
         if (snipesCountEl) {
-            setSafeText(snipesCountEl, `🎯 ยิงเข้าเป้า: ${successfulSnipes} ครั้ง`);
+            setSafeText(snipesCountEl, `🎯 Snipes hit: ${successfulSnipes} times`);
         }
 
         if (winrateEl) {
             const wr = totalBets > 0 ? ((winsCount / totalBets) * 100).toFixed(1) : "0.0";
-            setSafeText(winrateEl, `${wr}% (${winsCount}W / ${lossesCount}L - รวม ${totalBets})${getBetRateText()}`);
+            setSafeText(winrateEl, `${wr}% (${winsCount}W / ${lossesCount}L - ${totalBets} total)${getBetRateText()}`);
         }
 
         if (theoryEl) {
@@ -4058,26 +4223,26 @@
             const expectedEv = -0.01 * totalWagered; // RTP 99% → ขาดทุนคาดหวัง 1% ของยอดที่วาง
             const targetChance = parseFloat(configChance) || 68;
             const limitText = detectedMinBet !== null || detectedMaxBet !== null
-                ? ` | เว็บ: ขั้นต่ำ ${formatBetAmount(detectedMinBet || AUTO_MIN_BET)}$${detectedMaxBet ? " สูงสุด " + formatBetAmount(detectedMaxBet) + "$" : ""}`
-                : ` | ขั้นต่ำ ${formatBetAmount(AUTO_MIN_BET)}$ (default)`;
+                ? ` | Site: min ${formatBetAmount(detectedMinBet || AUTO_MIN_BET)}$${detectedMaxBet ? " max " + formatBetAmount(detectedMaxBet) + "$" : ""}`
+                : ` | min ${formatBetAmount(AUTO_MIN_BET)}$ (default)`;
             // ถ้ามี strike ค้างอยู่ ให้แปรผลต่างลงบรรทัดนี้ด้วย (สถานะอาจถูกข้อความอื่นทับไปแล้ว)
             const desyncText = desyncStrikes > 0 && lastDesync.dom !== null
-                ? ` | ⚠️ ยอดจริง ${formatNumber(lastDesync.dom, 6)} vs คำนวณ ${formatNumber(lastDesync.model, 6)} (ต่าง ${(lastDesync.diff >= 0 ? "+" : "−") + formatNumber(Math.abs(lastDesync.diff), 6)}) [${lastDesync.source || "?"}]`
+                ? ` | ⚠️ real ${formatNumber(lastDesync.dom, 6)} vs model ${formatNumber(lastDesync.model, 6)} (diff ${(lastDesync.diff >= 0 ? "+" : "−") + formatNumber(Math.abs(lastDesync.diff), 6)}) [${lastDesync.source || "?"}]`
                 : "";
             setSafeText(theoryEl,
-                `📊 จริง ${realWr.toFixed(1)}% vs ทฤษฎี ${targetChance.toFixed(0)}% | EV คาด ${expectedEv <= 0 ? "−" : "+"}${formatNumber(Math.abs(expectedEv), 6)} (วาง ${formatNumber(totalWagered, 5)}$) | แพ้ +${MARTINGALE_PCT}%/ไม้ รีเซ็ตที่ชนะติด ${MARTINGALE_RESET_WINS}${limitText}${desyncText}`);
+                `📊 Real ${realWr.toFixed(1)}% vs theory ${targetChance.toFixed(0)}% | expected EV ${expectedEv <= 0 ? "−" : "+"}${formatNumber(Math.abs(expectedEv), 6)} (wagered ${formatNumber(totalWagered, 5)}$) | loss step +${MARTINGALE_PCT}% · reset at ${MARTINGALE_RESET_WINS} wins${limitText}${desyncText}`);
             setSafeStyle(theoryEl, "color", desyncStrikes > 0 ? "#ffa726" : "#8596a5");
         }
 
         if (rngEl) {
             const audit = runRngAudit();
             if (!audit) {
-                setSafeText(rngEl, `🧪 RNG: เก็บผลแล้ว ${rngRolls.length}/${200} ลูก`);
+                setSafeText(rngEl, `🧪 RNG: ${rngRolls.length}/200 results collected`);
                 setSafeStyle(rngEl, "color", "#8596a5");
             } else {
                 const ok = audit.failed.length === 0;
                 setSafeText(rngEl,
-                    `🧪 RNG n=${audit.n} · ผ่าน ${audit.pass}/${audit.total} · min p=${audit.worst.toFixed(3)}${ok ? " ✓" : " ⚠ " + audit.failed.join(",")}${audit.pending > 0 ? ` · ⏳${audit.pending}` : ""}`);
+                    `🧪 RNG n=${audit.n} · pass ${audit.pass}/${audit.total} · min p=${audit.worst.toFixed(3)}${ok ? " ✓" : " ⚠ " + audit.failed.join(",")}${audit.pending > 0 ? ` · ⏳${audit.pending}` : ""}`);
                 setSafeStyle(rngEl, "color", ok ? "#55e7ff" : "#ffa726");
             }
         }
@@ -4152,26 +4317,26 @@
             <div id="sniperDragHeader" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #2f4553; padding-bottom:6px; cursor:move;">
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span id="sniperTitleStep" style="font-weight:bold; font-size:13px; color:#00e676;">🎯 MARTINGALE 68%</span>
-                    <span style="font-size:9px; color:#7f8b9b;" title="รุ่นของโค้ด — ใช้ตรวจว่าติดตั้งไฟล์ล่าสุดหรือยัง">${BUILD_STAMP}</span>
-                    <button id="sniperMinimizeBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#00e676; font-size:10px; padding:1px 5px; cursor:pointer;" title="ย่อ/ขยายหน้าจอเพื่อประหยัดพลังงาน">${isPanelMinimized ? "🔼" : "🔽"}</button>
-                    <button id="sniperReloadBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#55e7ff; font-size:10px; padding:1px 5px; cursor:pointer;" title="🔄 รีเฟรชหน้าเว็บ (F5) ทันทีเพื่อล้างแคชและรีเซ็ตหน่วยความจำ">🔄</button>
-                    <button id="sniperResetHistoryBtn" style="background:#0f1923; border:1px solid #ff5252; border-radius:4px; color:#ff5252; font-size:10px; padding:1px 5px; cursor:pointer;" title="🧹 ล้างประวัติทั้งหมด 100% เริ่มใหม่เหมือนเพิ่งติดตั้งบอท">🧹</button>
-                    <button id="sniperAdvBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#ffea00; font-size:10px; padding:1px 5px; cursor:pointer;" title="ซ่อน/แสดงเครื่องมือเพิ่มเติม (SELF-TEST · RESYNC · เริ่มไม้ · เรดาร์ · สถิติ · RNG · Integrity)">🧰</button>
+                    <span style="font-size:9px; color:#7f8b9b;" title="Build of the code — use it to check that the latest file is installed">${BUILD_STAMP}</span>
+                    <button id="sniperMinimizeBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#00e676; font-size:10px; padding:1px 5px; cursor:pointer;" title="Collapse/expand the panel to save power">${isPanelMinimized ? "🔼" : "🔽"}</button>
+                    <button id="sniperReloadBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#55e7ff; font-size:10px; padding:1px 5px; cursor:pointer;" title="🔄 Refresh the page (F5) now to clear cache and reset memory">🔄</button>
+                    <button id="sniperResetHistoryBtn" style="background:#0f1923; border:1px solid #ff5252; border-radius:4px; color:#ff5252; font-size:10px; padding:1px 5px; cursor:pointer;" title="🧹 Clear all history 100% — start fresh like a new install">🧹</button>
+                    <button id="sniperAdvBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#ffea00; font-size:10px; padding:1px 5px; cursor:pointer;" title="Hide/show extra tools (SELF-TEST · RESYNC · start step · radar · stats · RNG · Integrity)">🧰</button>
                 </div>
                 <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                    <span id="sniperAcctBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer; max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="ยังจับชื่อบัญชีไม่ได้ — กดเพื่อตั้งชื่อเอง">👤 ?</span>
-                    <button id="sniperCycleBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="ลูปรอบ — ON = ถึงเป้ากำไรแล้วเริ่มรอบใหม่ทันที / OFF = หยุดเมื่อถึงเป้า (กดเพื่อสลับ)">🔁 ON</button>
+                    <span id="sniperAcctBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer; max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="Account name not detected yet — click to set it manually">👤 ?</span>
+                    <button id="sniperCycleBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="Auto rounds — ON = start a new round as soon as the target is hit / OFF = stop at target (click to toggle)">🔁 ON</button>
                 </div>
             </div>
 
             <!-- COMPACT MINI BAR (แสดงเมื่อกดย่อหน้าต่างเพื่อประหยัดพลังงานจอ) -->
             <div id="sniperMiniBar" style="display:${isPanelMinimized ? 'flex' : 'none'}; align-items:center; justify-content:space-between; font-size:11px; margin-top:2px;">
                 <div>
-                    <span id="sniperMiniStep" style="font-weight:bold; color:#00e676;">ไม้ 1 (0.0002$)</span>
+                    <span id="sniperMiniStep" style="font-weight:bold; color:#00e676;">Step 1 (0.00015$)</span>
                     <span id="sniperMiniProfit" style="margin-left:8px; font-weight:bold; color:#00e676;">+0.0000$</span>
                 </div>
                 <div style="display:flex; gap:4px;">
-                    <button id="sniperMiniReloadBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#55e7ff; font-size:10px; padding:2px 5px; cursor:pointer;" title="🔄 รีเฟรชหน้าเว็บ">🔄</button>
+                    <button id="sniperMiniReloadBtn" style="background:#0f1923; border:1px solid #2f4553; border-radius:4px; color:#55e7ff; font-size:10px; padding:2px 5px; cursor:pointer;" title="🔄 Refresh page">🔄</button>
                     <button id="sniperMiniStartBtn" style="background:#00e701; color:#013e00; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:10px; cursor:pointer;">START</button>
                     <button id="sniperMiniStopBtn" style="background:#ed4245; color:#fff; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:10px; cursor:pointer;">STOP</button>
                 </div>
@@ -4183,35 +4348,35 @@
                 <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
                     <span id="sniperEcoBadge" style="font-size:9px; background:#0f1923; border:1px solid #2f4553; padding:1px 5px; border-radius:4px; color:#7f8b9b; font-weight:bold;">🌿 FULL</span>
                     <span id="sniperAntiSleep" style="font-size:9px; background:#0f1923; padding:1px 5px; border-radius:4px; color:#7f8b9b; font-weight:bold;">IDLE</span>
-                    <button id="sniperGoDiceBtn" style="font-size:9px; background:#0f1923; border:1px solid #55e7ff; padding:1px 6px; border-radius:4px; color:#55e7ff; font-weight:bold; cursor:pointer;" title="พาแท็บนี้ไปหน้า Stake Dice (ใช้ภาษาตามหน้าเว็บปัจจุบัน ไม่เปิดแท็บใหม่)">🎯 ไปหน้า Dice</button>
-                    <span id="sniperAutoGoDiceBadge" style="font-size:9px; background:#0f1923; border:1px solid #00e676; padding:1px 5px; border-radius:4px; color:#00e676; font-weight:bold; cursor:pointer;" title="พาเว็บไปหน้า Dice เองเมื่อเปิดหน้า (ปิดได้ด้วยการกด)">🎯 auto: ON</span>
-                    <span id="sniperSessionTimeBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="จบเซสชันอัตโนมัติเมื่อครบเวลา (15/30/60/ปิด) — กดเพื่อเปลี่ยน">⏱️ 30m</span>
-                    <button id="sniperCopySummaryBtn" style="font-size:9px; background:#0f1923; border:1px solid #00e676; padding:1px 6px; border-radius:4px; color:#00e676; font-weight:bold; cursor:pointer;" title="คัดลอกสรุปเซสชันล่าสุดเป็น CSV 1 แถว (ไว้จด/วางในชีต) — ใช้ตอนวนบัญชี">📋 สรุป</button>
-                    <span id="sniperTargetModeBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="โหมดเป้ากำไร: USD = ยอดคงที่ / % = เปอร์เซ็นต์ของทุนตั้งต้น (กดเพื่อสลับ)">🎯 USD</span>
+                    <button id="sniperGoDiceBtn" style="font-size:9px; background:#0f1923; border:1px solid #55e7ff; padding:1px 6px; border-radius:4px; color:#55e7ff; font-weight:bold; cursor:pointer;" title="Take this tab to the Stake Dice page (uses the site's current language, no new tab)">🎯 ไปหน้า Dice</button>
+                    <span id="sniperAutoGoDiceBadge" style="font-size:9px; background:#0f1923; border:1px solid #00e676; padding:1px 5px; border-radius:4px; color:#00e676; font-weight:bold; cursor:pointer;" title="Auto-navigate the site to the Dice page on open (click to disable)">🎯 auto: ON</span>
+                    <span id="sniperSessionTimeBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="Auto-end the session when the time limit is reached (15/30/60/off) — click to change">⏱️ 30m</span>
+                    <button id="sniperCopySummaryBtn" style="font-size:9px; background:#0f1923; border:1px solid #00e676; padding:1px 6px; border-radius:4px; color:#00e676; font-weight:bold; cursor:pointer;" title="Copy the last session summary as one CSV row (for notes/sheets) — used when rotating accounts">📋 สรุป</button>
+                    <span id="sniperTargetModeBadge" style="font-size:9px; background:#0f1923; border:1px solid #ffea00; padding:1px 5px; border-radius:4px; color:#ffea00; font-weight:bold; cursor:pointer;" title="Target mode: USD = fixed amount / % = percentage of the starting bankroll (click to toggle)">🎯 USD</span>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:3px; margin-bottom:8px;">
-                    <button id="sniperAutoBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#00e676; cursor:pointer;" title="เริ่มอัตโนมัติ">
+                    <button id="sniperAutoBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#00e676; cursor:pointer;" title="Auto start">
                         🚀 AUTO: ON
                     </button>
-                    <button id="sniperCycleBtn" style="background:#0f1923; border:1px solid #ffea00; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#ffea00; cursor:pointer;" title="ลูปรอบ">
+                    <button id="sniperCycleBtn" style="background:#0f1923; border:1px solid #ffea00; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#ffea00; cursor:pointer;" title="Auto rounds">
                         🔁 ลูป: ON
                     </button>
-                    <button id="sniperEcoBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#00e676; cursor:pointer;" title="เปิด/ปิดโหมดประหยัดพลังงาน (ปิดกราฟิก 3D/ลดการเรนเดอร์)">
+                    <button id="sniperEcoBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:4px 1px; font-size:9px; font-weight:bold; color:#00e676; cursor:pointer;" title="Toggle power-saving mode (disables 3D graphics / reduces rendering)">
                         🌿 ECO: OFF
                     </button>
                 </div>
 
-                <button id="sniperSelfTestBtn" style="width:100%; background:#0f1923; border:1px dashed #55e7ff; border-radius:4px; padding:3px; font-size:9px; font-weight:bold; color:#55e7ff; cursor:pointer; margin-bottom:5px;" title="ตรวจว่าบอทมองเห็นช่องยอด/โอกาส/ปุ่ม/ยอดเงิน/ผลทอย และเขียนค่าลงเว็บได้จริงหรือไม่ - ไม่กดเดิมพัน ไม่เปลี่ยนยอดเงิน (Alt+T)">🧪 SELF-TEST (ไม่เดิมพัน)</button>
-                <button id="sniperResyncBtn" style="width:100%; background:#0f1923; border:1px dashed #ffa726; border-radius:4px; padding:3px; font-size:9px; font-weight:bold; color:#ffa726; cursor:pointer; margin-bottom:8px;" title="เปิด = เมื่อยอดจริงเพี้ยน 3 ครั้งติด ระบบจะยอมรับยอดจริงบนหน้าจอเป็นยอดใหม่แล้วเล่นต่อ (จำกัด 5 ครั้ง/เซสชัน) แทนการหยุดทันที">↔️ AUTO-RESYNC: OFF</button>
+                <button id="sniperSelfTestBtn" style="width:100%; background:#0f1923; border:1px dashed #55e7ff; border-radius:4px; padding:3px; font-size:9px; font-weight:bold; color:#55e7ff; cursor:pointer; margin-bottom:5px;" title="Check that the bot can see the amount/chance/button/balance/roll-result fields and can really write values into the site — places no bets and changes no balance (Alt+T)">🧪 SELF-TEST (ไม่เดิมพัน)</button>
+                <button id="sniperResyncBtn" style="width:100%; background:#0f1923; border:1px dashed #ffa726; border-radius:4px; padding:3px; font-size:9px; font-weight:bold; color:#ffa726; cursor:pointer; margin-bottom:8px;" title="ON = after 3 balance mismatches in a row, accept the on-screen balance as the new value and keep playing (max 5 per session) instead of stopping immediately">↔️ AUTO-RESYNC: OFF</button>
 
                 </div>
                 <!-- /ADVANCED 1 -->
 
-                <!-- MARTINGALE PARAMETERS (แพ้ +73.11% · ชนะติด 3 รีเซ็ต) -->
+                <!-- MARTINGALE PARAMETERS (แพ้ +73.12% · ชนะติด 3 รีเซ็ต) -->
                 <div style="background:#0f1923; border:1px solid #243442; border-radius:8px; padding:8px; margin-bottom:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                         <span id="sniperParamStep" style="color:#00e676; font-size:11px; font-weight:bold;">⚙️ พารามิเตอร์ Martingale:</span>
-                        <button id="sniperResetBtn" style="background:#1a242d; border:1px solid #00e676; border-radius:4px; padding:2px 6px; font-size:10px; font-weight:bold; color:#00e676; cursor:pointer;" title="รีเซ็ตเป็นค่ามาตรฐาน (เดิมพันคงที่ 0.0002$/ไม้)">
+                        <button id="sniperResetBtn" style="background:#1a242d; border:1px solid #00e676; border-radius:4px; padding:2px 6px; font-size:10px; font-weight:bold; color:#00e676; cursor:pointer;" title="Reset to defaults (fixed 0.00015$/step)">
                             ✨ รีเซ็ตค่า
                         </button>
                     </div>
@@ -4221,7 +4386,7 @@
                             <input id="sniperInRealBase" type="text" value="${configRealBaseBet}" style="width:100%; background:#1a242d; border:1px solid #2f4553; border-radius:4px; color:#fff; font-size:11px; padding:3px 4px; box-sizing:border-box; outline:none; font-family:inherit;">
                         </div>
                         <div>
-                            <div id="sniperTargetLabel" style="color:#ffea00; font-size:10px; margin-bottom:2px;">${configTargetMode === "pct" ? "เป้ากำไร (%):" : "เป้ากำไร ($):"}</div>
+                            <div id="sniperTargetLabel" style="color:#ffea00; font-size:10px; margin-bottom:2px;">${configTargetMode === "pct" ? "Profit target (%):" : "Profit target ($):"}</div>
                             <input id="sniperInTarget" type="text" value="${configProfitTarget}" style="width:100%; background:#1a242d; border:1px solid #ffea00; border-radius:4px; color:#ffea00; font-size:11px; padding:3px 4px; box-sizing:border-box; outline:none; font-family:inherit;">
                         </div>
                         <div>
@@ -4233,19 +4398,19 @@
 
                 <!-- SAFETY BADGE -->
                 <div style="background:#0f1923; border:1px solid #00e676; border-radius:6px; padding:5px 6px; font-size:10px; font-weight:bold; color:#00e676; margin-bottom:8px; text-align:center;">
-                    🛡️ Martingale <span id="sniperSafetyStep">+73.11%/ไม้</span> • ชนะติด 3 = รีเซ็ต • <span id="sniperSafetyStop">ไม่จำกัดไม้</span>
+                    🛡️ Martingale <span id="sniperSafetyStep">+73.12%/ไม้</span> • ชนะติด 3 = รีเซ็ต • <span id="sniperSafetyStop">ไม่จำกัดไม้</span>
                 </div>
 
                 <!-- สลับ Under/Over ทุกตา: [เปิด / ปิด] -->
                 <div style="display:flex; align-items:center; justify-content:space-between; background:#0f1923; border:1px solid #243442; border-radius:6px; padding:6px 10px; margin-bottom:8px;">
                     <span style="color:#b1bad3; font-size:11px; font-weight:bold;">สลับ Under/Over ทุกตา:</span>
-                    <button id="sniperToggleAltBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:3px 12px; font-size:11px; font-weight:bold; color:#00e676; cursor:pointer;" title="คลิกเพื่อ เปิด / ปิด การสลับฝั่งทุกตา">เปิด (ON)</button>
+                    <button id="sniperToggleAltBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:3px 12px; font-size:11px; font-weight:bold; color:#00e676; cursor:pointer;" title="Click to turn per-roll side switching on/off">เปิด (ON)</button>
                 </div>
 
                 <!-- ความเร็ว Instant Bet (เดิมพันทันที): [เปิด / ปิด] -->
                 <div style="display:flex; align-items:center; justify-content:space-between; background:#0f1923; border:1px solid #243442; border-radius:6px; padding:6px 10px; margin-bottom:8px;">
                     <span style="color:#b1bad3; font-size:11px; font-weight:bold;">⚡ เดิมพันทันที (Instant Bet):</span>
-                    <button id="sniperInstantBetBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:3px 12px; font-size:11px; font-weight:bold; color:#00e676; cursor:pointer;" title="เปิดโหมดเดิมพันทันที ตัดแอนิเมชันลูกเต๋าเพื่อเร่งความเร็ว 10 เท่า">เปิด (ON) ⚡</button>
+                    <button id="sniperInstantBetBtn" style="background:#0f1923; border:1px solid #00e676; border-radius:4px; padding:3px 12px; font-size:11px; font-weight:bold; color:#00e676; cursor:pointer;" title="Enable instant bet to skip the dice animation and go ~10x faster">เปิด (ON) ⚡</button>
                 </div>
 
                 <div style="margin-bottom:8px; min-height:20px;">
@@ -4257,11 +4422,11 @@
                 <div style="background:#0f1923; border:1px solid #243442; border-radius:8px; padding:8px; margin-bottom:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <span style="color:#b1bad3; font-size:11px;">สถานะโหมด:</span>
-                        <span id="sniperModeBadge" style="font-size:10px; font-weight:bold; background:#013e00; padding:2px 6px; border-radius:4px; color:#00e676;">🎯 ไม้ 1: 0.0002$</span>
+                        <span id="sniperModeBadge" style="font-size:10px; font-weight:bold; background:#013e00; padding:2px 6px; border-radius:4px; color:#00e676;">🎯 Step 1: 0.00015$</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:2px;">
                         <span style="color:#b1bad3;">ไม้ถัดไป:</span>
-                        <span id="sniperNextBet" style="font-weight:bold; color:#00e676;">0.0002 USDT</span>
+                        <span id="sniperNextBet" style="font-weight:bold; color:#00e676;">0.00015 USDT</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px; border-top:1px dashed #243442; padding-top:4px;">
                         <span style="color:#00e676; font-weight:bold;" id="sniperStatsCount">🎯 ยิงเข้าเป้า: 0</span>
@@ -4288,9 +4453,9 @@
                 </div>
 
                 <div id="sniperTheory" style="font-size:10px; color:#8596a5; background:#0f1923; border:1px dashed #243442; border-radius:6px; padding:4px 6px; margin-bottom:6px; line-height:1.4;">📊 รอข้อมูล...</div>
-                <div id="sniperRng" style="font-size:10px; color:#8596a5; background:#0f1923; border:1px dashed #55e7ff; border-radius:6px; padding:4px 6px; margin-bottom:6px; line-height:1.4;" title="NIST SP 800-22 ครบ 15 เทสต์: Monobit/Block/Runs/LongRun/Rank/DFT/NonOverlap/Overlap/Universal/LinComplex/Serial/ApEn/Cusum/Excursions/ExcVar — p ≥ 0.01 = ผ่าน · เทสต์ที่ขึ้น ⏳=ข้อมูลยังไม่พอ/สุ่มเดินไม่ถึง 20 รอบ (Universal ต้อง ~1,000,000 บิต) · n=32,768=buffer เต็ม · p หลุด 1 ตัวเป็นเรื่องปกติทางสถิติ (~1%/เทสต์)">🧪 RNG: รอผลอย่างน้อย 200 ลูก</div>
+                <div id="sniperRng" style="font-size:10px; color:#8596a5; background:#0f1923; border:1px dashed #55e7ff; border-radius:6px; padding:4px 6px; margin-bottom:6px; line-height:1.4;" title="NIST SP 800-22 all 15 tests: Monobit/Block/Runs/LongRun/Rank/DFT/NonOverlap/Overlap/Universal/LinComplex/Serial/ApEn/Cusum/Excursions/ExcVar — p >= 0.01 = pass · tests showing ⏳ need more data (< 20 random walks; Universal needs ~1,000,000 bits) · n=32,768 = buffer full · a single failing p is statistically normal (~1% per test)">🧪 RNG: รอผลอย่างน้อย 200 ลูก</div>
 
-                <div id="sniperIntegrity" style="font-size:9px; color:#7f8b9b; background:#0f1923; border:1px dashed #243442; border-radius:6px; padding:3px 5px; margin-bottom:6px; line-height:1.5;" title="ตัวเลขภายในที่เดิมคำนวณแล้วไม่แสดง: DD=drawdown สูงสุด, Waged=ยอดเดิมพันสะสม, Peak=ยอดสูงสุด, Gaps=ครั้งที่ยอดเดินไม่ตรง, Drift=ครั้งที่ DOM เปลี่ยน, Resync/Sync/Cut=ตัวนับของ DESYNC guard">🩺 DD 0 · Waged 0 · Peak 0 · Gaps 0 · Drift 0</div>
+                <div id="sniperIntegrity" style="font-size:9px; color:#7f8b9b; background:#0f1923; border:1px dashed #243442; border-radius:6px; padding:3px 5px; margin-bottom:6px; line-height:1.5;" title="Internal numbers that were computed but not displayed: DD=max drawdown, Waged=total wagered, Peak=peak balance, Gaps=balance mismatch count, Drift=DOM change count, Resync/Sync/Cut=DESYNC guard counters">🩺 DD 0 · Waged 0 · Peak 0 · Gaps 0 · Drift 0</div>
                 </div>
                 <!-- /ADVANCED 2 -->
 
@@ -4303,10 +4468,10 @@
                 </div>
 
                 <div style="display:flex; gap:6px; margin-top:10px;">
-                    <button id="sniperStartBtn" style="flex:1; background:#00e701; color:#013e00; border:none; padding:8px 4px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="เริ่มเซสชันทันที">
+                    <button id="sniperStartBtn" style="flex:1; background:#00e701; color:#013e00; border:none; padding:8px 4px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="Start session now">
                         START
                     </button>
-                    <button id="sniperStopBtn" style="flex:1; background:#ed4245; color:#fff; border:none; padding:8px 4px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="หยุดยิง">
+                    <button id="sniperStopBtn" style="flex:1; background:#ed4245; color:#fff; border:none; padding:8px 4px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer;" title="Stop betting">
                         STOP
                     </button>
                 </div>
@@ -4380,16 +4545,16 @@
 
         // Event listeners
         hudEls.startBtn.addEventListener("click", () => startSession());
-        hudEls.stopBtn.addEventListener("click", () => stopSession("🛑 ผู้ใช้สั่งหยุด"));
+        hudEls.stopBtn.addEventListener("click", () => stopSession("🛑 User stop"));
         hudEls.miniStartBtn.addEventListener("click", () => startSession());
-        hudEls.miniStopBtn.addEventListener("click", () => stopSession("🛑 ผู้ใช้สั่งหยุด"));
+        hudEls.miniStopBtn.addEventListener("click", () => stopSession("🛑 User stop"));
         hudEls.minimizeBtn.addEventListener("click", () => toggleMinimizePanel());
         hudEls.acctBadge.addEventListener("click", () => { setAccountNameManually(); });
         hudEls.goDiceBtn.addEventListener("click", () => { goToDicePage(); });
         hudEls.autoGoDiceBadge.addEventListener("click", () => {
             configAutoGoDice = !configAutoGoDice;
             syncAutoGoDiceBadge();
-            updateStatusText(configAutoGoDice ? "🎯 ไปหน้า Dice อัตโนมัติ: เปิด" : "🎯 ไปหน้า Dice อัตโนมัติ: ปิด", configAutoGoDice ? "#00e676" : "#7f8b9b");
+            updateStatusText(configAutoGoDice ? "🎯 Auto-navigate to Dice: ON" : "🎯 Auto-navigate to Dice: OFF", configAutoGoDice ? "#00e676" : "#7f8b9b");
         });
         hudEls.sessionTimeBadge.addEventListener("click", () => { cycleSessionTimeLimit(); });
         hudEls.copySummaryBtn.addEventListener("click", () => { copySummaryToClipboard(); });
@@ -4402,18 +4567,18 @@
             setSafeText(hudEls.advBtn, advOpen ? "🧰▾" : "🧰");
         });
         hudEls.reloadBtn.addEventListener("click", () => {
-            log("🔄 ผู้ใช้สั่งรีเฟรชหน้าเว็บ (Reloading page)...", true);
+            log("🔄 User requested a page refresh (reloading page)...", true);
             window.location.reload();
         });
         if (hudEls.resetHistoryBtn) {
             hudEls.resetHistoryBtn.addEventListener("click", () => {
-                if (confirm("🧹 คุณต้องการล้างประวัติ สถิติ และหน่วยความจำเดิมทั้งหมดเพื่อเริ่มต้นใหม่ 100% ใช่หรือไม่?")) {
+                if (confirm("🧹 Clear all history, stats and memory to start fresh 100% — are you sure?")) {
                     clearAllBotHistory(true);
                 }
             });
         }
         hudEls.miniReloadBtn.addEventListener("click", () => {
-            log("🔄 ผู้ใช้สั่งรีเฟรชหน้าเว็บ (Reloading page)...", true);
+            log("🔄 User requested a page refresh (reloading page)...", true);
             window.location.reload();
         });
         hudEls.ecoBtn.addEventListener("click", () => { toggleEcoMode(); });
@@ -4425,8 +4590,8 @@
             configAutoResync = !configAutoResync;
             if (!configAutoResync) resyncCount = 0;
             log(configAutoResync
-                ? `↔️ AUTO-RESYNC เปิด: ยอดเพี้ยนติด 3 ครั้ง → ยอมรับยอดจริงแล้วเล่นต่อ (สูงสุด ${RESYNC_LIMIT} ครั้ง/เซสชัน)`
-                : "↔️ AUTO-RESYNC ปิด: ยอดเพี้ยนติด 3 ครั้ง → หยุดเซสชัน", true);
+                ? `↔️ AUTO-RESYNC ON: 3 mismatches in a row → accept the real balance and continue (max ${RESYNC_LIMIT} per session)`
+                : "↔️ AUTO-RESYNC OFF: 3 mismatches in a row → stop the session", true);
             updateUI();
         });
         hudEls.selfTestBtn.addEventListener("click", () => {
@@ -4437,7 +4602,7 @@
         });
         const toggleCycle = () => {
             autoCycleRounds = !autoCycleRounds;
-            log(autoCycleRounds ? "🔁 ลูปรอบ: ON — ถึงเป้ากำไรแล้วเริ่มรอบใหม่ทันที" : "⏹️ ลูปรอบ: OFF — ถึงเป้ากำไรแล้วหยุด", true);
+            log(autoCycleRounds ? "🔁 Auto rounds: ON — start a new round as soon as the target is hit" : "⏹️ Auto rounds: OFF — stop at the target", true);
             updateUI();
         };
         hudEls.cycleBtn.addEventListener("click", toggleCycle);
@@ -4448,12 +4613,12 @@
                 if (!configAlternateRoll) currentRollSide = "under";
                 applyRollSide();
                 updateUI();
-                log(configAlternateRoll ? "🎲 สลับ Under/Over ทุกตา: เปิด (ON)" : "🎲 สลับ Under/Over ทุกตา: ปิด (OFF) — แทง Under ฝั่งเดียว", true);
+                log(configAlternateRoll ? "🎲 Switch Under/Over every roll: ON" : "🎲 Switch Under/Over every roll: OFF — Under only", true);
             });
         }
         if (hudEls.instantBetBtn) {
             hudEls.instantBetBtn.addEventListener("click", async () => {
-                updateStatusText("⚡ กำลังตรวจสอบและเปิด Instant Bet...", "#ffea00");
+                updateStatusText("⚡ Checking and enabling Instant Bet...", "#ffea00");
                 const res = await ensureInstantBet();
                 updateStatusText(`⚡ ${res}`, "#00e676");
                 log(`⚡ [INSTANT BET]: ${res}`, true);
@@ -4470,7 +4635,7 @@
             syncHUDInputs();
             applyBetSettings();
             updateUI();
-            log("✨ รีเซ็ตพารามิเตอร์และล้างประวัติเดิมเรียบร้อย 100%", true);
+            log("✨ Parameters reset and history cleared 100%", true);
         });
 
         // อัปเดตค่าในหน่วยความจำทันทีที่พิมพ์ (In-Memory Only ไร้ร่องรอยใน Storage)
@@ -4515,7 +4680,7 @@
         // ⚡ เปิด Instant Bet (เดิมพันทันที) ล่วงหน้าตั้งแต่โหลดหน้าเว็บ
         setTimeout(() => { try { ensureInstantBet(); } catch (e) {} }, 1500);
         updateUI();
-        log(configEcoMode ? "🌱 เปิดโหมด ECO: ปิดกราฟิกและแอนิเมชัน ลดโหลด CPU/GPU สูงสุด" : "🌿 ปิดโหมด ECO: เปิดแสดงผลกราฟิกปกติ", true);
+        log(configEcoMode ? "🌱 ECO mode ON: graphics and animations off, lowest CPU/GPU load" : "🌿 ECO mode OFF: normal graphics restored", true);
     }
 
     function setMinimizePanel(minimized) {
@@ -4528,7 +4693,7 @@
         }
         if (hudEls.minimizeBtn) {
             hudEls.minimizeBtn.textContent = isPanelMinimized ? "🔼" : "🔽";
-            hudEls.minimizeBtn.title = isPanelMinimized ? "ขยายแผงควบคุมเต็มรูปแบบ" : "ย่อขนาดเพื่อประหยัดพลังงาน";
+            hudEls.minimizeBtn.title = isPanelMinimized ? "Expand the full control panel" : "Collapse to save power";
         }
         if (hudEls.wrapper) {
             hudEls.wrapper.style.width = isPanelMinimized ? "270px" : "330px";
@@ -4583,7 +4748,7 @@
         setTimeout(() => { try { ensureInstantBet(); } catch (e) {} }, 1500);
         BotMemory.restore();
         DailyStats.load();
-        log("🔖 BUILD " + BUILD_STAMP + " — martingale +" + MARTINGALE_PCT + "% / self-test / ledger / tab-guard • ยอดฐาน = " + configRealBaseBet + "$", true);
+        log("🔖 BUILD " + BUILD_STAMP + " — martingale +" + MARTINGALE_PCT + "% / self-test / ledger / tab-guard • base = " + configRealBaseBet + "$", true);
 
         initTabGuard();
         if (tabChannel) {

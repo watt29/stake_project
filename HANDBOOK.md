@@ -1,9 +1,9 @@
 # 📗 HANDBOOK — คู่มือรวม Stake Dice Bot (สำหรับผู้ใช้ + AI ทุกตัว)
 
 > **ยึดโค้ดจริงเป็นความจริงสูงสุด (Single Source of Truth):**  
-> `stake_extension/content.js` — Build **`2026.11.11+v2.0.0-unlimited-storage`** (`@version 2.0.0`)  
-> `stake_extension/manifest.json` — Version **`2.0.0`** (Manifest V3 Dual-World: MAIN + ISOLATED + unlimitedStorage)  
-> **บัญชีที่รันจริง:** Profile 1 (`Anda`), Profile 3 (`nattawat`), Profile 4 (`master`)  
+> `stake_extension/content.js` — Build **`2026.11.13+v2.4.20-api-baseline`** (`@version 2.4.20`)  
+> `stake_extension/manifest.json` — Version **`2.4.20`** (Manifest V3 Dual-World: MAIN + ISOLATED + unlimitedStorage)  
+> **บัญชีที่รันจริง:** `Profile 4` (`watt29`) เท่านั้น — โหมดบัญชีเดียว  
 > **แนวทางปฏิบัติสำหรับ AI:** ให้อ่าน [`AGENTS.md`](AGENTS.md) ควบคู่เสมอ  
 > 🛡️ **คู่มือความปลอดภัยหลายบัญชี (Multi-Account SOP):** อ่าน [`MULTI_ACCOUNT_SECURITY_GUIDE.md`](MULTI_ACCOUNT_SECURITY_GUIDE.md)  
 > ⚠️ **งานวิจัยความเสี่ยง Multi-Account:** อ่าน [`RISK_RESEARCH.md`](RISK_RESEARCH.md)
@@ -17,7 +17,7 @@
    - ✅ สคริปต์หลักรันใน `world: "MAIN"` ยิงไว 0ms และเก็บ State ลง `_st_view_prefs_v2` ใน `window.localStorage`
    - ✅ สคริปต์ `bridge.js` รันใน `world: "ISOLATED"` รับสถิติไปบันทึกลง `chrome.storage.local` ทุก 5 วินาที / 30 ไม้
    - ✅ สลับ Roll Over / Under ผ่าน Network GraphQL Request (`rewriteDiceRollBody`) ไม่คลิกปุ่ม DOM
-   - ✅ ใช้สูตร **Martingale +73.11% (×1.7311) ล็อกโอกาสชนะ 68%** เท่านั้น (ห้ามนำ Fibonacci เก่ากลับมาใช้)
+   - ✅ ใช้สูตร **Martingale +73.12% (×1.7312) ล็อกโอกาสชนะ 68%** เท่านั้น (ห้ามนำ Fibonacci เก่ากลับมาใช้)
    - ✅ สุ่มหน่วงเวลาด้วย **Human Jitter (120–280ms) + พักสายตา 1.8–3.2s** ทุกๆ 35–55 ตา
    - ✅ เฝ้าระวังด้วย **Network Watchdog 15 วินาที** Auto-Reload อัตโนมัติเมื่อเว็บค้าง
    - ✅ **Instant Profit Lock 0ms:** เมื่อครบ 20 นาที ทันทีที่ $P/L \ge 0$ สั่งหยุดล็อกกำไรทันที ไม่ต้องรอไม้ 1 และไม่ต้องรอชนะติด 3 ตา
@@ -29,10 +29,10 @@
 ## 2. ข้อมูลการตั้งค่าและการคำนวณ (Core Strategy)
 
 * **โอกาสชนะ (Win Chance):** ล็อกคงที่ **`68%`** (Payout ~`99/68` = **1.4559x**)
-* **ยอดฐานปกติ (ไม้ 1):** **`0.0002$`** (USDT)
-* **ยอดฐานตอนพยุง (Hold):** **`0.0002$`** — ไม่มี Recovery Boost แล้ว (พยุงด้วยฐานเดิมเมื่อครบ 20 นาทีแล้วยังติดลบ)
-* **เมื่อแพ้:** เพิ่มยอด **+73.11%** ต่อไม้ (`mStep++`) ตามสูตร:
-  $$\text{ยอดเดิมพัน} = \text{ยอดฐาน} \times 1.7311^{(mStep - 1)}$$
+* **ยอดฐานปกติ (ไม้ 1):** **`0.00015$`** (USDT)
+* **ยอดฐานตอนพยุง (Hold):** **`0.00015$`** — ไม่มี Recovery Boost แล้ว (พยุงด้วยฐานเดิมเมื่อครบ 20 นาทีแล้วยังติดลบ)
+* **เมื่อแพ้:** เพิ่มยอด **+73.12%** ต่อไม้ (`mStep++`) ตามสูตร:
+  $$\text{ยอดเดิมพัน} = \text{ยอดฐาน} \times 1.7312^{(mStep - 1)}$$
 * **เมื่อชนะ:** ชนะติดต่อกันครบ **3 ตา** (`currentStreak >= 3`) ดีดกลับไม้ 1 ทันที
 * **รอบเวลา:** เล่นรอบละ **20 นาที** พักเบรกคูลดาวน์ **3 นาที (180 วินาที)**
 
