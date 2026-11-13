@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "🎯 Stake Dice Martingale 53% Sniper",
+  "version": "1.9.3",
+  "description": "Stake Dice Bot • Martingale 53% (แพ้ +53%, ชนะติด 3 รีเซ็ต, ไม่จำกัดไม้) • สลับ Roll Over/Under • Soft Timeout 20m + Recovery Hold (ไม่ปิดตอนขาดทุน) • โหมด ECO",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://stake.com/*",
+    "https://www.stake.com/*",
+    "https://stake.bet/*",
+    "https://stake.games/*",
+    "https://stake.bz/*",
+    "https://stake.ceo/*",
+    "https://stake.mba/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "🎯 Stake Dice Martingale 53% Sniper",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.stake.com/*",
+        "*://*.stake.bet/*",
+        "*://*.stake.games/*",
+        "*://*.stake.bz/*",
+        "*://*.stake.ceo/*",
+        "*://*.stake.mba/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://*.stake.com/*",
+        "*://*.stake.bet/*",
+        "*://*.stake.games/*",
+        "*://*.stake.bz/*",
+        "*://*.stake.ceo/*",
+        "*://*.stake.mba/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

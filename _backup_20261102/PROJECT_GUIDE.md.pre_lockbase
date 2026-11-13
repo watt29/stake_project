@@ -1,0 +1,916 @@
+# 📘 PROJECT GUIDE — Stake Dice Dynamic Step Bot
+
+> เอกสารนี้เขียนเพื่อให้ **คนหรือ AI ที่ไม่เคยเห็นโปรเจกต์นี้มาก่อน** อ่านแล้วเข้าใจได้ทั้งระบบภายในไฟล์เดียว
+> อัปเดตล่าสุด: 2 พ.ย. 2026 (หลังลบกลไกอ่านยอดจาก DOM และเก็บกวาด dead code)
+
+---
+
+## 0. อ่านก่อน (TL;DR)
+
+- เป็น **สคริปต์ automates เกม Dice บน Stake.com** ทำงานในเบราว์เซอร์ (Tampermonkey) หรือ Chrome Extension
+- ใช้กลยุทธ์ **Fibonacci step** (แพ้ +1 ไม้, ชนะถอย 2 ไม้) + ไม้ 1 เริ่มต้น **`0.00015`** (ขั้นต่ำที่เว็บรับ) · **AUTO TUNE ปิดเป็นค่าเริ่มต้น** (เปิดแล้วจะคำนวณไม้ 1 จากทุนเอง)
+- จุดสำคัญ: บอท **ไม่เดาผลทอย** — มันอ่านผลจริงจาก response ของ API (`Response.prototype.json`) แล้วจึงตัดสินไม้ถัดไป
+- มีระบบกันพอร์ตแตก 6 ชั้น (ดู §6) · โหมด **แทงลม** ถูก **ปิดถาวร** แล้ว → เดิมพันจริงทุกไม้ตั้งแต่ไม้ 1 (ดู §7)
+- **ไม่มี git** ในโฟลเดอร์นี้ → แก้พลาดคือกู้ยาก ต้อง backup ก่อนทุกครั้ง
+- โค้ดชุดเดียวกันมี **3 สำเนา** ที่ต้องแก้ให้ตรงกันเสมอ (ดู §2)
+
+---
+
+## 1. ไฟล์ในโปรเจกต์
+
+| ไฟล์ | บทบาท | หมายเหตุ |
+|---|---|---|
+| `stake_dice_ghost_sniper.user.js` | **สคริปต์หลัก** สำหรับ Tampermonkey | ~3,200 บรรทัด · `@version 2026.11.18` |
+| `stake_dice_fibonacci_stealth.user.js` | สำเนา **เหมือนกัน 100%** | ต้อง `diff` แล้วต้องไม่มีผลต่าง |
+| `stake_extension/content.js` | สคริปต์เดียวกันในรูป Chrome Extension (MV3, `world: "MAIN"`) | ~3,115 บรรทัด (ต่างกันแค่ header/footer ของ userscript) |
+| `stake_extension/manifest.json` | manifest ของ extension | ⚠️ ชื่อยังเขียน "19-Step" ค้างจากเวอร์ชันเก่า |
+| `stake_extension/icons/` | ไอคอน 16/48/128 | |
+| `README.md` | คู่มือผู้ใช้ (ภาษาไทย) | บางหัวข้อยังเป็น behaviors เก่า — ดู §11 |
+| `CHANGELOG.md` | ประวัติการแก้ (ยาว ~50KB) | แหล่งอ้างอิงเหตุการณ์ DESYNC ปลอม |
+| `INCIDENT_REPORT_20261015.md` | รายงานเหตุการณ์ยอดค้าง/DOM lag | |
+| `GHOST_SNIPER_2X_GUIDE.md`, `DNS_TROUBLESHOOTING_AND_STAKE_GUIDE.md` | คู่มือกลยุทธ์ / แก้ปัญหาเครือข่าย | |
+| `script.txt` | **สคริปต์เวอร์ชันเก่า** `2026.10.23.9` | ไม่ใช่โค้ดที่รันอยู่ — เก็บเป็นประวัติ |
+| `_backup_20261102/` | ต้นฉบับก่อนแก้รอบล่าสุด (3 ไฟล์โค้ด) | กู้คืนได้ทันที |
+
+---
+
+## 2. ⚠️ กฎสำคัญ: 3 สำเนา
+
+```
+stake_dice_ghost_sniper.user.js  ─┐
+stake_dice_fibonacci_stealth.user.js ─┼─ ต้องเหมือนกันเป๊ะ (diff = ว่าง)
+stake_extension/content.js        ─┘   ต่างกันแค่ header (@version/@grant) + บล็อกท้าย
+```
+
+**ขั้นตอนแก้ที่ปลอดภัย**
+
+1. `cp` ไฟล์ไป `_backup_<วันที่>/` ก่อน (ไม่มี git ให้ย้อน)
+2. แก้ **ทั้ง 3 ไฟล์** ด้วยการเปลี่ยนแปลงเดียวกัน
+3. `node --check` ทั้ง 3 ไฟล์
+4. `diff stake_dice_ghost_sniper.user.js stake_dice_fibonacci_stealth.user.js` → ต้องว่าง
+5. ให้ผู้ใช้ reload Tampermonkey / Chrome Extension เอง
+
+> 💡 `str_replace` ของเครื่องมือบางตัวมองไม่เห็นไฟล์ใน subfolder (`stake_extension/`) — ใช้สคริปต์ Node ช่วยแก้แทนได้
+
+---
+
+## 3. ภาพรวมสถาปัตยกรรม
+
+```
+┌──────────────────────── stake.com (หน้า Dice) ────────────────────────┐
+│                                                                       │
+│  หน้าเว็บ React                                                        │
+│    ├─ input[data-testid="input-game-amount"]   ← บอทเขียนยอด            │
+│    ├─ input[data-testid="chance"]              ← บอทเขียนโอกาส          │
+│    ├─ button[data-testid="bet-button"]         ← บอทกด                │
+│    └─ [data-testid="dice-history"]             ← badge ผลล่าสุด (สำรอง) │
+│                                                                       │
+│  ── network layer (ถูก patch โดยบอท) ──                                │
+│    Response.prototype.json  ─┐                                        │
+│    window.fetch             ─┼→ findRollObject()  → ผลทอย + multiplier  │
+│    XMLHttpRequest.send      ─┘   findBalanceValue() → ยอดจากเซิร์ฟเวอร์ │
+│                                        │                              │
+│                                        ▼                              │
+│                              onDiceRollCallback(roll, serverBal)       │
+│                                        │                              │
+│  ── HUD (closed Shadow DOM) ───────────┼──────────────────────────    │
+│    START/STOP · ECO · AUTO · ทบต้น · ลูป · RESYNC · AUTO TUNE          │
+│    แสดง: ไม้ปัจจุบัน, ไม้ถัดไป, P/L, streak, winrate, EV, RNG audit    │
+│                                        │                              │
+└────────────────────────────────────────┼──────────────────────────────┘
+                                         ▼
+                        executeNextBet() ──► clickBetButton()
+                                 ▲                │
+                                 │                ▼
+                        scheduleNextBet()   waitForBetCompletion()
+                          (12–28ms สุ่ม)          │
+                                 ▲                ▼
+                        handleBetResult() ◄── finishBet(isWin, delta, bal)
+```
+
+---
+
+## 4. ลำดับการทำงาน (Life cycle)
+
+### 4.1 Boot
+1. `@run-at document-start` → IIFE ทำงานทันที (`'use strict'`)
+2. ติดตั้ง interceptor (§5.1), ล้าง storage ที่มี prefix เก่า (§5.3), ผูกปุ่ม ESC
+3. รอ `document.body` (poll 100ms) → `createStealthPanel()` สร้าง HUD
+4. ถ้า `configAutoStart === true` → `initAutoStartSequence()`: poll ทุก 500ms (สูงสุด 30 ครั้ง = 15s)
+   หา balance + ปุ่มเดิมพัน → นับถอยหลัง **2 วินาที** → `startSession()`
+
+### 4.2 startSession()
+- ตั้ง `startBalance = currentBalance = peakBalance = getBalance()`
+- รีเซ็ตสถิติทั้งหมด → `resetToStepOne()` (realStep=1, `cycleBase=null`, `applyAutoTune()`)
+- `ensureManualTab()` + `applyBetSettings()`
+- `enableAudioKeepAlive()` (oscillator เสียงเงียบ กันแท็บ sleep) + `requestScreenWakeLock()`
+- `ensureInstantBet()` (เปิดสวิตช์ "เดิมพันในทันที" ให้) → แล้วเริ่ม `executeNextBet()` ใน 150ms
+
+### 4.3 วงจรหนึ่งไม้
+```
+executeNextBet()
+  ├─ [guard] profit ≥ เป้า           → handleTakeProfitHit()
+  ├─ [guard] profit ≤ −ตัดขาดทุน     → stopSession()
+  ├─ [guard] realStep > เพดานไม้     → stopSession()  (HARD STOP)
+  ├─ ทุก 25 ไม้: openManualTab()
+  ├─ applyBetSettings()              → เขียนยอด + chance ลง input
+  ├─ [guard] ไม่มีปุ่ม / ปุ่ม disabled → retry 15–500ms
+  ├─ [guard] ยอด > ยอดในกระเป๋า       → stopSession()
+  ├─ [guard] ยอด > เพดานเว็บ          → stopSession()
+  ├─ [guard] isAmountApplied(ยอด) ไม่ผ่าน → retry ≤100 ครั้ง แล้วหยุด
+  ├─ clickBetButton()
+  └─ waitForBetCompletion(btn, balBefore, amount, startTime)
+         ├─ (a) interceptor ได้ผล  → finishBet()      [เร็วสุด ~15–40ms]
+         ├─ (b) balance เปลี่ยน (poll 25ms, หลัง 80ms) → finishBet()
+         ├─ (c) badge history เปลี่ยน (หลัง 250ms)     → finishBet()
+         └─ (d) ครบ 1200ms ไม่มีอะไร → retry / นับ stall
+```
+
+### 4.4 finishBet → handleBetResult
+```
+handleBetResult(isWin, delta, newBalance, betAmount, serverBal)
+  ├─ recentOutcomes.push(isWin)          (เก็บ ≤ configChopWindow = 20)
+  ├─ if (virtualMode) → §7 แล้ว return
+  ├─ totalBets++, betTimestamps, totalWagered += betAmount
+  ├─ applyBetBalance(delta, newBalance, serverBal)   ← ที่นี่เท่านั้นที่เทียบยอด
+  ├─ profit = currentBalance − startBalance
+  ├─ อัปเดต peak / maxDrawdown / winsCount / lossesCount / currentStreak
+  ├─ STEP TRANSITION
+  │    WIN  : wonStep ≤ 3 → resetToStepOne()  ·  ไม่งั้น realStep = wonStep − 2
+  │    LOSE : realStep ≥ เพดาน → HARD STOP  ·  ไม่งั้น realStep += 1
+  ├─ updateUI()
+  ├─ ANTI-CHOP TRIGGER (§7) → ถ้าเข้าโหมดให้ return
+  ├─ [guard] profit ≥ เป้า → handleTakeProfitHit()
+  └─ applyBetSettings() + scheduleNextBet()   (delay สุ่ม 12–28ms ด้วย crypto)
+```
+
+---
+
+## 5. ชั้นที่คุยกับเว็บ
+
+### 5.1 Network interceptor (หัวใจของความเร็ว)
+| จุดที่ patch | ทำอะไร |
+|---|---|
+| `Response.prototype.json` | ครอบทุก response ที่ถูก `.json()` — ตัวหลักที่จับผลทอยได้ |
+| `window.fetch` | clone response แล้ว parse เฉพาะ URL ที่มี `/graphql`, `_api/`, `/api/` |
+| `XMLHttpRequest.prototype.send` | อ่าน `responseText` ถ้ามีคำว่า `payoutMultiplier` / `diceRoll` / `result` |
+
+- `findRollObject(node, depth ≤ 5)` — หา object ที่มี `payoutMultiplier` + (`amount` | `payout` | `state` | `id`)
+- `findBalanceValue(node, depth ≤ 6)` — หา `balance` หรือ `balances.available/total/usdt` (**ยอดจริงจากเซิร์ฟเวอร์**)
+- ผลลัพธ์ส่งเข้า `onDiceRollCallback(rollObj, serverBal)` ซึ่งถูกตั้งไว้ตอน `waitForBetCompletion`
+
+### 5.2 DOM layer (ใช้เฉพาะตอนเว็บไม่ตอบ)
+- `setInput(testid, value)` — เขียนค่าผ่าน native setter ของ `HTMLInputElement.prototype.value` แล้วยิง event `input`/`change`/`blur` เพื่อให้ React รับรู้ (ถ้าค่าเดิมตรงอยู่แล้วจะข้ามเพื่อประหยัดพลังงาน)
+- `getBetButton()` — หา `button[data-testid="bet-button"]` เป็นหลัก แล้ว fallback เป็นข้อความ "bet/เดิมพัน/play/ทอย"
+- `getBalance()` — อ่านยอดกระเป๋าจาก DOM (มี cache) ใช้ตอนเริ่มเซสชัน/AUTO TUNE เท่านั้น **ไม่ใช้ตัดสิน desync แล้ว**
+- `getLatestBadgeInfo()` + `isBadgeWinning()` — อ่านผลจาก history badge (สีเขียว/แดง) เป็นทางสำรองสุดท้าย
+
+### 5.3 Zero-footprint
+- `log()` เป็น **ฟังก์ชันว่าง** — ไม่พิมพ์อะไรลง console เลย (โดยดีไซน์)
+- ลบ key ใน `localStorage`/`sessionStorage` ที่ขึ้นต้นด้วย `stake_fibo`, `stake_kelly`, `stake_wager`, `stake_sniper`, `stake_break`, `stake_auto`, `stake_dynamic`, `stake_real`, `stake_max`, `stake_profit`, `stake_stop`, `stake_cfg_`
+- ลบ `window.__STAKE_SNIPER_LOADED__`, `window.__STAKE_SNIPER_INIT__`
+- **ค่าตั้งทั้งหมดอยู่ใน memory** — refresh หน้าเว็บ = คืนค่า default
+
+### 5.4 DOM Resilience Layer (กันเว็บอัปเดตแล้วพัง)
+
+เดิมสคริปต์ยึด `data-testid` ของ Stake เป็นหลัก → เว็บเปลี่ยนชื่อ attribute ทีเดียวก็พัง ตอนนี้เพิ่มชั้นสำรองที่หา element จาก **โครงสร้าง** แทนชื่อ โดยทำงาน **เฉพาะเมื่อทางเดิมหาของไม่เจอ** (จึงไม่เปลี่ยนพฤติกรรมปกติ)
+
+| ฟังก์ชัน | กลยุทธ์การหา |
+|---|---|
+| `getGamePanel()` | หา "แผงเกม" เป็น anchor: `[data-testid="dice-game"]` → container ที่มีทั้ง input และ button อยู่ด้วยกัน → `body` |
+| `resolveAmountInput()` | 1) ช่องตัวเลขที่มี `min`/`max` 2) ช่องใต้ label `Bet Amount / จำนวนเดิมพัน` 3) ช่องตัวเลขที่ไม่ใช่ช่องโอกาส |
+| `resolveChanceInput()` | ช่องตัวเลขค่า 2–98 ที่อยู่ใกล้คำ `chance / โอกาส / win` |
+| `resolveBetButton()` | 1) `button[type=submit]` ใน `<form>` เดียวกับช่องยอด 2) ปุ่มใกล้ช่องยอดที่กดได้ 3) ข้อความสั้นขึ้นต้นด้วย `bet / เดิมพัน / play / ทอย / roll` |
+| `probeDomHealth()` | ตรวจ 3 องค์ประกอบหลัก → คืน `{ok, msg}` และขึ้นบน HUD ว่า "หาไม่เจอ: …" |
+| `isElUsable()` / `numberInputsIn()` | ตัวช่วย: เช็คว่ามองเห็น/กดได้ และกรองช่องค้นหา/กระเป๋าเงินออก |
+
+**Self-healing ที่ต่อเข้าไปแล้ว**
+- **หาปุ่มไม่เจอ** → ทุก 3 ครั้งล้าง cache (`cachedBetBtn`, `cachedAmountInput`, `cachedChanceInput`) แล้วค้นใหม่ด้วยโครงสร้าง
+- **ครบ 12 ครั้ง (~6 วิ)** → ขึ้นข้อความชัดเจนว่า selector อาจเปลี่ยน (F5 หรือ STOP) แล้วลดความถี่เป็น 1 วิ — **ไม่หยุดเซสชันเอง** เพื่อไม่ให้หยุดผิดตอนหน้าเว็บกำลังโหลด
+- **ทุก 25 ไม้** → `probeDomHealth()` ถ้าไม่ผ่านให้ล้าง cache ล่วงหน้า
+- **ตอน `startSession()`** → probe ก่อนเริ่ม แจ้งเตือนทันทีถ้าองค์ประกอบหาย
+
+### 5.5 AUTO-ADAPT ENGINE (บอทปรับ selector เองแล้วเล่นต่อ)
+
+§5.4 แค่ "หาให้เจอ + บอกผู้ใช้" — §5.5 คือ **บอทแก้ให้เอง** ไม่ต้องรอคนมาแก้โค้ด
+
+**หลักการ: ยืนยันด้วยพฤติกรรม ไม่ใช่ด้วยชื่อ attribute**
+1. เขียนค่าลง input ด้วย native setter + event `input/change/blur`
+2. **อ่านค่ากลับ** ว่าติดจริงไหม (`writeVerified`) — ถ้า React ไม่รับ ถือว่า candidate นั้นผิด
+3. ผ่านแล้วจึง "จำ" element ไว้ใน memory (`learnedAmountEl`, `learnedChanceEl`) และใช้ต่อทันที
+4. ไม่เขียน localStorage → คง zero-footprint (เรียนรู้ใหม่ทุกครั้งที่โหลดหน้า ใช้เวลาไม่กี่ ms)
+
+| สถานการณ์ | สิ่งที่บอททำเอง |
+|---|---|
+| ช่องยอด/ช่องโอกาสหาย | ให้คะแนน candidate (`min`/`max` +3, label/aria +2, `type=number` +1) → เรียงมากไปน้อย → เขียนค่าแล้วอ่านกลับ → ตัวแรกที่ผ่านคือตัวจริง |
+| ปุ่มเดิมพันหาย | `betButtonCandidates()`: `submit` ในฟอร์มเดียวกับช่องยอด → ปุ่มในฟอร์มนั้น → ข้อความ `bet/เดิมพัน/play/ทอย/roll` → ปุ่มกดได้ตัวสุดท้าย |
+| ปุ่มเดิม **กดแล้วเงียบ 2 ครั้ง** | `rotateBetButton()` สลับไป candidate ตัวถัดไปเอง |
+| เรียนรู้สำเร็จ | ขึ้นบน HUD: `🧩 ปรับ selector อัตโนมัติ: …` |
+
+**Safety ในตัว**
+- ตัวเลือกต้อง "มองเห็น + กดได้ + ข้อความ ≤ 24 ตัว + ไม่อยู่ใน wallet/header/nav + ไม่ใช่แท็บ"
+- **deny-list**: ปุ่มที่ชื่อมี stop / reload / โหลด / ถอน / settings / ตั้งค่า / history / ประวัติ จะไม่ถูกเลือกเลย
+- `isAmountApplied()` ยังตรวจซ้ำก่อนกดทุกไม้ — ถ้าเรียนรู้ผิดก็ไม่ถึงขั้นวางเงินผิด
+- ไม่เรียนรู้ระหว่าง `isBetInProgress` — ทำงานเฉพาะตอน "หาของไม่เจอ" หรือ "กดแล้วเงียบ"
+
+---
+
+## 6. ระบบป้องกันพอร์ต (6 ชั้น)
+
+| # | ชั้น | เงื่อนไข | ผล |
+|---|---|---|---|
+| 1 | **Hard Step Cap** | `realStep > configMaxRealSteps` (หรือแพ้ที่ไม้สุดท้าย) | หยุด + `cutLossSnipes++` |
+| 2 | **Session Kill Switch** | `profit ≤ −configSessionMaxLoss` (0 = ปิด) | หยุดทั้งเซสชัน |
+| 3 | **Pre-bet loss check** | ไม้ถัดไปแพ้แล้วทะลุเพดานขาดทุน | ไม่วางไม้นั้น + หยุด |
+| 4 | **Balance check** | ยอดไม้ > ยอดในกระเป๋า | หยุด ("เงินไม่พอ") |
+| 5 | **Bet boundary** | ยอด > `detectedMaxBet` ที่อ่านจาก attribute ของ input | หยุดก่อนถูกเว็บปฏิเสธ |
+| 6 | **Take Profit** | `profit ≥ configProfitTarget` | ลูปรอบใหม่ หรือหยุด (ขึ้นกับ `autoCycleRounds`) |
+
+เพิ่มเติม: ปุ่ม **ESC** = หยุดฉุกเฉินทันที (capture listener)
+
+---
+
+## 7. โหมดแทงลม (Virtual / Anti-Chop) — ❌ ปิดถาวรตั้งแต่บิลด์ `2026.11.18+7`
+
+> **สถานะปัจจุบัน: ปิด** — `configVirtualBetEnabled = false` แบบ hard-code (ไม่มีปุ่มให้เปิดบน HUD)
+> บอทจึง **เดิมพันจริงทุกไม้ตั้งแต่ไม้ 1** ไม่มีแทงลม 0$ อีก
+>
+> **เหตุผลที่ปิด:** Stake มักไม่รับ/ไม่ตอบสนองต่อยอด 0$ → บอทเคยหยุดเองใน ~6 วินาที (CHANGELOG ข้อ 12)
+> และเงื่อนไขออก “ชนะติด 2 ตา” ไม่มีเพดานจำนวนตา → ค้างยาวเป็นชั่วโมงได้โดยไม่ทำอะไร
+>
+> โค้ดในหัวข้อนี้ **เก็บไว้เป็นเอกสารอ้างอิงเท่านั้น ไม่ถูกเรียกใช้** (ทุกจุดอยู่ใต้ `if (configVirtualBetEnabled && ...)`)
+> ถ้าต้องการเปิดคืน: เปลี่ยน flag ที่บรรทัดต้น ๆ ของ `content.js` แล้วอัปเดตหัวข้อนี้ + §9 + bump build stamp
+
+**แนวคิด (ของระบบเดิม):** เจอจังหวะแย่ (ฟันปลา/แพ้กระจุก) → หยุดวางเงิน แต่ยังทอยด้วยยอด `0` เพื่อ "ดูฟอร์ม" จนฟอร์มดีขึ้น
+
+### เข้าโหมด (ท้าย `handleBetResult`)
+```
+configVirtualBetEnabled (**ตอนนี้ = false ตายตัว**, ไม่มีปุ่มบน HUD — เงื่อนไขนี้จึงไม่เป็นจริงอีก)
+&& !virtualMode
+&& realStep >= 5                     (configAntiChopMinStep)
+&& recentOutcomes.length >= 20       (configChopWindow)
+&& ( isChopPattern || isClusterLossPattern )
+```
+- `isChopPattern`: 4 ตาล่าสุดสลับ W/L/W/L
+- `isClusterLossPattern`: 20 ตาล่าสุดชนะ ≤ `round(20 × chance% × 0.6)` → ที่ 49% = **≤ 6 ตา**
+
+### ระหว่างโหมด
+- `applyBetSettings()` เขียนยอด `"0"` (ต้องยืนยันได้ว่าช่องอ่านเป็น 0 พอดี)
+- **ไม่แตะเงิน**: ไม่เรียก `applyBetBalance`, ไม่เพิ่ม `totalBets`/`totalWagered`/`winsCount`
+- `realStep` **ค้าง** อยู่ที่ไม้เดิม
+- `virtualRolls++`, ชนะ → `virtualWinStreak++`, แพ้ → รีเซ็ตเป็น 0
+
+### ออกโหมด
+- ต้อง **ชนะติด 2 ตา** → `virtualMode=false`, ล้าง `recentOutcomes`, กลับไปวางเงินจริงที่ไม้เดิม
+- **ไม่มีเพดานจำนวนตา** — ทอยได้เรื่อย ๆ จนกว่าจะชนะติด 2
+
+### ตัวกันลูปค้าง
+- ถ้า 1,200ms แล้วยังไม่รู้ผลและยอดเป็น 0 → `virtualStallCount++`
+- ครบ **5 ครั้ง** (`configVirtualStallLimit`) → `stopSession("🚨 แทงลม 0$ ไม่ตอบสนอง...")`
+- ⚠️ ความเสี่ยง: ถ้า Stake ไม่รับเดิมพัน 0$ โหมดนี้จะทำให้บอทหยุดเองใน ~6 วินาที
+
+---
+
+## 8. DESYNC GUARD (เหลือเฉพาะฝั่ง API)
+
+**ปัญหาเดิม:** บอทแทงทุก ~15–40ms แต่ยอดบนหน้าจอ (DOM + WebSocket `wss://stake.com/_api/websockets`) อัปเดตช้ากว่า 300–800ms → อ่าน DOM ทันทีหลังรู้ผลได้ "ยอดก่อนหน้า" → ต่างเท่ากับกำไรของไม้เดียวพอดี → แจ้ง DESYNC ปลอม → หยุดเซสชันผิด
+
+**สถานะปัจจุบัน (หลังแก้):**
+- ❌ `verifyBalanceSync()` + การอ่านยอดจาก DOM **ถูกลบออกทั้งหมด** (พร้อม `DOM_SETTLE_MS`, `DOM_STABLE_MS`, `domSettle`, `lastServerBalance*`, `lastBetResolvedAt`, `maxSingleBetSwing()`, `configDesyncGuard`)
+- ✅ เหลือการเทียบใน `applyBetBalance()` จาก **ยอด API เท่านั้น**
+
+```
+expected = currentBalance + delta
+tol      = max(1e-8, |delta| × 1e-6)
+diff     = expected − serverBal
+|diff| ≤ tol → registerBalanceSync()      (desyncStrikes = 0, คืน credit ทุก 10 ไม้ตรง)
+|diff| > tol → registerBalanceMismatch()  (desyncStrikes++)
+                 └─ ครบ 3 ครั้ง:
+                      configAutoResync ON  และ resyncCount < 5 → ยอมรับยอดจริงแล้วเล่นต่อ
+                      ไม่งั้น → stopSession("🚨 DESYNC ...")
+```
+
+> ⚠️ อย่าเพิ่มการอ่าน DOM กลับมาเป็นตัวตัดสิน — นั่นคือสาเหตุของ false DESYNC ที่บันทึกไว้ใน `INCIDENT_REPORT_20261015.md`
+
+---
+
+## 9. พารามิเตอร์ทั้งหมด (ค่าเริ่มต้นจริงในโค้ด)
+
+| ตัวแปร | ค่าเริ่มต้น | ความหมาย |
+|---|---|---|
+| `configChance` | `"49"` | โอกาสชนะ (%) — payout ≈ 99/49 ≈ 2.02x |
+| `configRealBaseBet` | `FIXED_BASE_BET` = `"0.00015"` | 🔒 **ค่าเดียว ล็อก** — ไม่หารตามทุน · 22 ไม้ใช้ทุนรวม ~11.25$ |
+| `configMaxRealSteps` | `22` | เพดานไม้ (HARD STOP) — AUTO TUNE ปรับได้ 8–22 |
+| `configAutoTune` | `false` | 🔒 ปิดล็อก — ใช้ไม้ 1 ค่าเดียว 0.00015 (ถ้าเปิด จะหารทุนมาคำนวณไม้ 1 ใหม่ = ผิดเจตนา) |
+| `AUTO_MIN_BET` | `0.00015` | ขั้นต่ำที่เว็บยอมรับ |
+| `AUTO_SAFETY_RATIO` | `0.65` | ใช้ทุนได้ไม่เกิน 65% ของพอร์ต |
+| `AUTO_STEP_TIERS` | `[22,20,18,16,14,12,10,8]` | ตัวหารทุน = `fibStepSum(steps)` → 75,023 / 28,655 / 10,944 / 4,179 / 1,595 / 376 / 143 / 54 |
+| `configDynamicScale` | `false` | 🔒 ล็อกปิด — ทบต้น (ไม้ 1 = balance ÷ 514,227) ไม่ถูกใช้ |
+| `configProfitTarget` | `1.0` | Take-Profit ต่อรอบ (USD) |
+| `configSessionMaxLoss` | `0` | ตัดขาดทุนทั้งเซสชัน (0 = ปิด) |
+| `configVirtualBetEnabled` | `false` | ❌ ปิดโหมดแทงลมถาวร (hard-code ไม่มีปุ่ม) — เดิมพันจริงทุกไม้ตั้งแต่ไม้ 1 |
+| `configChopWindow` | `20` | หน้าต่างดูผลสำหรับ anti-chop |
+| `configAntiChopMinStep` | `5` | เริ่มจับฟันปลาตั้งแต่ไม้ 5 |
+| `configVirtualStallLimit` | `5` | แทงลมไม่ตอบสนองกี่ครั้งจึงหยุด |
+| `configAutoResync` | `false` | ยอมรับยอดจริงแทนการหยุด (สูงสุด `RESYNC_LIMIT = 5`/เซสชัน) |
+| `DESYNC_STRIKE_LIMIT` | `3` | ยอดเพี้ยนติดกันกี่ครั้งจึงลงโทษ |
+| `configAutoStart` | `true` | เริ่มเองเมื่อเจอยอดเงิน (นับถอยหลัง 2s) |
+| `configEcoMode` | `true` | ซ่อน canvas/อนิเมชัน ลดภาระ GPU |
+
+### ลำดับเดินเงิน
+`arr = [0, base, base×2, base×3, base×5, base×8, base×13, base×21, ...]`
+(ตัวคูณคือ Fibonacci 1,2,3,5,8,13,21,34,…) ปัดขึ้นตามความละเอียด: ≥0.01 → 4 ตำแหน่ง, ต่ำกว่า → 8 ตำแหน่ง
+
+### การขยับไม้
+| ผล | การขยับ |
+|---|---|
+| ชนะที่ไม้ 1–3 | `resetToStepOne()` (จบรอบ) |
+| ชนะที่ไม้ ≥ 4 | `realStep = wonStep − 2` |
+| แพ้ | `realStep += 1` (ถ้าถึงเพดาน → HARD STOP) |
+
+### เวลาที่ใช้
+| จังหวะ | ค่า |
+|---|---|
+| หน่วงก่อนไม้ถัดไป | สุ่ม 12–28ms (`crypto.getRandomValues`) |
+| เริ่ม poll DOM หลังกด | 80ms แล้วทุก 25ms |
+| ตรวจ badge history | หลัง 250ms |
+| Safety timeout ต่อไม้ | 1,200ms |
+| Auto-start countdown | 2s (poll ทุก 500ms, สูงสุด 15s) |
+
+---
+
+## 10. HUD (closed Shadow DOM)
+
+- สร้างใน `createStealthPanel()` — `hostContainer.style.all = "initial"` + `attachShadow({mode:'closed'})` → **หน้าเว็บแทบตรวจจับไม่ได้**
+- ลากย้ายได้ (header), ย่อเหลือ mini bar, ปุ่ม 🔄 reload หน้าเว็บ
+- อัปเดตผ่าน `updateUI()` ที่ throttle ด้วย `requestAnimationFrame` + `isUiUpdatePending` → `setSafeText/setSafeStyle` เขียน DOM เฉพาะเมื่อค่าเปลี่ยน
+- ป้าย `v2.5` = รุ่นของ HUD (ไม่ตรงกับ `@version 2026.11.18` ใน header — ตั้งใจแยกกัน)
+
+### แถวข้อมูล
+| แถว | เนื้อหา |
+|---|---|
+| mode badge | `🎯 ไม้ปัจจุบัน: N (ยอด$)` — แบบ `🌬️ แทงลมหลบฟันปลา` ไม่มีแล้ว (โหมดปิด) |
+| ไม้ถัดไป | ยอดจริง หรือ `0.00000000 (ลม) [ไม้จริง N: ยอด]` |
+| winrate | `xx.x% (W/L - รวม N) + อัตราเดิมพัน/ชั่วโมง` |
+| theory | จริง vs ทฤษฎี, EV คาด (`−0.01 × totalWagered`), `แพ้ติด N ไม้ = 1/…`, ขั้นต่ำ/สูงสุดของเว็บ, สถานะ desync |
+| RNG audit | `🧪 RNG n=… · ผ่าน x/y · min p=…` (NIST SP 800-22, 15 เทสต์, α = 1%) |
+
+### RNG Audit
+- เก็บผลทอยจริง (`state.result`) ใน `rngRolls` (สูงสุด `RNG_MAX_SAMPLES` = 32,768)
+- ต้องมี ≥ 200 ลูกก่อนเริ่ม, คำนวณใหม่ทุก ~32 ลูก (throttle เพราะ DFT/Berlekamp–Massey แพง)
+- เทสต์: Monobit, Block, Runs, LongRun, Rank, DFT, NonOverlap, Overlap, Universal, LinComplex, Serial, ApEn, Cusum, Excursions, ExcVar
+- p ≥ 0.01 = ผ่าน · `⏳` = ข้อมูลไม่พอ · หลุด 1 ตัวถือเป็นเรื่องปกติทางสถิติ (~1%/เทสต์)
+
+---
+
+## 11. ⚠️ เอกสารเก่าที่ไม่ตรงกับโค้ดแล้ว (Doc drift)
+
+`README.md` ถูกเขียนไว้ตั้งแต่ยุคก่อน และมีหัวข้อที่ **ไม่ตรงกับโค้ดปัจจุบัน**:
+
+| README บอก | โค้ดจริงตอนนี้ |
+|---|---|
+| ไม้ 1 = `0.00013$` | default ปัจจุบัน **`0.00015`** (AUTO TUNE ปิดอยู่ จึงไม่เขียนทับ) |
+| ความเร็วคงที่ 70ms | สุ่ม 12–28ms ด้วย CSPRNG |
+| พักยก 45s ทุก 200 ตา (`☕ พัก`) | **ไม่มีฟีเจอร์นี้แล้ว** (ปุ่มพักถูกลบ) |
+| chance 49.5% | default `49` |
+| Cut-Loss `$550` | `configSessionMaxLoss = 0` (ปิด) + `configStopLoss` ถูกลบแล้ว |
+| `manifest.json` = "19-Step" | โค้ด default 22 ไม้, AUTO TUNE เลือก 8–22 |
+| DESYNC อ่าน 2 ชั้น (API + DOM) | อ่าน **API ชั้นเดียว** (§8) |
+
+👉 ถ้าจะอัปเดต README ให้ยึด **ไฟล์นี้** เป็นความจริง
+
+---
+
+## 12. ประวัติการเปลี่ยนแปลงล่าสุด (2 พ.ย. 2026)
+
+**ลบออก (สาเหตุ: พึ่ง WebSocket ที่ล่ม → ยอดบนจอค้าง → DESYNC ปลอม → หยุดเซสชันผิด)**
+1. `verifyBalanceSync()` ทั้งฟังก์ชัน + จุดเรียกใน `executeNextBet()`
+2. `DOM_SETTLE_MS`, `DOM_STABLE_MS`, `domSettle` (รวมจุดรีเซ็ต 2 จุด)
+3. dead code ที่เหลือ: `maxSingleBetSwing()`, `configDesyncGuard`, `SERVER_BAL_TTL_MS`, `lastServerBalance`, `lastServerBalanceAt`, `lastBetResolvedAt`, `configStopLoss`
+
+**ผลตรวจ:** `node --check` ผ่าน 3/3 · ไม่มี identifier ที่ถูกใช้แต่ไม่ประกาศ · สคริปต์ 2 ไฟล์ยัง identical · การเทียบยอดฝั่ง API ยังทำงานครบ
+
+**ไฟล์ต้นฉบับก่อนแก้:** `_backup_20261102/`
+
+---
+
+## 13. สำหรับ AI agent ที่จะแก้โค้ดนี้
+
+1. อ่านไฟล์นี้ก่อน — โดยเฉพาะ §2 (3 สำเนา), §8 (ห้ามเอา DOM มาเทียบยอดคืน), §11 (README ไม่น่าเชื่อถือ)
+2. **ห้ามลบ/แก้ `applyBetBalance()` ให้หยุดเทียบยอดจาก API** — นั่นคือ safety net ตัวจริง
+3. แก้ทั้ง 3 ไฟล์ แล้ว `node --check` + `diff` ให้ผ่านทุกครั้ง
+4. อย่าเพิ่ม dependency, อย่าแตะ `document-start` interceptor โดยไม่จำเป็น (เป็นหัวใจความเร็ว)
+5. ถ้าจะทดสอบ ให้เริ่มที่ไม้ขั้นต่ำ `0.00015$` และเตือนผู้ใช้ว่าเป็นการเดิมพันเงินจริง
+6. ห้าม commit/push — โฟลเดอร์นี้ไม่มี git
+
+---
+
+## 14. คำถามที่พบบ่อย
+
+**Q: ทำไมยอดบน HUD บางครั้งค้าง?**
+A: `getBalance()` อ่านจาก DOM ซึ่งพึ่ง WebSocket — ถ้า `wss://stake.com/_api/websockets` ล่ม ยอดบนจอจะค้าง แต่ **ไม่ทำให้บอทหยุดแล้ว** เพราะ DESYNC ใช้ยอดจาก API
+
+**Q: DESYNC ยังจับอะไรได้อยู่?**
+A: จับกรณีที่ยอดจากเซิร์ฟเวอร์ไม่ตรงกับ `currentBalance + delta` เกิน `max(1e-8, |delta|×1e-6)` — เช่น payout เพี้ยน, มีคนอื่นแทงซ้อน, หรือผลหลุด
+
+**Q: AUTO TUNE กับ ทบต้น ต่างกันยังไง?**
+A: AUTO TUNE เลือก "จำนวนไม้ + ไม้ 1" จากทุนโดยใช้ 65% ของพอร์ต (เปิด/ปิดพร้อมกันกับทบต้นไม่ได้) · ทบต้นคำนวณไม้ 1 = `balance ÷ 514,227` แบบคงที่ตลอดรอบ
+
+**Q: ทำไมต้องมี 3 สำเนา?**
+A: ผู้ใช้ใช้ทั้ง Tampermonkey (2 ไฟล์สำรอง) และ Chrome Extension — โค้ดชุดเดียวกันแต่บรรจุต่างกัน
+
+**Q: ทำไม `log()` ไม่พิมพ์อะไร?**
+A: ตั้งใจทำ "zero-footprint" ให้ console สะอาด — ถ้าต้อง debug ให้เปลี่ยน `log()` ให้เรียก `console.log` ชั่วคราว
+
+---
+
+## 15. ดัชนีนำทางสำหรับ AI (Function Index)
+
+> เลขบรรทัดอ้างอิงจาก `stake_extension/content.js` (2,770 บรรทัด)
+> ไฟล์ `.user.js` มีโครงสร้างเดียวกันแต่ยาวกว่า ~85 บรรทัด (มีฟังก์ชันเสริม) → **ให้ค้นด้วยชื่อฟังก์ชัน ไม่ใช่เลขบรรทัด**
+> `grep -n "function ชื่อ" stake_extension/content.js`
+
+### 15.1 อ่าน 5 นาที (เส้นทางที่แนะนำ)
+```
+§3 ภาพรวมสถาปัตยกรรม  →  §4.3 วงจรหนึ่งไม้  →  §9 พารามิเตอร์  →  §8 DESYNC  →  §7 แทงลม
+```
+
+### 15.2 ตารางฟังก์ชัน
+| กลุ่ม | ฟังก์ชัน (บรรทัด) | หน้าที่ |
+|---|---|---|
+| **ดักจับเครือข่าย** | `findRollObject` (33) · `findBalanceValue` (57) · `handlePossibleRollData` (77) | ขุดผลทอย + ยอดจริงจาก JSON response |
+| **บูต/HUD** | `init` (3609) · `createStealthPanel` (3199) · `applyEcoStyles` (182) | สร้าง UI, ฉีด CSS โหมด ECO |
+| **ควบคุมเซสชัน** | `startSession` (2787) · `stopSession` (2868) · `initAutoStartSequence` (2030) · `toggleAutoStart` (2085) · `cancelAutoStart` (2074) | เริ่ม/หยุด/ออโต้สตาร์ท |
+| **วงจรเดิมพัน** | `executeNextBet` (2148) · `waitForBetCompletion` (2333) · `scheduleNextBet` (2112) · `getCsprngDelay` (2101) | ยิงไม้ + รอผล + ตั้งคิวไม้ถัดไป |
+| **ประมวลผลผล** | `handleBetResult` (2567) · `applyBetBalance` (2526) · `handleTakeProfitHit` (2117) | อัปเดตยอด/สถิติ/ขยับไม้ |
+| **เขียนค่าลงเว็บ** | `applyBetSettings` (1798) · `setInput` (473) · `isAmountApplied` (1790) · `getBetButton` (538) · `clickBetButton` (1042) · `isBetButtonReady` (1035) · `openManualTab` (455) | ควบคุม DOM ของ Stake |
+| **อ่านผลสำรอง** | `getLatestBadgeInfo` (2264) · `isBadgeWinning` (2293) · `isGreenRgb` (2281) | อ่านผลจาก history badge |
+| **อ่านยอด** | `getBalance` (409) · `parseBalanceElement` (390) · `refreshBetLimits` (1225) · `effectiveMinBet` (1242) | DOM ของกระเป๋า/ขอบเขตเดิมพัน |
+| **DOM resilience** | `getGamePanel` (577) · `numberInputsIn` (615) · `isElUsable` (596) · `resolveAmountInput` (648) · `resolveChanceInput` (630) · `resolveBetButton` (687) · `probeDomHealth` (714) · `isNotAmountField` (607) | หาองค์ประกอบแบบอิงโครงสร้างเมื่อ testid เปลี่ยน (§5.4) |
+| **AUTO-ADAPT** | `writeVerified` (903) · `amountCandidates` (922) · `learnAmountInput` (945) · `learnChanceInput` (959) · `betButtonCandidates` (978) · `learnBetButton` (1016) · `rotateBetButton` (1024) · `domStrategyNote` (894) | เรียนรู้ selector ใหม่เองเมื่อเว็บเปลี่ยน (§5.5) |
+| **คณิตศาสตร์ไม้** | `calculateDynamicBaseBet` (1053) · `getBetSequence` (1085) · `ceilBetUnit` (1077) · `formatBetAmount` (1104) · `calculateCurrentBetAmount` (1109) · `calculateBetAmountForStep` (1120) · `fibStepSum` (1130) | ลำดับ Fibonacci + รูปแบบตัวเลข |
+| **AUTO TUNE** | `computeAutoPlan` (1142) · `applyAutoTune` (1161) · `resetToStepOne` (1806) | เลือกไม้ 1 + เพดานจากทุน |
+| **การ์ดกันยอดเพี้ยน** | `registerBalanceSync` (1187) · `registerBalanceMismatch` (1198) | นับ strike / resync (§8) |
+| **Anti-Chop** | `isChopPattern` (2502) · `isClusterLossPattern` (2515) | ตรวจจับฟันปลา/แพ้กระจุก (§7) |
+| **RNG audit** | `trackRngRoll` (1256) · `runRngAudit` (1754) · `rngBits` (1327) · `rngWalk` (1695) · `nist*` (1332–1736) · `erfc`/`lnGamma`/`chiSquareP` (1263–1322) | NIST SP 800-22 ครบ 15 เทสต์ |
+| **อัปเดต UI** | `updateUI` (2944) · `performUIUpdate` (2955) · `syncHUDInputs` (2934) · `updateStatusText` (2927) · `flashHudAlert` (2907) · `setSafeText`/`setSafeStyle` (2111/2115) · `formatNumber` (2899) · `getBetRateText` (289) | วาด HUD แบบ throttle |
+| **หน้าต่าง HUD** | `toggleEcoMode` (3549) · `toggleMinimizePanel` (3556) · `makeDraggable` (3574) | ย่อ/ขยาย/ลากย้าย/ECO |
+| **async (ค้นด้วยชื่อ)** | `ensureInstantBet` · `requestScreenWakeLock` · `enableAudioKeepAlive` (345) | เปิด Instant Bet / กันแท็บ sleep |
+| **ตัวว่างโดยตั้งใจ** | `log` (174) | ไม่พิมพ์อะไร (zero-footprint) |
+
+### 15.3 ตัวแปรสถานะหลัก
+| ตัวแปร | บรรทัด | ความหมาย |
+|---|---|---|
+| `sessionRunning` | 251 | เซสชันกำลังทำงาน (ตัวตัดสินหลักของทุก guard) |
+| `isBetInProgress` | 253 | กำลังรอผลไม้ปัจจุบัน |
+| `isWaitingNextRound` | 252 | พักระหว่างรอบ (กด START ซ้ำ = ข้าม) |
+| `realStep` | 246 | ไม้ปัจจุบัน (1..configMaxRealSteps) |
+| `cycleBase` | 538 | ไม้ 1 ที่ล็อกไว้ตลอดรอบ |
+| `virtualMode` | 234 | อยู่ในโหมดแทงลม |
+| `recentOutcomes` | 238 | ประวัติ W/L ≤ 20 ตา |
+| `startBalance` / `currentBalance` | 255 / 256 | ทุนเริ่มต้น / ยอดปัจจุบัน (ความจริงในระบบ) |
+| `profit` | 257 | `currentBalance − startBalance` |
+| `totalBets` / `totalWagered` | 259 / 269 | สถิติ (ไม่นับแทงลม) |
+| `winsCount` / `lossesCount` / `currentStreak` | 270–272 | สถิติผล |
+| `peakBalance` / `maxDrawdown` | 274 / 273 | จุดสูงสุด / ระยะถอย |
+| `betTimeoutId` | 285 | timer ของไม้ถัดไป (`clearTimers()` ล้าง) |
+| `autoCycleRounds` | 276 | ลูปรอบใหม่เมื่อถึงเป้ากำไร |
+
+### 15.4 ค้นหาเร็ว ๆ
+```bash
+grep -n "function executeNextBet" stake_extension/content.js      # จุดยิงไม้
+grep -n "virtualMode" stake_extension/content.js                # โหมดแทงลม
+grep -n "registerBalanceMismatch" stake_extension/content.js    # DESYNC
+grep -n "config[A-Z][A-Za-z]* =" stake_extension/content.js     # ค่าตั้งทั้งหมด
+node --check stake_extension/content.js                          # ตรวจ syntax
+```
+
+---
+
+## 16. ติดตั้ง / กู้คืน / ทดสอบ
+
+### ติดตั้ง (Tampermonkey)
+1. เปิด Tampermonkey → สร้างสคริปต์ใหม่
+2. วางโค้ดจาก `stake_dice_ghost_sniper.user.js` → Save (Ctrl+S)
+3. เปิด `stake.com` → เกม Dice → F5 → HUD ขึ้นที่มุมซ้ายบน
+
+### ติดตั้ง (Chrome Extension)
+1. `chrome://extensions` → เปิด **Developer mode**
+2. **Load unpacked** → เลือกโฟลเดอร์ `stake_extension`
+3. แก้โค้ดแล้วกดปุ่ม **Reload** ที่การ์ดส่วนขยาย + F5 หน้าเว็บ
+
+### กู้คืนเมื่อแก้พลาด
+```bash
+cp _backup_20261102/content.js stake_extension/content.js
+cp _backup_20261102/stake_dice_ghost_sniper.user.js .
+cp _backup_20261102/stake_dice_fibonacci_stealth.user.js .
+```
+
+### ชุดตรวจหลังแก้ (ต้องผ่านทุกข้อ)
+```bash
+node --check stake_extension/content.js
+node --check stake_dice_ghost_sniper.user.js
+diff stake_dice_ghost_sniper.user.js stake_dice_fibonacci_stealth.user.js  # ต้องว่าง
+```
+
+### ทดสอบจริงอย่างปลอดภัย
+- ตั้งไม้ 1 = `0.00015` (ขั้นต่ำที่เว็บรับ) เพื่อลดความเสี่ยง
+- ดู 10–20 ไม้แรก: ควรเห็นไม้ขยับ +1 เมื่อแพ้, ถอย 2 เมื่อชนะ, ไม่มี `DESYNC` ขึ้น
+- ถ้าต้องการดู log ให้แก้ `log()` ให้เรียก `console.log` ชั่วคราว แล้ว F12
+- ⚠️ เป็นการเดิมพันเงินจริง — ไม่มีโหมดจำลอง (dry-run) ในโค้ดนี้
+
+### ถ้าเว็บ Stake อัปเดตแล้วบอทไม่ทำงาน (แผนรับมือ)
+
+| อาการบน HUD | ความหมาย | วิธีแก้ |
+|---|---|---|
+| `⚠️ รอเปิดปุ่มเดิมพัน...` ค้างนาน | `getBetButton()` หาปุ่มไม่เจอ | บอทล้าง cache + เรียนปุ่มใหม่เองทุก 3 ครั้ง (§5.5) · ถ้าเกิน 6 วิ จะขึ้นข้อความบอก · ถ้ายังไม่หายให้ F5 |
+| `⚠️ หาไม่เจอ: ช่องยอดเดิมพัน` | อยู่ผิดแท็บ/หน้าโหลดไม่เสร็จ | บอทจะเรียนรู้ช่องใหม่เองเมื่อเริ่มแทง · ถ้ายังไม่ผ่าน กดแท็บ **Manual** หรือ F5 |
+| `⚠️ หาไม่เจอ: ช่องโอกาส` | ช่อง chance ถูกซ่อน | เปิดโหมด Manual ที่มีช่องกรอกตัวเลขครบ |
+| `🚨 ตั้งยอดเดิมพันในช่องไม่สำเร็จ` | เขียนค่าลง input ไม่ติด (React ไม่รับ) | ตรวจว่า `setInput()` ยังใช้ native setter + dispatch `input/change/blur` อยู่ |
+| `🚨 DESYNC ...` | ยอดจาก API ไม่ตรงกับที่คำนวณ | ดู §8 — ถ้าเกิดถี่ผิดปกติให้เปิด `configAutoResync` เป็น true |
+
+> หลักคิด: **ทุกจุดที่ผูกกับ DOM ควรมี 2 ทางขึ้นไป** (testid → โครงสร้าง → ข้อความ) และเมื่อหาของไม่เจอต้อง **บอกผู้ใช้** ไม่ใช่เงียบ
+
+---
+
+## 17. ข้อมูลที่บอทต้องได้ เพื่อทำงานเสถียร
+
+บอทไม่ต้องใช้ API key หรือข้อมูลลับใด ๆ จากผู้ใช้ — มันอ่านทุกอย่างจากหน้าเว็บและ traffic ของเว็บเอง แต่มี **ข้อมูลขั้นต่ำ** ที่ถ้าขาดแล้วจะไม่เสถียร
+
+### 17.1 จำเป็น (ขาดไม่ได้)
+
+| # | ข้อมูล | อ่านจากไหน | ใช้ทำอะไร | ถ้าขาดจะเป็นอย่างไร |
+|---|---|---|---|---|
+| 1 | **ช่องยอดเดิมพัน** (input) | `input[data-testid="input-game-amount"]` → สำรอง: `min`/`max`, label, `type=number` | เขียนยอดไม้ก่อนกดทุกครั้ง | `🚨 ตั้งยอดเดิมพันในช่องไม่สำเร็จ` |
+| 2 | **ช่องโอกาส** (input) | `input[data-testid="chance"]` → สำรอง: label chance/โอกาส | ตั้ง 49% คงที่ | วางไม้ด้วย chance ผิด → payout คลาด |
+| 3 | **ปุ่มเดิมพัน** | `button[data-testid="bet-button"]` → สำรอง: submit/ข้อความ bet | กดวางไม้ | `⚠️ รอเปิดปุ่มเดิมพัน...` แล้วหยุดนิ่ง |
+| 4 | **ยอดเงินในกระเป๋า** | DOM (`getBalance`) + `balance` จาก JSON ของ API | คำนวณไม้ 1, AUTO TUNE, เช็คว่าเงินพอ | เริ่มเซสชันไม่ได้ (`รอโหลด Balance`) |
+| 5 | **ผลทอย + payout** | JSON response (`payoutMultiplier`, `state.result`, `state.condition`, `state.target`) | ตัดสินแพ้/ชนะและขยับไม้ | ตกไปใช้ badge DOM (ช้ากว่า ~300ms และอาจอ่านผิด) |
+| 6 | **ขั้นต่ำ/สูงสุดของโต๊ะ** | attribute `min`/`max` ของช่องยอด | กันถูกเว็บปฏิเสธ | ใช้ค่าสำรอง `0.00015` (อาจต่ำเกินจริง) |
+| 7 | **สกุลเงิน USDT** | หน้าเว็บ (กระเป๋า) | ตัวเลขทั้งหมดคิดเป็น USDT | ตัวเลขเพี้ยนถ้าเล่นสกุลอื่น |
+
+### 17.2 ควรมี (มีแล้วเสถียรขึ้นมาก)
+
+| ข้อมูล | ทำไมสำคัญ |
+|---|---|
+| **แท็บ Manual เปิดอยู่** | โหมด Auto Bet ซ่อนช่องกรอก → บอทเขียนค่าไม่ได้ |
+| **Instant Bet เปิด** | ถ้าปิด เว็บจะหน่วงคูลดาวน์ต่อไม้ → บอทช้าลงมาก |
+| **`<form>` ครอบช่องยอด + ปุ่ม** | ทำให้ auto-adapt หาปุ่มได้แม่นขึ้น (submit ในฟอร์มเดียวกับช่องยอด) |
+| **`data-testid="dice-game"`** | ใช้เป็น anchor ของแผงเกม → ค้นหาเร็วและไม่ไปโดน element ของเมนูอื่น |
+| **history badge** (`dice-history`) | ทางสำรองสุดท้ายเมื่อ API ไม่ตอบ |
+| **ช่องโอกาสไม่มีตัวอักษร `%` ใน value** | ถ้ามี บอทต้องตัดออกก่อน parse |
+
+### 17.3 ข้อมูลที่ **ไม่ต้อง** และไม่ควรให้
+
+- ❌ Session token / cookie / รหัสผ่าน — บอทใช้ session ของเบราว์เซอร์เองอยู่แล้ว
+- ❌ API key / secret ใด ๆ
+- ❌ ข้อมูลบัญชีหรือประวัติการเงิน
+
+### 17.4 เก็บข้อมูลจริงจากหน้าเว็บ (ทำครั้งเดียว ~10 วินาที)
+
+เปิด `stake.com` → เกม **Dice** → โหมด **Manual** → F12 → แท็บ Console → วางโค้ดนี้ → Enter (คัดลอกผลลัพธ์ที่ได้)
+
+```js
+(() => {
+  const info = (el) => el ? {
+    value: el.value, min: el.getAttribute('min'), max: el.getAttribute('max'),
+    step: el.getAttribute('step'), type: el.type, inputmode: el.inputMode,
+    visible: el.getBoundingClientRect().width > 1,
+    testid: el.getAttribute('data-testid'), aria: el.getAttribute('aria-label')
+  } : null;
+  const amount = document.querySelector('input[data-testid="input-game-amount"]')
+    || document.querySelector('[data-testid="input-game-amount"] input')
+    || document.querySelector('input[data-testid="bet-amount"]');
+  const chance = document.querySelector('input[data-testid="chance"]')
+    || document.querySelector('input[data-testid="input-game-chance"]');
+  const btn = document.querySelector('button[data-testid="bet-button"]')
+    || document.querySelector('button[data-analytics="bet-button"]');
+  const nums = Array.from(document.querySelectorAll('input[type="number"], input[inputmode="decimal"], input[inputmode="numeric"], input:not([type])'));
+  const out = {
+    url: location.href,
+    panel: !!document.querySelector('[data-testid="dice-game"]'),
+    amount: info(amount),
+    chance: info(chance),
+    amountCandidates: nums.map(info),
+    hasForm: !!(amount && amount.closest('form')),
+    betButton: btn ? { text: (btn.textContent || '').trim(), disabled: btn.disabled, ariaDisabled: btn.getAttribute('aria-disabled') } : null,
+    buttons: Array.from(document.querySelectorAll('button')).slice(0, 40).map(b => ({
+      text: (b.textContent || '').trim().slice(0, 24),
+      testid: b.getAttribute('data-testid'),
+      disabled: b.disabled
+    })),
+    testids: Array.from(document.querySelectorAll('[data-testid]'))
+      .map(e => e.getAttribute('data-testid'))
+      .filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 100),
+    balanceCandidates: Array.from(document.querySelectorAll('span, div'))
+      .map(e => (e.textContent || '').trim())
+      .filter(t => /^\d{1,3}(,\d{3})*(\.\d+)?$/.test(t)).slice(0, 15)
+  };
+  const json = JSON.stringify(out, null, 2);
+  console.log(json);
+  try { copy(json); console.log('✅ คัดลอก JSON ลงคลิปบอร์ดแล้ว'); } catch (e) {}
+  return out;
+})();
+```
+
+> สคริปต์นี้อ่านอย่างเดียว **ไม่กดเดิมพัน ไม่แก้อะไร** และไม่ส่งข้อมูลออกอินเทอร์เน็ต
+
+### 17.5 สิ่งที่ต้องส่งกลับมา (ถ้าอยากให้ยืนยันความเสถียร)
+
+1. **JSON จาก §17.4** (สำคัญที่สุด)
+2. สกุลเงินที่ใช้เล่น (ควรเป็น USDT)
+3. ยอดเงินโดยประมาณ + ไม้ 1 ที่ตั้งไว้
+4. รูปหน้าเกม Dice (ถ้าสะดวก) — ช่วยดูว่า HUD ไม่ทับปุ่มเดิมพัน
+
+เมื่อได้ JSON แล้ว เทียบกับ `§17.1` ได้เลย: ถ้าข้อ 1–6 ครบ = บอทมีข้อมูลพอทำงานเสถียร · ถ้าข้อใดหาย ระบบ auto-adapt (§5.5) จะพยายามหาใหม่ให้ และถ้าหาไม่ได้จะบอกบน HUD ตรง ๆ ว่าขาดอะไร
+
+---
+
+### 17.6 ผลตรวจ DOM จริง (stake.com, 3 พ.ย. 2026)
+
+รัน `stake_dom_probe.js` บนหน้า Dice จริงแล้วพบว่า:
+
+| สิ่งที่พบ | ผลต่อบอท | แก้แล้วอย่างไร |
+|---|---|---|
+| **ไม่มี** `[data-testid="dice-game"]` เลย | `getGamePanel()` ไม่เจอ anchor → สแกนกว้างเกินไป | ใช้ `game-frame` → `game-sidebar` → `dice-slider` (§5.4) |
+| ช่องยอด `input-game-amount` **ไม่มี** `min`/`max` แต่มี `step="1e-8"` | 1) อ่านเพดานโต๊ะไม่ได้ 2) heuristic ที่เลือกจาก min/max จะไปเลือกช่องอื่น | `resolveAmountInput()` เพิ่มการเลือกจาก `step` + `refreshBetLimits()` อ่าน `data-min/data-max` |
+| ช่อง **payout** (`value 2.0204`, `min 1.0102`, `max 9900`) มี min/max | **อันตราย**: heuristic เดิมจะเขียนยอดเดิมพันลงช่อง payout | เพิ่ม `isNotAmountField()` กรอง `payout/profit/chance/multiplier/slider/target/roll` ออกทุกจุด |
+| ช่องโอกาสแสดง `49.0000` (min 0.01, max 98) | ค่า "49" ที่เขียนไปจะถูกเว็บฟอร์แมตเป็น "49.0000" → `setInput` dispatch ซ้ำทุกไม้ (ไม่ผิด แต่เปลือง) | ยอมรับได้ — `parseFloat` ยังทำงานถูก |
+| **ไม่มี** `dice-history` แต่มี `past-bet-button-0…13` | badge fallback (ทางสำรองเมื่อ API ไม่ตอบ) ใช้ไม่ได้เลย | `getLatestBadgeInfo()` ใช้ `[data-testid^="past-bet-button-"]` เป็นตัวแรก |
+| ปุ่ม `bet-button` ข้อความ `เดิมพัน` 276×44 · `disabled: true` ตอนช่องว่าง | ปกติ — จะ enabled หลังกรอกยอด | `isBetButtonReady()` วนรอจนพร้อม (15ms) |
+| testids ที่มีประโยชน์อื่น ๆ | — | `manual-tab`, `auto-tab`, `amount-double/halve`, `payout`, `profit-input`, `dice-slider`, `coin-toggle`, `balance-toggle`, `game-settings` |
+
+**สรุป**: ข้อมูลจำเป็น §17.1 ครบทั้ง 7 ข้อ (ช่องยอด ✓ · ช่องโอกาส ✓ · ปุ่ม ✓ · ยอดเงินผ่าน `coin-toggle` ✓ · ผลทอยผ่าน JSON ✓) — เหลือเพียง "เพดานโต๊ะ" ที่เว็บไม่ประกาศใน attribute บอทจึงใช้ `0.00015` เป็นขั้นต่ำสำรอง และข้าม guard เพดานเว็บเมื่ออ่านไม่ได้ (ไม่หยุดเล่น)
+
+---
+
+## 18. SELF-TEST MODE & DOM DRIFT DETECTOR (เพิ่ม 3 พ.ย. 2026)
+
+### 18.1 Self-Test Mode — `runSelfTest()`
+
+ตรวจว่า "บอทมองเห็นและเขียนค่าลงเว็บได้จริง" **โดยไม่กดเดิมพัน** — เรียก resolver ตัวจริงของบอท (ไม่ใช่ selector ของสคริปต์ภายนอก จึงทดสอบเส้นทางที่บอทใช้จริง)
+
+- เปิด: ปุ่ม **🧪 SELF-TEST (ไม่เดิมพัน)** บนแผง หรือคีย์ **Alt+T**
+- ความปลอดภัย: เขียนค่าลง input **ด้วยค่าเดิม** (อ่านค่าปัจจุบันแล้วเขียนกลับ) → ทดสอบ React event pipeline โดยไม่เปลี่ยนยอดเงินผู้ใช้
+
+| # | สิ่งที่ตรวจ | ผ่านเมื่อ |
+|---|---|---|
+| 1 | แผงเกม | `getGamePanel()` เจอ (`game-frame`/`game-sidebar`/`dice-game`/`dice-slider`) |
+| 2 | ช่องยอดเดิมพัน | เจอ element + อ่าน `value`/`step` ได้ |
+| 3 | ช่องโอกาส | เจอ + ค่าอยู่ใน 0–100 |
+| 4 | ปุ่มเดิมพัน | เจอปุ่ม (ถ้า `disabled` = ปกติเมื่อช่องว่าง ไม่ถือว่าไม่ผ่าน) |
+| 5 | ยอดเงิน | `getBalance()` คืนค่ามากกว่า 0 |
+| 6 | ผลทอยล่าสุด | `getLatestBadgeInfo()` อ่าน roll ได้ (ผ่าน `past-bet-button-N`) |
+| 7 | เขียนค่าช่องยอด | `writeVerified()` อ่านกลับตรง |
+| 8 | เขียนค่าช่องโอกาส | `writeVerified()` อ่านกลับตรง |
+
+ผลลัพธ์: HUD ขึ้น `🧪 SELF-TEST n/8` · `console.table` แสดงตาราง · **ถ้าไม่ผ่านจะคัดลอก JSON ลงคลิปบอร์ดอัตโนมัติ** เพื่อส่งกลับมาแก้ selector
+
+### 18.2 DOM Drift Detector — `domTestIdSignature()` / `checkDomDrift()`
+
+จำ "ลายนิ้วมือ" ของ `data-testid` ในแผงเกมตอนเริ่ม แล้วเทียบซ้ำ:
+
+- เรียกทุกครั้งที่ `probeDomHealth()` → **ทุก 25 ไม้** และตอน `startSession()`
+- เจอความต่าง → `🧬 DOM เปลี่ยน (หาย n: a, b · เพิ่ม n: c)` ขึ้น HUD/log พร้อมอัปเดต baseline ใหม่
+- **ตัด testid ที่เป็น UUID ออก** (`/^[0-9a-f]{8}-[0-9a-f]{4}-/`) เพราะ Stake สุ่มใหม่ทุกรอบ → ถ้าไม่ตัดจะกลายเป็น drift ปลอมทุกไม้
+- `domFingerprintReport()` ฝังผลไว้ในรายงาน self-test (`dom.added` / `dom.removed` / `dom.drifts`)
+
+### 18.3 ข้อควรรู้
+
+- Self-test ต้องอยู่หน้า **Dice + โหมด Manual** (ช่องโอกาสจะไม่มีในโหมด Auto)
+- ข้อ 6 (badge) ไม่ผ่าน = ไม่เป็นไร บอทยังอ่านผลจาก API interceptor ได้
+- Drift ที่ขึ้นซ้ำ ๆ ตัวเดิมทุกไม้ = testid ที่ Stake สุ่มแบบไม่ใช่ UUID → ให้เพิ่มตัวกรองใน `domTestIdSignature()`
+
+---
+
+## 19. SESSION LEDGER & RESUME AT STEP (เพิ่ม 3 พ.ย. 2026)
+
+### 19.1 Session Ledger — `ledgerRecord()` / `copyLedger()`
+
+ทะเบียนไม้จริงทุกไม้ เก็บในหน่วยความจำ (ไม่เขียนดิสก์ ตาม zero-footprint):
+
+```
+{ n, time, step, amount, win, delta, balance, source: "API" | "DOM" }
+```
+
+- บันทึกที่ต้น `handleBetResult()` โดยจับ `realStep` **ตอนวางเงิน** (ก่อนที่ step จะขยับ) — ไม้ที่ 7 จะถูกบันทึกเป็น step 7 จริง
+- **กระทบยอดอัตโนมัติ**: เทียบ `balance(n) - balance(n-1)` กับ `delta(n)` ถ้าต่างเกิน `max(1e-8, |delta|×1e-3)` → log `🧾 LEDGER: ไม้ N ยอดเดินไม่ตรง` และเพิ่มตัวนับ `ledgerGaps`
+- ส่งออก: **Alt+L** → `ledgerSummary()` (bets/wins/losses/net/gaps + สรุปแยกตาม step) + JSON ลงคลิปบอร์ด
+- buffer 500 ไม้ (`LEDGER_MAX`) · ล้างทุกครั้งที่ `startSession()`
+
+`ledgerSummaryByStep()` ให้ `{ [step]: { at, wins, net } }` → ใช้ตรวจว่าไม้ลึก ๆ ขาดทุนตามทฤษฎีหรือเพี้ยน
+
+### 19.2 Resume at Step — `jumpToStep()`
+
+แก้ปัญหา "รีเฟรชหน้า = กลับไปไม้ 1 ทั้งที่ทุนจมอยู่ที่ไม้ 7":
+
+- HUD มีช่อง **เริ่มไม้:** + ปุ่ม **↪️ ไปไม้ที่ระบุ** (เหนือกล่องพารามิเตอร์)
+- เงื่อนไข: ต้อง `sessionRunning` และ `!isBetInProgress` (กันกระโดดกลางไม้ที่กำลังแทง)
+- ค่าถูก clamp ใน `1..configMaxRealSteps` · ตั้ง `realStep` ใหม่ + ล้างสถานะแทงลม (`virtualMode/virtualRolls/virtualWinStreak`) + `applyBetSettings()` + `updateUI()`
+- log บอกยอดไม้ปลายทางและ balance ปัจจุบัน เพื่อให้เห็นก่อนกดไม้จริง
+
+> ยังไม่ทำ: อนุมาน step อัตโนมัติจาก `past-bet-button-N` — ตัวเลขบนป้ายเป็น **ผลทอย** ไม่ใช่ยอดเดิมพัน จึงเดา step ไม่ได้อย่างน่าเชื่อถือ การให้ผู้ใช้ระบุเลขไม้ตรง ๆ ปลอดภัยกว่า
+
+---
+
+## 20. MULTI-TAB GUARD & BET LIMIT SNIFFER (เพิ่ม 3 พ.ย. 2026)
+
+### 20.1 Multi-Tab Guard — `initTabGuard()` / `peerIsRunning()`
+
+กันเปิดบอทสองแท็บแล้วเดิมพันซ้อน (สาเหตุคลาสสิกของ "ยอดเพี้ยน/DESYNC"):
+
+- ใช้ `BroadcastChannel("stake_dice_bot_v1")` — ข้อความระหว่างแท็บอยู่ในหน่วยความจำ **ไม่เขียนดิสก์** จึงยัง zero-footprint
+- แต่ละแท็บมี `TAB_ID` สุ่ม · ตอน `startSession()` ถ้าเห็นแท็บอื่นส่ง `running` ภายใน 8 วินาที → **ไม่ยอมเริ่ม** พร้อมบอกให้ปิดอีกแท็บ
+- ถ้าเผลอเริ่มพร้อมกันทั้งสองแท็บ: แท็บที่ `TAB_ID` **มากกว่า** หยุดตัวเอง (ทั้งสองฝั่งคำนวณกฎเดียวกัน → เหลือแท็บเดียวอย่างแน่นอน)
+- heartbeat `running` ทุก 3 วินาทีขณะเล่น · ส่ง `idle` ตอน `stopSession()`
+- ถ้าเบราว์เซอร์ไม่มี `BroadcastChannel` ระบบจะข้ามการป้องกันนี้เงียบ ๆ (ไม่ทำให้บอทพัง)
+
+### 20.2 Bet Limit Sniffer — `sniffBetLimits()`
+
+เดิม `refreshBetLimits()` อ่าน `min`/`max` จาก attribute — แต่ DOM จริงของ Stake **ไม่มี attribute นี้** (ดู §17.6) ตัว sniff จึงอ่านจากข้อความแจ้งเตือนของเว็บแทน:
+
+- สแกน `[data-testid="notification-list"] *`, `[role="alert"]`, `[data-testid*="toast"]`, `[data-testid*="notification"]`
+- รับเฉพาะข้อความที่มีคำ `สูงสุด / maximum / max / เกิน / exceed` **และ** มีหน่วยเงิน (`USDT`, `$`, `เดิมพัน`, `bet`) — กันอ่านเลขจาก "payout 99x" มาเป็นเพดาน
+- เลือกค่าที่ **แคบที่สุด** (ต่ำสุด) ที่เว็บยืนยัน แล้วเก็บใน `detectedMaxBet` → `executeNextBet()` จะหยุดก่อนวางไม้ที่เกินเพดาน
+- เรียกที่: `startSession()` (สแกนของเก่าที่ค้าง) และทันทีที่ไม้จริง "กดแล้วไม่ติด" (safety timeout) ซึ่งมักมี toast เพดานขึ้นมา
+
+> ข้อจำกัด: ถ้า Stake เปลี่ยนชื่อ container ของ toast เป็นอย่างอื่นที่ไม่มีคำว่า `notification`/`toast`/`role="alert"` ตัว sniff จะไม่เห็นอะไร (ไม่ทำให้พัง แค่ไม่เรียนเพดาน) — ดูได้จาก SELF-TEST/§17.6
+
+---
+
+## 21. AUTO-INDEX (สร้างโดย `tools/gen-index.cjs` — ห้ามแก้ด้วยมือ)
+
+ตารางนี้สร้างจาก `stake_extension/content.js` โดยตรง · รัน `node tools/gen-index.cjs` หลังแพตช์ทุกครั้ง
+จะอัปเดตเลขบรรทัดทุกจุดในคู่มือ + ตารางนี้ + ตรวจว่า 3 สำเนามีฟังก์ชันตรงกัน
+
+<!-- AUTO-INDEX:START -->
+| # | ฟังก์ชัน | บรรทัด |
+|---|---|---|
+| 1  `findRollObject` | 33 |
+| 2  `findBalanceValue` | 57 |
+| 3  `handlePossibleRollData` | 77 |
+| 4  `log` | 174 |
+| 5  `applyEcoStyles` | 182 |
+| 6  `trackRollValue` | 269 |
+| 7  `getSurvivalProbabilityText` | 278 |
+| 8  `getBetRateText` | 289 |
+| 9  `enableAudioKeepAlive` | 345 |
+| 10  `requestScreenWakeLock` | 365 |
+| 11  `clearTimers` | 376 |
+| 12  `parseBalanceElement` | 390 |
+| 13  `getBalance` | 409 |
+| 14  `openManualTab` | 455 |
+| 15  `ensureManualTab` | 469 |
+| 16  `setInput` | 473 |
+| 17  `getBetButton` | 538 |
+| 18  `getGamePanel` | 577 |
+| 19  `isElUsable` | 596 |
+| 20  `isNotAmountField` | 607 |
+| 21  `numberInputsIn` | 615 |
+| 22  `resolveChanceInput` | 630 |
+| 23  `resolveAmountInput` | 648 |
+| 24  `resolveBetButton` | 687 |
+| 25  `probeDomHealth` | 714 |
+| 26  `stAdd` | 738 |
+| 27  `runSelfTest` | 742 |
+| 28  `domTestIdSignature` | 830 |
+| 29  `domFingerprintReport` | 848 |
+| 30  `checkDomDrift` | 863 |
+| 31  `domStrategyNote` | 894 |
+| 32  `writeVerified` | 903 |
+| 33  `amountCandidates` | 922 |
+| 34  `learnAmountInput` | 945 |
+| 35  `learnChanceInput` | 959 |
+| 36  `betButtonCandidates` | 978 |
+| 37  `learnBetButton` | 1016 |
+| 38  `rotateBetButton` | 1024 |
+| 39  `isBetButtonReady` | 1035 |
+| 40  `clickBetButton` | 1042 |
+| 41  `calculateDynamicBaseBet` | 1053 |
+| 42  `ceilBetUnit` | 1077 |
+| 43  `getBetSequence` | 1085 |
+| 44  `formatBetAmount` | 1104 |
+| 45  `calculateCurrentBetAmount` | 1109 |
+| 46  `calculateBetAmountForStep` | 1120 |
+| 47  `fibStepSum` | 1130 |
+| 48  `computeAutoPlan` | 1142 |
+| 49  `applyAutoTune` | 1161 |
+| 50  `registerBalanceSync` | 1187 |
+| 51  `registerBalanceMismatch` | 1198 |
+| 52  `refreshBetLimits` | 1225 |
+| 53  `effectiveMinBet` | 1242 |
+| 54  `trackRngRoll` | 1256 |
+| 55  `erfc` | 1263 |
+| 56  `normalCdf` | 1272 |
+| 57  `gammaLower` | 1276 |
+| 58  `gammaIncompleteUpper` | 1288 |
+| 59  `lnGamma` | 1310 |
+| 60  `chiSquareP` | 1322 |
+| 61  `rngBits` | 1327 |
+| 62  `nistMonobit` | 1332 |
+| 63  `nistBlockFrequency` | 1340 |
+| 64  `nistRuns` | 1355 |
+| 65  `nistLongestRun` | 1369 |
+| 66  `nistCusum` | 1393 |
+| 67  `nistApEn` | 1416 |
+| 68  `nistDFT` | 1435 |
+| 69  `nistSerial` | 1461 |
+| 70  `nistMatrixRank` | 1486 |
+| 71  `poissonPmf` | 1522 |
+| 72  `nistNonOverlappingTemplate` | 1529 |
+| 73  `nistOverlappingTemplate` | 1571 |
+| 74  `nistUniversal` | 1605 |
+| 75  `berlekampMassey` | 1636 |
+| 76  `nistLinearComplexity` | 1654 |
+| 77  `rngWalk` | 1695 |
+| 78  `nistRandomExcursions` | 1712 |
+| 79  `nistRandomExcursionsVariant` | 1736 |
+| 80  `runRngAudit` | 1754 |
+| 81  `isAmountApplied` | 1790 |
+| 82  `applyBetSettings` | 1798 |
+| 83  `resetToStepOne` | 1806 |
+| 84  `ledgerRecord` | 1828 |
+| 85  `ledgerSummaryByStep` | 1859 |
+| 86  `ledgerSummary` | 1871 |
+| 87  `copyLedger` | 1887 |
+| 88  `jumpToStep` | 1901 |
+| 89  `initTabGuard` | 1943 |
+| 90  `peerIsRunning` | 1971 |
+| 91  `broadcastTabState` | 1975 |
+| 92  `sniffBetLimits` | 1988 |
+| 93  `initAutoStartSequence` | 2030 |
+| 94  `cancelAutoStart` | 2074 |
+| 95  `toggleAutoStart` | 2085 |
+| 96  `getCsprngDelay` | 2101 |
+| 97  `scheduleNextBet` | 2112 |
+| 98  `handleTakeProfitHit` | 2117 |
+| 99  `executeNextBet` | 2148 |
+| 100  `getLatestBadgeInfo` | 2264 |
+| 101  `isGreenRgb` | 2281 |
+| 102  `isBadgeWinning` | 2293 |
+| 103  `waitForBetCompletion` | 2333 |
+| 104  `isChopPattern` | 2502 |
+| 105  `isClusterLossPattern` | 2515 |
+| 106  `applyBetBalance` | 2526 |
+| 107  `handleBetResult` | 2567 |
+| 108  `findInstantBetLabel` | 2711 |
+| 109  `readToggleState` | 2724 |
+| 110  `ensureInstantBet` | 2743 |
+| 111  `startSession` | 2787 |
+| 112  `stopSession` | 2868 |
+| 113  `setSafeText` | 2891 |
+| 114  `setSafeStyle` | 2895 |
+| 115  `formatNumber` | 2899 |
+| 116  `flashHudAlert` | 2907 |
+| 117  `updateStatusText` | 2927 |
+| 118  `syncHUDInputs` | 2934 |
+| 119  `updateUI` | 2944 |
+| 120  `performUIUpdate` | 2955 |
+| 121  `createStealthPanel` | 3199 |
+| 122  `toggleEcoMode` | 3549 |
+| 123  `toggleMinimizePanel` | 3556 |
+| 124  `makeDraggable` | 3574 |
+| 125  `init` | 3609 |
+<!-- AUTO-INDEX:END -->
+
+---
+
+## 22. BUILD STAMP, INTEGRITY BAR & AUTO-INDEX (เพิ่ม 3 พ.ย. 2026)
+
+### 22.1 Build Stamp — `BUILD_STAMP`
+
+- ค่าปัจจุบัน: **`2026.11.18+6`** (= รอบที่ลงจริง 2026.11.18 + แพตช์ 6 รอบ)
+- แสดงที่: **หัวแผง** (แทน `v2.5` ที่ hardcode), log ตอนบูต (`🔖 BUILD …`), และฟิลด์ `build` ในรายงาน Self-Test
+- `@version` = `2026.11.18.6` · `stake_extension/manifest.json` = `1.0.6`
+- **กฎ**: ทุกครั้งที่แพตช์ ให้บวกเลขท้าย `+N` พร้อมกับ `@version` เพื่อให้รู้ว่าเบราว์เซอร์โหลด build ไหนจริง
+
+### 22.2 Integrity Bar — `#sniperIntegrity`
+
+แถบ 1 บรรทัดเหนือ Start Bal ที่เอา "ตัวเลขซึ่งเดิมคำนวณทิ้ง" มาโชว์:
+
+`🩺 DD …$ · Waged …$ · Peak … · Gaps … · Drift … · Resync … · Sync … · Cut …`
+
+| ตัวย่อ | มาจาก | ความหมาย |
+|---|---|---|
+| DD | `maxDrawdown` | drawdown สูงสุดจาก peak |
+| Waged | `totalWagered` | ยอดเดิมพันสะสม (ใช้ดู EV จริง) |
+| Peak | `peakBalance` | ยอดเงินสูงสุดในเซสชัน |
+| Gaps | `ledgerGaps` | จำนวนครั้งที่ ledger กระทบยอดไม่ตรง (§19.1) |
+| Drift | `domDriftCount` | จำนวนครั้งที่ DOM เปลี่ยน (§18.2) |
+| Resync / Sync / Cut | `resyncCount` / `cleanSyncStreak` / `cutLossSnipes` | ตัวนับของ DESYNC guard |
+
+### 22.3 Auto-Index — `tools/gen-index.cjs`
+
+รัน `node tools/gen-index.cjs` หลังแพตช์ทุกครั้ง (แทนการ renumber มือ):
+
+1. เขียนเลขบรรทัดทุกจุด `` `ชื่อฟังก์ชัน` (NNN) `` ในคู่มือให้ตรง `stake_extension/content.js`
+2. สร้าง§21 AUTO-INDEX ใหม่ทั้งตาราง (ระหว่าง `<!-- AUTO-INDEX:START/END -->`)
+3. **ตรวจ 3 สำเนาว่ามีฟังก์ชัน + เลขบรรทัดตรงกัน** และรายงานชื่อที่คู่มืออ้างถึงแต่โค้ดไม่มี (stale)
+
+### 22.4 บทเรียนสำคัญ: `content.js` ตกขบวนได้
+
+รอบนี้ gen-index จับได้ว่า `content.js` มี **123 ฟังก์ชัน** ขณะที่ userscript มี **125** — ขาด `trackRollValue()` / `getSurvivalProbabilityText()` และกล่อง **📊 เรดาร์ความน่าจะเป็น** (`sniperRadarRatio`, `sniperSurvivalProb`, `sniperRadarAnomaly`) ทั้งชุด
+
+สาเหตุ: ที่ผ่านมา diff ตรวจแค่ `ghost ↔ fibo` ไม่เคย diff `ghost ↔ content.js`
+
+**กฎใหม่**: ตรวจ parity **3 ไฟล์** ทุกครั้ง (`diff content ↔ ghost`, `diff ghost ↔ fibo`) หรือให้ `gen-index` เป็นตัวตรวจ (จะขึ้น `สำเนา 3 ไฟล์ตรงกัน: ไม่ตรง — …` ถ้าพลาด)

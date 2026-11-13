@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Vault</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">🔐</div>
+        <h1>My Vault</h1>
+      </div>
+      <button id="lockBtn" class="icon-btn" title="ล็อคห้องนิรภัย" style="display: none;">🔒</button>
+    </header>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">คัดลอกแล้ว!</div>
+
+    <!-- View: Setup Master Password (First Time) -->
+    <section id="setupView" class="view" style="display: none;">
+      <div class="welcome-card">
+        <h3>เริ่มต้นใช้งาน My Vault</h3>
+        <p>กรุณาตั้งรหัสผ่านหลัก (Master Password) เพื่อเข้ารหัสข้อมูลทั้งหมดของคุณ</p>
+        <div class="form-group">
+          <label for="setupPass">รหัสผ่านหลัก (Master Password):</label>
+          <input type="password" id="setupPass" placeholder="เช่น รหัสผ่านอย่างน้อย 6 ตัวอักษร">
+        </div>
+        <div class="form-group">
+          <label for="setupPassConfirm">ยืนยันรหัสผ่านหลัก:</label>
+          <input type="password" id="setupPassConfirm" placeholder="พิมพ์รหัสผ่านอีกครั้ง">
+        </div>
+        <button id="btnCreateVault" class="btn btn-primary full-width">สร้างห้องนิรภัยส่วนตัว</button>
+      </div>
+    </section>
+
+    <!-- View: Unlock Vault -->
+    <section id="unlockView" class="view" style="display: none;">
+      <div class="unlock-card">
+        <div class="lock-illustration">🔒</div>
+        <h3>ห้องนิรภัยถูกล็อค</h3>
+        <p class="subtitle">กรอกรหัสผ่านหลักเพื่อเข้าถึงรหัสผ่านของคุณ</p>
+        <div class="form-group">
+          <input type="password" id="unlockPass" placeholder="รหัสผ่านหลัก (Master Password)" autofocus>
+        </div>
+        <button id="btnUnlock" class="btn btn-primary full-width">ปลดล็อคห้องนิรภัย</button>
+        <p id="unlockError" class="error-text" style="display: none;">รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่</p>
+      </div>
+    </section>
+
+    <!-- View: Main Vault Dashboard -->
+    <section id="mainView" class="view" style="display: none;">
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-list">รายการทั้งหมด (<span id="itemCount">0</span>)</button>
+        <button class="tab-btn" data-tab="tab-add">+ บันทึกรหัสใหม่</button>
+        <button class="tab-btn" data-tab="tab-backup">สำรองข้อมูล</button>
+      </nav>
+
+      <!-- Quick Autofill Banner for Current Page -->
+      <div id="currentSiteBanner" class="site-banner" style="display: none;">
+        <div class="site-banner-info">
+          <span class="banner-badge">เว็บตรงกัน</span>
+          <div id="currentSiteBannerTitle" class="banner-title">facebook.com</div>
+        </div>
+        <button id="btnQuickAutofill" class="btn btn-autofill">⚡ กรอกรหัสทันที</button>
+      </div>
+
+      <!-- Tab Content: List & Search -->
+      <div id="tab-list" class="tab-content active">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="🔍 ค้นหาเว็บไซต์, บัญชี, อีเมล...">
+        </div>
+        <div id="credentialsList" class="credentials-list">
+          <!-- Items will be injected here via JavaScript -->
+        </div>
+        <div id="emptyListMsg" class="empty-state" style="display: none;">
+          <p>ยังไม่มีการบันทึกรหัสผ่าน</p>
+          <button id="btnGoAdd" class="btn btn-secondary btn-sm">คลิกเพื่อเพิ่มข้อมูลแรก</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Add New Credential -->
+      <div id="tab-add" class="tab-content">
+        <form id="addForm">
+          <div class="form-group">
+            <label for="siteName">ชื่อเว็บ / บริการ <span class="required">*</span></label>
+            <input type="text" id="siteName" placeholder="เช่น Google, Facebook, Shopee" required>
+          </div>
+          <div class="form-group">
+            <label for="siteUrl">โดเมน / ลิงก์เว็บ</label>
+            <input type="text" id="siteUrl" placeholder="เช่น https://example.com">
+          </div>
+          <div class="form-group">
+            <label for="username">ชื่อผู้ใช้ / อีเมล / เบอร์โทร <span class="required">*</span></label>
+            <input type="text" id="username" placeholder="user@example.com" required>
+          </div>
+          <div class="form-group">
+            <div class="label-row">
+              <label for="password">รหัสผ่าน <span class="required">*</span></label>
+              <button type="button" id="btnGenPass" class="link-btn">🎲 สุ่มรหัสปลอดภัย</button>
+            </div>
+            <div class="input-with-action">
+              <input type="password" id="password" placeholder="กรอกรหัสผ่านของคุณ" required>
+              <button type="button" id="btnTogglePass" class="toggle-eye-btn">👁️</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="notes">บันทึกเพิ่มเติม (ตัวเลือก)</label>
+            <textarea id="notes" rows="2" placeholder="เช่น รหัสกู้คืน, 2FA backup code, คำใบ้"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary full-width">💾 บันทึกรหัสผ่าน</button>
+        </form>
+      </div>
+
+      <!-- Tab Content: Backup & Settings -->
+      <div id="tab-backup" class="tab-content">
+        <div class="backup-box">
+          <h4>📦 ส่งออกข้อมูลสำรอง (Export)</h4>
+          <p>ดาวน์โหลดไฟล์รหัสผ่านของคุณ (เข้ารหัสปลอดภัย) เพื่อป้องกันข้อมูลสูญหาย</p>
+          <button id="btnExport" class="btn btn-secondary full-width">⬇️ ส่งออกเป็นไฟล์ Backup (.json)</button>
+        </div>
+        <hr class="divider">
+        <div class="backup-box">
+          <h4>📥 กู้คืนข้อมูล (Import)</h4>
+          <p>นำเข้าไฟล์สำรองที่เคย Export ไว้</p>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+          <button id="btnImport" class="btn btn-secondary full-width">⬆️ เลือกไฟล์เพื่อกู้คืน</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="crypto.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

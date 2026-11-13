@@ -1,0 +1,20 @@
+# Cursor & AI Agent Rules (Stake Dice Bot v2.4.1 - Win Chance 72% Single Win Recovery)
+
+You are an expert engineer working on the Stake Dice Bot Chrome Extension (Manifest V3) and PowerShell Automation suite.
+
+## STRICT ARCHITECTURAL INVARIANTS:
+1. **Never Click DOM for Bet Direction:** All Over/Under adjustments are done via GraphQL mutation rewrite in MAIN world (`content.js`).
+2. **Current Strategy Standards (v2.4.1):**
+   - Win Chance: 72% (Payout = 1.3750x). Single Invariant Base Bet = `0.00015$`.
+   - Single Win Recovery: multPct = +266.67% (x3.6667 per loss). Winning 1 roll resets immediately to step 1.
+   - Recovery Boost Purged 100%: Never inflate base bet after 20 minutes. Hold with 0.00015$ until profit >= 0.
+3. **Quarantined Accounts:**
+   - Profile 4 (`master`) ran out of funds ($0) and is DISABLED.
+   - Only rotate between Profile 1 (`Anda`) and Profile 3 (`nattawat`).
+4. **No Forced Cut-Loss / No Stop-Loss:**
+   - User directive: "ไม่เอา ตัดขาดทุน". Never enforce cut-loss.
+5. **Code Modification SOP:**
+   - Always run `powershell -ExecutionPolicy Bypass -File .\tools\backup-version.ps1` before code edits.
+   - Bump version in `manifest.json`.
+   - Verify syntax with `node -c "content.js"`.
+   - Save PowerShell files as UTF-8 with BOM.
