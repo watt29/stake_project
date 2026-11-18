@@ -1,20 +1,14 @@
-# Cursor & AI Agent Rules (Stake Dice Bot v2.4.1 - Win Chance 72% Single Win Recovery)
+# Cursor & AI Agent Rules (Stake Dice Bot v2.4.5)
 
-You are an expert engineer working on the Stake Dice Bot Chrome Extension (Manifest V3) and PowerShell Automation suite.
+> Strictly follow `AGENTS.md` (Rule 0 — Production `v2.4.5`, 2026-11-16) before modifying any file.
 
-## STRICT ARCHITECTURAL INVARIANTS:
-1. **Never Click DOM for Bet Direction:** All Over/Under adjustments are done via GraphQL mutation rewrite in MAIN world (`content.js`).
-2. **Current Strategy Standards (v2.4.1):**
-   - Win Chance: 72% (Payout = 1.3750x). Single Invariant Base Bet = `0.00015$`.
-   - Single Win Recovery: multPct = +266.67% (x3.6667 per loss). Winning 1 roll resets immediately to step 1.
-   - Recovery Boost Purged 100%: Never inflate base bet after 20 minutes. Hold with 0.00015$ until profit >= 0.
-3. **Quarantined Accounts:**
-   - Profile 4 (`master`) ran out of funds ($0) and is DISABLED.
-   - Only rotate between Profile 1 (`Anda`) and Profile 3 (`nattawat`).
-4. **No Forced Cut-Loss / No Stop-Loss:**
-   - User directive: "ไม่เอา ตัดขาดทุน". Never enforce cut-loss.
-5. **Code Modification SOP:**
-   - Always run `powershell -ExecutionPolicy Bypass -File .\tools\backup-version.ps1` before code edits.
-   - Bump version in `manifest.json`.
-   - Verify syntax with `node -c "content.js"`.
-   - Save PowerShell files as UTF-8 with BOM.
+## STRICT INVARIANTS (`v2.4.5`):
+1. **Extension (`stake_extension/`):** Full HUD (`v2.4.5`), **Safe Turbo Pacer (3.0-3.5 BPS)** with **100% Rate Limit 429 Protection (Auto-Backoff 2.5s)**, 0ms Microtask execution, **Fix button ready stall (Canvas/Track display:none removed)**, **Hybrid Engine: K=1 Shallow (Steps 1–4) + K=2 Deep (Steps 5–20)**, 3 Selectable Modes via Header Toggle: `⚡ HYBRID`, `📈 FIBO 20`, `🛡️ PURE K2`, Dynamic Truthful HUD display, Loss Gap Analyzer, Ultra ECO Mode, `49.5%` Under fixed, Continuous 20m play, Auto-Nav disabled, F5 Refresh strictly on 5 consecutive losses (`currentStreak <= -5`).
+2. **Hybrid Engine Mechanics:**
+   - Steps 1–4 (Shallow): $K=1 \rightarrow \text{Bet} = \text{Deficit} + \text{Base}$. Single win clears 100% debt immediately and resets to Step 1!
+   - Steps 5+ (Deep): $K=2 \rightarrow \text{Bet} = \frac{\text{Deficit}}{2} + \text{Base}$. Throttles bet growth, survives up to 20 losses. Win clears 50% and retreats.
+3. **Pure 20 Steps Base Bet:** `Base = Balance / 17,710` fixed. Updated only on step 1 reset (`updateBaseBetOnReset`). Locked during recovery steps (`mStep > 1`).
+4. **F5 Recovery State Machine:** Refresh F5 triggers ONLY on 5 consecutive losses (`currentStreak <= -5`). Resumes at step 6. Win retreats/resets cleanly. No 2-loss re-refresh.
+5. **No Guessing ("ไม่มโน"):** Verify `isWin`, `state.result`, and currency-matched `serverBal` from real `DiceRoll` GraphQL response (`ledgerStep = mStep`).
+6. **Single Account (`tools/rotate-accounts.ps1`):** `Profile 4` (`watt29`) only, `20m` session, `STAKE_HOLD` (`40m` extra, no cut-loss), `0s` cooldown, 5s `live-status.txt` + `rotate-ledger.csv`.
+7. **Mandatory SOP:** Backup with `tools\backup-version.ps1` before editing, bump `stake_extension\manifest.json`, verify `node -c "content.js"` + `node ..\tools\_test_engine.cjs` + `node ..\tools\_test_title_v2.cjs`, keep `.ps1` UTF-8 with BOM.

@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "🎯 Stake Dice Hybrid 49.5% Sniper",
+  "version": "2.4.83",
+  "description": "Stake Dice Hybrid Engine • ล็อกเฉพาะปุ่ม bet-button แท้ 100% (กันกดโดนหน้าต่างความโปร่งใส) • ปลดล็อกปุ่มเดิมพันค้าง 100% • Safe Turbo Pacer • ขั้นต่ำ 0.00012 USDT",
+  "permissions": [
+    "storage",
+    "tabs",
+    "downloads",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://stake.com/*",
+    "https://www.stake.com/*",
+    "https://stake.bet/*",
+    "https://stake.games/*",
+    "https://stake.bz/*",
+    "https://stake.ceo/*",
+    "https://stake.mba/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "🎯 Stake Dice Hybrid v2.4.83 (build 213)",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.stake.com/*",
+        "*://*.stake.bet/*",
+        "*://*.stake.games/*",
+        "*://*.stake.bz/*",
+        "*://*.stake.ceo/*",
+        "*://*.stake.mba/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://*.stake.com/*",
+        "*://*.stake.bet/*",
+        "*://*.stake.games/*",
+        "*://*.stake.bz/*",
+        "*://*.stake.ceo/*",
+        "*://*.stake.mba/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

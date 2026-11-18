@@ -13,3 +13,16 @@ tools/rotate-log.txt
 tools/stake_ledger.db
 tools/_ledger_backup/
 *.db
+
+# ข้อมูล log และสถิติการเล่นสด
+data/
+logs/*.log
+logs/*.txt
+logs/*.csv
+!logs/README.md
+stake_extension/logs/
+stake_extension/*.bak*
+*.bak
+
+# โฟลเดอร์โปรเจกต์แยกต่างหาก
+binance-sever-render-main/

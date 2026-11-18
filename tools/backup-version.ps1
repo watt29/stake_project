@@ -2,11 +2,11 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
-$extDir = Join-Path $PSScriptRoot "..\stake_simple_ext"
+$extDir = Join-Path $PSScriptRoot "..\stake_extension"
 $manifestPath = Join-Path $extDir "manifest.json"
 
 if (!(Test-Path $manifestPath)) {
-    Write-Host "❌ ไม่พบไฟล์ manifest.json ใน $extDir (ต้องมี stake_simple_ext\manifest.json)" -ForegroundColor Red
+    Write-Host "❌ ไม่พบไฟล์ manifest.json ใน $extDir (ต้องมี stake_extension\manifest.json)" -ForegroundColor Red
     exit 1
 }
 

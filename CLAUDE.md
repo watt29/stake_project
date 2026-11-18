@@ -1,39 +1,37 @@
 # Claude & AI Agent Coding Standards (Stake Dice Bot)
 
-> **MANDATORY FOR ALL AI AGENTS (Claude, Antigravity, Cursor, Copilot, ChatGPT)**:  
-> All agents must read and strictly adhere to `AGENTS.md` before reading or modifying this repository.
+> **MANDATORY FOR ALL AI AGENTS (Claude, Antigravity, Cursor, Copilot, Codex)**:
+> Read and strictly follow `AGENTS.md` (especially **Rule 0 — Production `v2.4.5`**) before reading or modifying this repository.
 
----
-
-## 🎯 Ground Truth Rules & Core Architecture (v2.7.0 - Pure 68% Safe Base & 3-Win Recovery)
-
-1. **Win Chance 68% & Single Win Recovery (+73.12%):**
-   - **Win Chance:** 72% constant (Payout = 1.3750x, Net Profit = +37.50%).
-   - **Single Invariant Base Bet:** Strictly `0.00015$` (USDT) at all times.
-   - ❌ **Recovery Boost Purged 100%:** No base bet inflation or jumping after 20 minutes.
-   - **Exact Single-Win Martingale Multiplier Formula:**
-     $$\text{profitRate} = \frac{99}{72} - 1 = 0.3750$$
-     $$\text{multPct} = \frac{1}{1 \times 0.3750} \times 100\% = \mathbf{+266.67\%} \quad (\approx 1.7312\text{x})$$
-     - Win 1 roll (`isWin`) recovers 100% of previous losses and immediately resets to step 1!
-
-2. **Single Account Mode (user directive 2026-11-13):**
-   - ONLY Profile 4 (`watt29`) runs. All other profiles are cancelled.
-   - No account rotation; the fleet loop repeats on watt29 only.
-   - Do NOT add or run other profiles unless the user asks explicitly.
-
-3. **Strict No Cut-Loss / No Forced Stop-Loss Directive:**
-   - The user strictly commands: **"ไม่เอา ตัดขาดทุน"** (No Stop-Loss).
-   - Sessions hold and recover at base bet `0.00015$` until positive or safety exit. `$RecoveryExtraMinutes` in PowerShell is set to 40 minutes, with `isStillHolding` check (`STAKE_HOLD`).
-
-4. **Zero-Race Condition Exit:**
-   - `content.js` must persist `document.title` containing `STAKE_DONE` for $\ge 2,500\text{ms}$ before requesting tab close.
-   - PowerShell poller in `rotate-accounts.ps1` runs at 100ms interval.
-
----
-
-## 📦 MANDATORY CODING PROTOCOL: Versioning & Automated Backup
-Whenever any modification or bug fix is made:
-1. **Auto-Backup:** Execute `powershell -ExecutionPolicy Bypass -File .\tools\backup-version.ps1` to snapshot the previous state into `backups/`.
-2. **Version Bump:** Bump `version` in `stake_extension/manifest.json`.
-3. **Verification:** Test syntax with `node -c stake_extension/content.js`.
-4. **PowerShell Encoding:** All `.ps1` files with Thai text MUST be saved as **UTF-8 with BOM (`0xEF, 0xBB, 0xBF`)**.
+## Core Rules Summary (`v2.4.5`, 2026-11-16)
+1. **Active Extension:** `stake_extension/` (`v2.4.5`, **Safe Turbo Pacer (3.0-3.5 BPS)**, **100% Rate Limit 429 Protection**, 0ms Microtask, Button ready fix, **Hybrid Engine: K=1 Shallow + K=2 Deep + Fibonacci 20 ไม้**, 3 selectable modes on HUD `[🔄 โหมด: HYBRID / FIBO / PURE K2]`, HUD Dynamic Truthful Display with zero hallucination, Loss Gap Analyzer, Continuous 20m play without Deep-Loss Exit, Ultra ECO Mode, F5 Refresh strictly on 5 consecutive losses, Auto-Nav disabled).
+2. **Hybrid Engine Mechanics (Default):**
+   - **Shallow Tier (Steps 1–4): $K=1$ Full Deficit Recovery:**
+     - Step 1: Base bet.
+     - Steps 2–4: $\text{Bet} = \text{Actual Deficit} + \text{Base}$ (Uncapped, covers 100% debt).
+     - **Single Win:** Clears 100% of debt immediately, locks +Base profit, and resets to Step 1 in a single win! (Zero need for 2 consecutive wins).
+   - **Deep Tier (Steps 5+): $K=2$ Port Preservation Shield:**
+     - Steps 5+: $\text{Bet} = \frac{\text{Actual Deficit}}{2} + \text{Base}$.
+     - Single Win: Clears 50% of debt, retreats 1 step. Once it retreats to Step 4, it executes $K=1$ to wipe out remaining debt in one go!
+3. **Selectable Modes:**
+   - `hybrid`: ⚡ Hybrid 2-Tier (K1 Shallow + K2 Deep)
+   - `fibo`: 📈 Fibonacci 20 ไม้ (`[1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765]`)
+   - `k2`: 🛡️ Pure Deficit Partitioning K=2
+4. **Common Mathematics:**
+   - Win chance: Fixed `49.5%` Under (`target: 49.50`, `condition: "below"`, Payout 2.0000x) via GraphQL `DiceRoll` rewrite.
+   - Base bet: $\text{Base} = \lfloor\text{Balance} / 17,710\rfloor$ (divisor 17,710 is 20-step sum). Locked during recovery ($mStep > 1$), updated only on step 1 reset (`updateBaseBetOnReset`).
+4. **HUD Ground Truth ("มันต้องความจริง"):**
+   - When K=2 is active, HUD header shows `🛡️ DEFICIT PARTITIONING (K=2)` and safety badge shows debt partition details.
+   - When Fibonacci is active, HUD header shows `🎯 FIBONACCI 20 ไม้`.
+5. **Loss Gap Analyzer:**
+   - Real-time tracking of `GAP` (average loss streak) and `PWL%` (post-win loss percentage), displayed on HUD and in `STAKE_RUN` title every 5s.
+6. **F5 Recovery State Machine:**
+   - Refresh F5 triggers ONLY on 5 consecutive losses (`currentStreak <= -5`) -> save state to stealth storage -> F5 reload.
+   - Resumes immediately at step 6 (`inRefreshRecovery = true`).
+7. **No Guessing ("ไม่มโน"):**
+   - Read `isWin`, `state.result`, and currency-matched `serverBal` strictly from the actual `DiceRoll` GraphQL response.
+8. **Single Account & Automation (`tools/rotate-accounts.ps1`):**
+   - `Profile 4` (`watt29`) only.
+   - `20m` session + `STAKE_HOLD` recovery (`40m` extra, no cut-loss) + `0s` cooldown (immediate next round).
+   - Live 5s status -> `data/live-status.txt`; round ledger -> `data/rotate-ledger.csv`.
+9. **Mandatory SOP:** Run `powershell -ExecutionPolicy Bypass -File ..\tools\backup-version.ps1` BEFORE edits -> bump `stake_extension\manifest.json` -> verify `node -c "content.js"` and `node ..\tools\_test_engine.cjs` and `node ..\tools\_test_title_v2.cjs` -> save `.ps1` as UTF-8 with BOM.
