@@ -75,13 +75,16 @@ async function sweepStaleTabs(selfTabId) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    // 💾 เซฟ log อัตโนมัติลงโฟลเดอร์ logs/ (ไม่เกะกะ root ไดรฟ์)
+    // 💾 เซฟ log อัตโนมัติลง D:\script stake\logs\ (ไม่เกะกะ root ไดรฟ์ D:\)
     if (msg && msg.type === 'SAVE_DIAG') {
         try {
             const text = String(msg.text || '');
             if (!text) { sendResponse({ ok: false }); return; }
-            const rawFilename = String(msg.filename || ('stake_diag_' + Date.now() + '.json')).replace(/^[/\\]+/, '');
-            const targetFilename = rawFilename.startsWith('logs/') ? rawFilename : ('logs/' + rawFilename);
+            const rawFilename = String(msg.filename || ('stake_diag_' + Date.now() + '.json'))
+                .replace(/^script stake[/\\]logs[/\\]/i, '')
+                .replace(/^logs[/\\]/i, '')
+                .replace(/^[/\\]+/, '');
+            const targetFilename = 'script stake/logs/' + rawFilename;
             const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(text);
             chrome.downloads.download({
                 url: url,

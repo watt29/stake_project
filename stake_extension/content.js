@@ -2971,9 +2971,9 @@
             const stamp = new Date().toISOString().replace(/[:.]/g, "-");
             const safeTag = String(tag || "stop").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "stop";
             const filename = "stake_diag_" + stamp + "_" + safeTag + ".json";
-            // 💾 บันทึกผ่าน background service worker เพื่อให้จัดเก็บลงโฟลเดอร์ logs/ ไม่เกะกะ root ไดรฟ์
+            // 💾 บันทึกผ่าน background service worker เพื่อให้จัดเก็บลง D:\script stake\logs\ ไม่เกะกะ root ไดรฟ์ D:\
             try {
-                window.postMessage({ type: "SAVE_DIAG", text: payload, filename: "logs/" + filename }, "*");
+                window.postMessage({ type: "SAVE_DIAG", text: payload, filename: filename }, "*");
                 return filename;
             } catch (e) {
                 // สำรองถ้าไม่มี service worker
