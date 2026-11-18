@@ -19,6 +19,7 @@ data/
 logs/*.log
 logs/*.txt
 logs/*.csv
+logs/*.json
 !logs/README.md
 stake_extension/logs/
 stake_extension/*.bak*

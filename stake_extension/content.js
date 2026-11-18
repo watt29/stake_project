@@ -25,7 +25,7 @@
     //    ตั้งใจให้ตรงกับ @version ด้านบน: 2026.11.18 คือรอบที่ลงจริง, +N คือจำนวนรอบแพตช์หลังจากนั้น
     // 🔖 เวอร์ชันเดียวทั้งระบบ — "version" ใน manifest.json ต้องตรงกับ EXT_VERSION เสมอ
     const EXT_VERSION = "2.4.83";
-    const BUILD_NO = 215;
+    const BUILD_NO = 216;
     const BUILD_STAMP = "v" + EXT_VERSION + "+build" + BUILD_NO + "-realhybrid";
     const BUILD_SHORT = "v" + EXT_VERSION + "+" + BUILD_NO;
     try { window.__stakeHybridInstanceId = BUILD_SHORT + "-" + Math.random().toString(36).slice(2, 7); } catch (e) {}
@@ -2971,8 +2971,12 @@
             const stamp = new Date().toISOString().replace(/[:.]/g, "-");
             const safeTag = String(tag || "stop").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "stop";
             const filename = "stake_diag_" + stamp + "_" + safeTag + ".json";
-            // ดาวน์โหลดจากหน้าเว็บตรง ๆ (ได้ไฟล์ลง Downloads แน่นอน ไม่ต้องพึ่ง service worker)
+            // 💾 บันทึกผ่าน background service worker เพื่อให้จัดเก็บลงโฟลเดอร์ logs/ ไม่เกะกะ root ไดรฟ์
             try {
+                window.postMessage({ type: "SAVE_DIAG", text: payload, filename: "logs/" + filename }, "*");
+                return filename;
+            } catch (e) {
+                // สำรองถ้าไม่มี service worker
                 const blob = new Blob([payload], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -2983,10 +2987,6 @@
                 (document.body || document.documentElement).appendChild(a);
                 a.click();
                 setTimeout(function () { try { a.remove(); URL.revokeObjectURL(url); } catch (e) {} }, 4000);
-                return filename;
-            } catch (e) {
-                // สำรอง: ผ่าน background
-                window.postMessage({ type: "SAVE_DIAG", text: payload, filename: filename }, "*");
                 return filename;
             }
         } catch (e) { return null; }
@@ -3026,16 +3026,8 @@
 
     function downloadDiagLog() {
         try {
-            const payload = JSON.stringify(buildDiagExport(true), null, 2);
-            const blob = new Blob([payload], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "stake_diag_" + new Date().toISOString().replace(/[:.]/g, "-") + ".json";
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function () { try { a.remove(); URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-            updateStatusText("📥 ดาวน์โหลด log แล้ว (stake_diag_*.json)", "#00e676");
+            saveDiagToDisk("manual");
+            updateStatusText("📥 ดาวน์โหลด log แล้ว (logs/stake_diag_*.json)", "#00e676");
         } catch (e) {}
     }
 

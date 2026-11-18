@@ -116,6 +116,10 @@ function Wait-ForSessionOrKey([int]$maxMinutes) {
                 $nowStr = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
                 Set-Content -Path $livePath -Value ("$nowStr | $t") -Encoding UTF8
                 Set-Content -Path $livePathLogs -Value ("$nowStr | $t") -Encoding UTF8
+                # กวาดไฟล์ log ของบอท (stake_diag_*.json) ที่ตกค้างใน D:\ เข้าโฟลเดอร์ logs อัตโนมัติ
+                Get-ChildItem -Path "D:\" -Filter "stake_diag_*.json" -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    try { Move-Item -Path $_.FullName -Destination $logsDir -Force -ErrorAction SilentlyContinue } catch {}
+                }
                 if ($t -match "\|S=([0-9]+)") {
                     $curStep = [int]$matches[1]
                     if ($curStep -ge 8) {
